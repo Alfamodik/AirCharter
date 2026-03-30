@@ -1,0 +1,45 @@
+# ASP.NET
+**/bin/
+**/obj/
+
+# React
+node_modules/
+build/
+dist/
+.next/
+out/
+
+# React cache
+.cache/
+.parcel-cache/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# VS Code
+.vscode/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# NuGet
+*.nupkg
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.tmp
+*.temp
+*.swp
+*.lock
