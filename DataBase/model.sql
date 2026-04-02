@@ -67,6 +67,7 @@ CREATE TABLE users(
     password_hash VARCHAR(255) NOT NULL,
     legal_address VARCHAR(255),
     actual_address VARCHAR(255),
+    is_email_confirmed BOOLEAN NOT NULL,
     is_active BOOLEAN NOT NULL,
     FOREIGN KEY (person_id) REFERENCES persons(id),
     FOREIGN KEY (role_id) REFERENCES roles(id),

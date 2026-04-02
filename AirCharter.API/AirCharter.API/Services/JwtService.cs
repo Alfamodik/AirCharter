@@ -5,19 +5,9 @@ using System.Text;
 
 namespace AirCharter.API.Services
 {
-    public interface IJwtService
+    public sealed class JwtService(IConfiguration configuration)
     {
-        string GenerateAccessToken(int userId, string roleName);
-    }
-
-    public sealed class JwtService : IJwtService
-    {
-        private readonly IConfiguration configuration;
-
-        public JwtService(IConfiguration configuration)
-        {
-            this.configuration = configuration;
-        }
+        private readonly IConfiguration configuration = configuration;
 
         public string GenerateAccessToken(int userId, string roleName)
         {
@@ -36,19 +26,15 @@ namespace AirCharter.API.Services
             bool isLifetimeParsed = int.TryParse(accessTokenLifetimeMinutesValue, out int accessTokenLifetimeMinutes);
 
             if (!isLifetimeParsed || accessTokenLifetimeMinutes <= 0)
-            {
                 throw new InvalidOperationException("Jwt:AccessTokenLifetimeMinutes must be a positive integer.");
-            }
 
             SymmetricSecurityKey signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
             SigningCredentials signingCredentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
 
             List<Claim> claims =
             [
-                new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
                 new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-                new Claim(ClaimTypes.Role, roleName),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                new Claim(ClaimTypes.Role, roleName)
             ];
 
             DateTime expiresAtUtc = DateTime.UtcNow.AddMinutes(accessTokenLifetimeMinutes);

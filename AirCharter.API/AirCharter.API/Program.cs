@@ -1,6 +1,8 @@
 using System.Text;
+using AirCharter.API.Model;
 using AirCharter.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 internal class Program
@@ -45,11 +47,12 @@ internal class Program
                 };
             });
 
-        /*var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-        builder.Services.AddDbContext<RentflowContext>(options =>
-            options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));*/
+        var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
         
-        builder.Services.AddScoped<IJwtService, JwtService>();
+        builder.Services.AddDbContext<AirCharterExtendedContext>(options =>
+            options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
+        
+        builder.Services.AddScoped<JwtService>();
 
         WebApplication app = builder.Build();
 
