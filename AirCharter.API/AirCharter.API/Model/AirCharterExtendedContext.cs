@@ -1,4 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System;
+using System.Collections.Generic;
+using Microsoft.EntityFrameworkCore;
+using Pomelo.EntityFrameworkCore.MySql.Scaffolding.Internal;
 
 namespace AirCharter.API.Model;
 
@@ -38,9 +41,6 @@ public partial class AirCharterExtendedContext : DbContext
     public virtual DbSet<Status> Statuses { get; set; }
 
     public virtual DbSet<User> Users { get; set; }
-
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        => optionsBuilder.UseMySql("server=localhost;user=root;password=root;database=air_charter_extended", ServerVersion.Parse("8.0.41-mysql"));
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -403,6 +403,8 @@ public partial class AirCharterExtendedContext : DbContext
 
             entity.HasIndex(e => e.BankDetailsId, "bank_details_id");
 
+            entity.HasIndex(e => e.Email, "email").IsUnique();
+
             entity.HasIndex(e => e.PersonId, "person_id");
 
             entity.HasIndex(e => e.RoleId, "role_id");
@@ -412,9 +414,13 @@ public partial class AirCharterExtendedContext : DbContext
                 .HasMaxLength(255)
                 .HasColumnName("actual_address");
             entity.Property(e => e.BankDetailsId).HasColumnName("bank_details_id");
-            entity.Property(e => e.Email)
+            entity.Property(e => e.Email).HasColumnName("email");
+            entity.Property(e => e.EmailConfirmationCodeExpiresAtUtc)
+                .HasColumnType("datetime")
+                .HasColumnName("email_confirmation_code_expires_at_utc");
+            entity.Property(e => e.EmailConfirmationCodeHash)
                 .HasMaxLength(255)
-                .HasColumnName("email");
+                .HasColumnName("email_confirmation_code_hash");
             entity.Property(e => e.IsActive).HasColumnName("is_active");
             entity.Property(e => e.IsEmailConfirmed).HasColumnName("is_email_confirmed");
             entity.Property(e => e.LegalAddress)

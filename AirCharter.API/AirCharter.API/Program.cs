@@ -47,12 +47,24 @@ internal class Program
                 };
             });
 
+        builder.Services.AddCors(options =>
+        {
+            options.AddPolicy("FrontendPolicy", policyBuilder =>
+            {
+                policyBuilder
+                    .WithOrigins("http://localhost:5173")
+                    .AllowAnyHeader()
+                    .AllowAnyMethod();
+            });
+        });
+
         var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
         
         builder.Services.AddDbContext<AirCharterExtendedContext>(options =>
             options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
         
         builder.Services.AddScoped<JwtService>();
+        builder.Services.AddScoped<EmailService>();
 
         WebApplication app = builder.Build();
 
@@ -63,6 +75,7 @@ internal class Program
         }
 
         app.UseHttpsRedirection();
+        app.UseCors("FrontendPolicy");
         app.UseAuthentication();
         app.UseAuthorization();
 

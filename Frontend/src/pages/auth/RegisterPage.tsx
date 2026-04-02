@@ -1,18 +1,64 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import InputField from "../../InputField/InputField";
-import "../auth-page.css";
+import { useNavigate } from "react-router-dom";
+import InputField from "../../components/InputField/InputField";
+import { register } from "../../api/authService";
+import { getRegisterErrorMessage } from "../../api/authErrorMessages";
+import "./auth-page.css";
 
 export default function RegisterPage() {
+    const navigate = useNavigate();
+
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmedPassword, setConfirmedPassword] = useState("");
+    const [errorMessage, setErrorMessage] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
+
+        setErrorMessage("");
+
+        const trimmedEmail = email.trim();
+
+        if (trimmedEmail === "") {
+            setErrorMessage("Укажите почту.");
+            return;
+        }
+
+        if (password === "") {
+            setErrorMessage("Укажите пароль.");
+            return;
+        }
+
+        if (password !== confirmedPassword) {
+            setErrorMessage("Пароли не совпадают.");
+            return;
+        }
+
+        setIsSubmitting(true);
+
+        try {
+            await register({
+                email: trimmedEmail,
+                password: password
+            });
+
+            navigate("/confirm-email", {
+                state: {
+                    email: trimmedEmail
+                }
+            });
+        } catch (error) {
+            setErrorMessage(getRegisterErrorMessage(error));
+        } finally {
+            setIsSubmitting(false);
+        }
     }
 
     function handleLoginClick() {
+        navigate("/login");
     }
 
     return (
@@ -45,6 +91,10 @@ export default function RegisterPage() {
                         onChange={setConfirmedPassword}
                     />
 
+                    {errorMessage !== "" && (
+                        <p className="auth-error-message">{errorMessage}</p>
+                    )}
+
                     <div className="auth-actions">
                         <button
                             type="button"
@@ -57,8 +107,9 @@ export default function RegisterPage() {
                         <button
                             type="submit"
                             className="auth-submit-button"
+                            disabled={isSubmitting}
                         >
-                            Зарегистрироваться
+                            {isSubmitting ? "Регистрация..." : "Зарегистрироваться"}
                         </button>
                     </div>
                 </form>

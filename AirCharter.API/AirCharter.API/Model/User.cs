@@ -21,6 +21,10 @@ public partial class User
 
     public string? ActualAddress { get; set; }
 
+    public string? EmailConfirmationCodeHash { get; set; }
+
+    public DateTime? EmailConfirmationCodeExpiresAtUtc { get; set; }
+
     public bool IsEmailConfirmed { get; set; }
 
     public bool IsActive { get; set; }
