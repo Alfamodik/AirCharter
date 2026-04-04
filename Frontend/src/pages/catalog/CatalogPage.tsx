@@ -2,28 +2,18 @@ import { useEffect, useMemo, useState } from "react";
 import InputField from "../../components/InputField/InputField";
 import CatalogPlaneCard from "../../components/CatalogPlaneCard/CatalogPlaneCard";
 import { getPlanes, getCatalogPlanes } from "../../api/planesService"; 
-import type { PlaneCatalogResponse } from "../../contracts/responses/planes/planeCatalogResponse";
+import type { PlaneResponse } from "../../contracts/responses/planes/planeResponse";
 import "./CatalogPage.css";
 
-// Улучшенный форматтер для TimeSpan (обрабатывает "d.hh:mm:ss" или "hh:mm:ss")
 const formatFlightTime = (timeStr: string | undefined): string => {
     if (!timeStr) return "";
-
-    // Регулярка для вытаскивания дней, часов и минут
-    // Группы: 1-дни(опционально), 2-часы, 3-минуты
     const regex = /(?:(\d+)\.)?(\d+):(\d+):/;
     const match = timeStr.match(regex);
-
-    if (!match) return timeStr;
+    if (!match) return "";
 
     const days = match[1] ? parseInt(match[1], 10) : 0;
-    let hours = parseInt(match[2], 10);
+    let hours = parseInt(match[2], 10) + (days * 24);
     const minutes = parseInt(match[3], 10);
-
-    // Прибавляем дни к часам, чтобы получить общие часы (например, 1 день 1 час = 25 ч)
-    if (days > 0) {
-        hours += days * 24;
-    }
 
     let result = "";
     if (hours > 0) result += `${hours} ч `;
@@ -33,70 +23,65 @@ const formatFlightTime = (timeStr: string | undefined): string => {
 };
 
 export default function CatalogPage() {
-    // --- Данные из API ---
-    const [planes, setPlanes] = useState<PlaneCatalogResponse[]>([]);
+    // Данные и состояния
+    const [planes, setPlanes] = useState<PlaneResponse[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // --- Состояния для расчета маршрута (ID аэропортов) ---
+    // Маршрут
     const [takeOffAirportId, setTakeOffAirportId] = useState("");
     const [landingAirportId, setLandingAirportId] = useState("");
 
-    // --- Состояния обычных фильтров ---
+    // Фильтры
     const [searchValue, setSearchValue] = useState("");
     const [modelNameFilter, setModelNameFilter] = useState("");
     const [minimumPassengerCapacityFilter, setMinimumPassengerCapacityFilter] = useState("");
     const [minimumMaxDistanceFilter, setMinimumMaxDistanceFilter] = useState("");
     const [maximumTransfersFilter, setMaximumTransfersFilter] = useState("");
 
-    // Расстояние маршрута
+    // Проверка: идет ли сейчас режим расчета маршрута
+    const isRouteActive = useMemo(() => {
+        return takeOffAirportId.trim() !== "" && landingAirportId.trim() !== "";
+    }, [takeOffAirportId, landingAirportId]);
+
+    // Расстояние (показываем только если маршрут активен)
     const routeDistance = useMemo(() => {
+        if (!isRouteActive) return null;
         const planeWithDist = planes.find(p => p.distanceKm && p.distanceKm > 0);
         return planeWithDist ? planeWithDist.distanceKm : null;
-    }, [planes]);
+    }, [planes, isRouteActive]);
 
-    // Логика загрузки данных
+    // Загрузка данных
     useEffect(() => {
         const fetchPlanes = async () => {
             setIsLoading(true);
             try {
-                let data: PlaneCatalogResponse[];
-
-                if (takeOffAirportId && landingAirportId) {
-                    data = await getCatalogPlanes(
-                        Number(takeOffAirportId), 
-                        Number(landingAirportId)
-                    );
+                let data: PlaneResponse[];
+                if (isRouteActive) {
+                    data = await getCatalogPlanes(Number(takeOffAirportId), Number(landingAirportId));
                 } else {
                     data = await getPlanes();
                 }
-
                 setPlanes(data);
                 setError(null);
             } catch (err) {
                 console.error(err);
-                setError("Не удалось загрузить данные о самолетах.");
+                setError("Не удалось загрузить данные");
             } finally {
                 setIsLoading(false);
             }
         };
-
         fetchPlanes();
-    }, [takeOffAirportId, landingAirportId]);
+    }, [takeOffAirportId, landingAirportId, isRouteActive]);
 
-    // Логика фильтрации на клиенте
+    // Фильтрация
     const filteredCatalogPlanes = useMemo(() => {
         return planes.filter((plane) => {
-            const search = searchValue.toLowerCase();
-            const matchesSearch = plane.modelName.toLowerCase().includes(search) || 
-                                 (plane.flightCost?.toString() || "").includes(search);
-            
+            const matchesSearch = plane.modelName.toLowerCase().includes(searchValue.toLowerCase());
             const matchesModel = plane.modelName.toLowerCase().includes(modelNameFilter.toLowerCase());
             const matchesCapacity = !minimumPassengerCapacityFilter || plane.passengerCapacity >= Number(minimumPassengerCapacityFilter);
             const matchesDist = !minimumMaxDistanceFilter || plane.maxDistance >= Number(minimumMaxDistanceFilter);
-            
-            const matchesTransfers = !maximumTransfersFilter || 
-                                   (plane.numberOfTransfers !== undefined && plane.numberOfTransfers <= Number(maximumTransfersFilter));
+            const matchesTransfers = !maximumTransfersFilter || (plane.numberOfTransfers !== undefined && plane.numberOfTransfers <= Number(maximumTransfersFilter));
 
             return matchesSearch && matchesModel && matchesCapacity && matchesDist && matchesTransfers;
         });
@@ -120,6 +105,9 @@ export default function CatalogPage() {
                     <span className="logo-text">AirCharter</span>
                 </div>
 
+                {/* ВЕРНУЛ ПОИСК В ЦЕНТР: этот пустой div отодвигает поиск от логотипа */}
+                <div className="navbar-spacer" style={{ flex: 1 }} />
+
                 <div className="navbar-search-container">
                     <input
                         type="text"
@@ -130,6 +118,9 @@ export default function CatalogPage() {
                     />
                 </div>
 
+                {/* Этот пустой div центрирует поиск относительно всего экрана */}
+                <div className="navbar-spacer" style={{ flex: 1 }} />
+
                 <div className="navbar-actions">
                     <div className="user-avatar-stub" />
                 </div>
@@ -139,22 +130,12 @@ export default function CatalogPage() {
                 <aside className="catalog-sidebar">
                     <h2 className="sidebar-heading">Маршрут</h2>
                     <div className="filters-stack" style={{ marginBottom: '24px' }}>
-                        <InputField 
-                            label="ID Аэропорта вылета" 
-                            value={takeOffAirportId} 
-                            onChange={setTakeOffAirportId} 
-                            type="number"
-                        />
-                        <InputField 
-                            label="ID Аэропорта прибытия" 
-                            value={landingAirportId} 
-                            onChange={setLandingAirportId} 
-                            type="number"
-                        />
+                        <InputField label="ID Аэропорта вылета" value={takeOffAirportId} onChange={setTakeOffAirportId} type="number" />
+                        <InputField label="ID Аэропорта прибытия" value={landingAirportId} onChange={setLandingAirportId} type="number" />
                         
                         {routeDistance && (
                             <div style={{ marginTop: '12px', fontSize: '14px', color: '#ccc' }}>
-                                Расстояние: <span style={{ color: '#4dabf7', fontWeight: 600 }}>{routeDistance} км</span>
+                                <span style={{ color: '#4dabf7', fontWeight: 600 }}>Расстояние: {routeDistance} км</span>
                             </div>
                         )}
                     </div>
@@ -186,9 +167,10 @@ export default function CatalogPage() {
                                         passengerCapacity={plane.passengerCapacity}
                                         maxDistance={plane.maxDistance}
                                         planeImageBytes={plane.imageBase64}
-                                        flightCost={plane.flightCost ? `${plane.flightCost.toLocaleString('ru-RU')} ₽` : ""}
-                                        flightTime={formatFlightTime(plane.flightTime)}
-                                        numberOfTransfers={plane.numberOfTransfers !== undefined ? `${plane.numberOfTransfers} пересадок` : ""}
+                                        // Данные расчета передаются ТОЛЬКО если введены аэропорты
+                                        flightCost={isRouteActive && plane.flightCost ? `${plane.flightCost.toLocaleString('ru-RU')} ₽` : ""}
+                                        flightTime={isRouteActive ? formatFlightTime(plane.flightTime) : ""}
+                                        numberOfTransfers={isRouteActive && plane.numberOfTransfers !== undefined ? `${plane.numberOfTransfers}` : ""}
                                     />
                                 ))
                             ) : (
