@@ -2,7 +2,7 @@
   --bg-dark: #0f1012;
   --bg-surface: #16171a;
   --bg-card: #1e1f23;
-  --accent-blue: #007aff;
+  --accent-blue: #007aff; /* Твой синий для фокуса */
   --text-primary: #ffffff;
   --text-secondary: #909093;
   --border-color: #2c2d31;
@@ -14,41 +14,89 @@
   height: 100vh;
   background-color: var(--bg-dark);
   color: var(--text-primary);
+  overflow: hidden; /* Важно, чтобы скрыть скролл шапки, если он появится */
 }
 
-/* NAVBAR */
+/* --- Навбар (Шапка) --- */
 .catalog-navbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
   height: 72px;
+  min-height: 72px; /* Чтобы не сжималась */
   background-color: var(--bg-surface);
   border-bottom: 1px solid var(--border-color);
+  box-sizing: border-box;
 }
 
 .navbar-logo {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px; /* Чуть уменьшил гэп, чтобы кнопка была ближе */
   flex: 1;
+}
+
+/* СТИЛЬНАЯ КНОПКА С SVG-ИКОНКОЙ */
+.toggle-sidebar-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  outline: none; /* Убираем контур при клике */
+  transition: background-color 0.2s ease;
+  border-radius: 8px; /* Легкое закругление при наведении */
+}
+
+.toggle-sidebar-btn:hover {
+  background-color: rgba(255, 255, 255, 0.05); /* Тонкий фон при наведении */
+}
+
+/* Сама SVG иконка */
+.toggle-sidebar-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: #4dabf7; /* Твой фирменный синий для иконок */
+  stroke-width: 2; /* Тонкая, изящная линия */
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  /* ПЛАВНОЕ ВРАЩЕНИЕ */
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.toggle-sidebar-btn:hover svg {
+  stroke: #74c0fc; /* Легкое высветление синего */
+}
+
+/* КЛАСС ВРАЩЕНИЯ: когда сайдбар закрыт, иконка смотрит вправо */
+.toggle-sidebar-btn.sidebar-closed-btn svg {
+  transform: rotate(180deg);
 }
 
 .logo-text {
   font-size: 22px;
   font-weight: 800;
   letter-spacing: -0.5px;
+  color: var(--text-primary);
 }
 
+/* --- Поиск (Центр) --- */
 .navbar-search-container {
-  flex: 0 1 30%; /* Твои 30% ширины */
+  flex: 0 1 320px; /* Фиксированная ширина поиска */
   display: flex;
   justify-content: center;
 }
 
 .navbar-search-input {
   width: 100%;
-  padding: 10px 16px;
+  padding: 11px 16px;
   border-radius: 10px;
   border: 1px solid var(--border-color);
   background-color: var(--bg-dark);
@@ -56,37 +104,65 @@
   font-size: 14px;
   outline: none;
   transition: border-color 0.2s;
+  box-sizing: border-box;
 }
 
 .navbar-search-input:focus {
   border-color: var(--accent-blue);
 }
 
+/* --- Действия (Право) --- */
 .navbar-actions {
   flex: 1;
   display: flex;
   justify-content: flex-end;
 }
 
-/* LAYOUT */
+/* --- Главный Лейаут и Анимация Сетки --- */
 .catalog-layout {
-  display: flex;
+  display: grid;
+  /* АНИМАЦИЯ КОЛОНОК */
+  grid-template-columns: 300px 1fr;
+  transition: grid-template-columns 0.4s cubic-bezier(0.4, 0, 0.2, 1), gap 0.4s ease;
+  gap: 24px;
   flex: 1;
   overflow: hidden;
+  height: calc(100vh - 72px); /* Учитываем высоту шапки */
 }
 
+/* КОГДА САЙДБАР ЗАКРЫТ: первая колонка становится 0 */
+.catalog-layout.sidebar-closed {
+  grid-template-columns: 0px 1fr;
+  gap: 0;
+}
+
+/* --- Сайдбар (Лево) --- */
 .catalog-sidebar {
-  width: 300px;
+  transition: opacity 0.2s ease, transform 0.4s ease, min-width 0.4s ease;
+  min-width: 300px;
+  width: 100%;
   padding: 32px 24px;
   background-color: var(--bg-surface);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
+  overflow-y: auto; /* Скролл только внутри сайдбара */
+  box-sizing: border-box;
+}
+
+/* СКРЫТИЕ КОНТЕНТА САЙДБАРА */
+.sidebar-closed .catalog-sidebar {
+  opacity: 0;
+  transform: translateX(-30px); /* Легкий сдвиг влево для глубины */
+  pointer-events: none; /* Чтобы нельзя было кликнуть по скрытым полям */
+  min-width: 0; /* Чтобы колонка реально схлопнулась */
 }
 
 .sidebar-heading {
   font-size: 20px;
   margin-bottom: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
 .filters-stack {
@@ -104,29 +180,38 @@
   color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s;
+  font-size: 14px;
 }
 
 .reset-filters-btn:hover {
   background: rgba(255, 255, 255, 0.05);
   color: white;
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
+/* --- Основной контент (Центр) --- */
 .catalog-main {
   flex: 1;
   padding: 32px;
-  overflow-y: auto;
+  overflow-y: auto; /* Основной скролл каталога */
+  box-sizing: border-box;
 }
 
 .catalog-results-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); /* Чуть уменьшил minmax для лучшей адаптации */
   gap: 24px;
 }
 
-.back-btn {
-  background: none;
-  border: none;
-  color: white;
-  font-size: 24px;
-  cursor: pointer;
+/* Вспомогательные классы для статусных сообщений */
+.catalog-message {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 64px;
+  color: var(--text-secondary);
+  font-size: 16px;
+}
+
+.catalog-message.error {
+  color: #ff6b6b;
 }

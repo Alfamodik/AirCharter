@@ -5,6 +5,9 @@ import { getPlanes, getCatalogPlanes } from "../../api/planesService";
 import type { PlaneResponse } from "../../contracts/responses/planes/planeResponse";
 import "./CatalogPage.css";
 
+/**
+ * Превращает TimeSpan (д.чч:мм:сс) в "Ч ч М мин"
+ */
 const formatFlightTime = (timeStr: string | undefined): string => {
     if (!timeStr) return "";
     const regex = /(?:(\d+)\.)?(\d+):(\d+):/;
@@ -23,12 +26,12 @@ const formatFlightTime = (timeStr: string | undefined): string => {
 };
 
 export default function CatalogPage() {
-    // Данные и состояния
     const [planes, setPlanes] = useState<PlaneResponse[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-    // Маршрут
+    // Данные маршрута
     const [takeOffAirportId, setTakeOffAirportId] = useState("");
     const [landingAirportId, setLandingAirportId] = useState("");
 
@@ -39,19 +42,18 @@ export default function CatalogPage() {
     const [minimumMaxDistanceFilter, setMinimumMaxDistanceFilter] = useState("");
     const [maximumTransfersFilter, setMaximumTransfersFilter] = useState("");
 
-    // Проверка: идет ли сейчас режим расчета маршрута
+    // Активен ли расчет маршрута
     const isRouteActive = useMemo(() => {
         return takeOffAirportId.trim() !== "" && landingAirportId.trim() !== "";
     }, [takeOffAirportId, landingAirportId]);
 
-    // Расстояние (показываем только если маршрут активен)
+    // Дистанция из API
     const routeDistance = useMemo(() => {
         if (!isRouteActive) return null;
         const planeWithDist = planes.find(p => p.distanceKm && p.distanceKm > 0);
         return planeWithDist ? planeWithDist.distanceKm : null;
     }, [planes, isRouteActive]);
 
-    // Загрузка данных
     useEffect(() => {
         const fetchPlanes = async () => {
             setIsLoading(true);
@@ -65,8 +67,7 @@ export default function CatalogPage() {
                 setPlanes(data);
                 setError(null);
             } catch (err) {
-                console.error(err);
-                setError("Не удалось загрузить данные");
+                setError("Ошибка загрузки данных");
             } finally {
                 setIsLoading(false);
             }
@@ -74,7 +75,6 @@ export default function CatalogPage() {
         fetchPlanes();
     }, [takeOffAirportId, landingAirportId, isRouteActive]);
 
-    // Фильтрация
     const filteredCatalogPlanes = useMemo(() => {
         return planes.filter((plane) => {
             const matchesSearch = plane.modelName.toLowerCase().includes(searchValue.toLowerCase());
@@ -101,12 +101,20 @@ export default function CatalogPage() {
         <div className="catalog-wrapper">
             <header className="catalog-navbar">
                 <div className="navbar-logo">
-                    <button className="back-btn">←</button>
+                    {/* КНОПКА СО ВСТРОЕННЫМ SVG: Clean, minimal, professional */}
+                    <button 
+                        className={`toggle-sidebar-btn ${!isSidebarOpen ? 'sidebar-closed-btn' : ''}`}
+                        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                        title={isSidebarOpen ? "Скрыть панель" : "Показать панель"}
+                    >
+                        {/* Feather Icon: Arrow Left (SVG) */}
+                        <svg viewBox="0 0 24 24">
+                            <line x1="19" y1="12" x2="5" y2="12"></line>
+                            <polyline points="12 19 5 12 12 5"></polyline>
+                        </svg>
+                    </button>
                     <span className="logo-text">AirCharter</span>
                 </div>
-
-                {/* ВЕРНУЛ ПОИСК В ЦЕНТР: этот пустой div отодвигает поиск от логотипа */}
-                <div className="navbar-spacer" style={{ flex: 1 }} />
 
                 <div className="navbar-search-container">
                     <input
@@ -118,15 +126,13 @@ export default function CatalogPage() {
                     />
                 </div>
 
-                {/* Этот пустой div центрирует поиск относительно всего экрана */}
-                <div className="navbar-spacer" style={{ flex: 1 }} />
-
                 <div className="navbar-actions">
-                    <div className="user-avatar-stub" />
+                    <div className="user-avatar-stub" style={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: '#2c2d31', border: '1px solid #3a3b3f' }} />
                 </div>
             </header>
 
-            <div className="catalog-layout">
+            {/* Сетка layout, анимируется через grid-template-columns в CSS */}
+            <div className={`catalog-layout ${!isSidebarOpen ? 'sidebar-closed' : ''}`}>
                 <aside className="catalog-sidebar">
                     <h2 className="sidebar-heading">Маршрут</h2>
                     <div className="filters-stack" style={{ marginBottom: '24px' }}>
@@ -134,7 +140,7 @@ export default function CatalogPage() {
                         <InputField label="ID Аэропорта прибытия" value={landingAirportId} onChange={setLandingAirportId} type="number" />
                         
                         {routeDistance && (
-                            <div style={{ marginTop: '12px', fontSize: '14px', color: '#ccc' }}>
+                            <div style={{ marginTop: '12px', fontSize: '14px' }}>
                                 <span style={{ color: '#4dabf7', fontWeight: 600 }}>Расстояние: {routeDistance} км</span>
                             </div>
                         )}
@@ -147,6 +153,7 @@ export default function CatalogPage() {
                         <InputField label="Мин. дальность (км)" value={minimumMaxDistanceFilter} onChange={setMinimumMaxDistanceFilter} type="number" />
                         <InputField label="Макс. пересадок" value={maximumTransfersFilter} onChange={setMaximumTransfersFilter} type="number" />
                     </div>
+
                     <button className="reset-filters-btn" onClick={clearFilters}>
                         Сбросить всё
                     </button>
@@ -159,23 +166,19 @@ export default function CatalogPage() {
                         <div className="catalog-message error">{error}</div>
                     ) : (
                         <div className="catalog-results-grid">
-                            {filteredCatalogPlanes.length > 0 ? (
-                                filteredCatalogPlanes.map((plane) => (
-                                    <CatalogPlaneCard 
-                                        key={plane.id} 
-                                        modelName={plane.modelName}
-                                        passengerCapacity={plane.passengerCapacity}
-                                        maxDistance={plane.maxDistance}
-                                        planeImageBytes={plane.imageBase64}
-                                        // Данные расчета передаются ТОЛЬКО если введены аэропорты
-                                        flightCost={isRouteActive && plane.flightCost ? `${plane.flightCost.toLocaleString('ru-RU')} ₽` : ""}
-                                        flightTime={isRouteActive ? formatFlightTime(plane.flightTime) : ""}
-                                        numberOfTransfers={isRouteActive && plane.numberOfTransfers !== undefined ? `${plane.numberOfTransfers}` : ""}
-                                    />
-                                ))
-                            ) : (
-                                <div className="catalog-message">Самолёты не найдены</div>
-                            )}
+                            {filteredCatalogPlanes.map((plane) => (
+                                <CatalogPlaneCard 
+                                    key={plane.id} 
+                                    modelName={plane.modelName}
+                                    passengerCapacity={plane.passengerCapacity}
+                                    maxDistance={plane.maxDistance}
+                                    planeImageBytes={plane.imageBase64}
+                                    // Показываем цену, время и пересадки только при активном маршруте
+                                    flightCost={isRouteActive && plane.flightCost ? `${plane.flightCost.toLocaleString('ru-RU')} ₽` : ""}
+                                    flightTime={isRouteActive ? formatFlightTime(plane.flightTime) : ""}
+                                    numberOfTransfers={isRouteActive && plane.numberOfTransfers !== undefined ? `${plane.numberOfTransfers}` : ""}
+                                />
+                            ))}
                         </div>
                     )}
                 </main>
