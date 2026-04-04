@@ -2,7 +2,7 @@
   --bg-dark: #0f1012;
   --bg-surface: #16171a;
   --bg-card: #1e1f23;
-  --accent-blue: #007aff; /* Твой синий для фокуса */
+  --accent-blue: #007aff;
   --text-primary: #ffffff;
   --text-secondary: #909093;
   --border-color: #2c2d31;
@@ -14,17 +14,16 @@
   height: 100vh;
   background-color: var(--bg-dark);
   color: var(--text-primary);
-  overflow: hidden; /* Важно, чтобы скрыть скролл шапки, если он появится */
+  overflow: hidden;
 }
 
-/* --- Навбар (Шапка) --- */
 .catalog-navbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
   height: 72px;
-  min-height: 72px; /* Чтобы не сжималась */
+  min-height: 72px;
   background-color: var(--bg-surface);
   border-bottom: 1px solid var(--border-color);
   box-sizing: border-box;
@@ -33,11 +32,10 @@
 .navbar-logo {
   display: flex;
   align-items: center;
-  gap: 12px; /* Чуть уменьшил гэп, чтобы кнопка была ближе */
+  gap: 12px;
   flex: 1;
 }
 
-/* СТИЛЬНАЯ КНОПКА С SVG-ИКОНКОЙ */
 .toggle-sidebar-btn {
   background: none;
   border: none;
@@ -49,33 +47,30 @@
   justify-content: center;
   padding: 0;
   margin: 0;
-  outline: none; /* Убираем контур при клике */
+  outline: none;
   transition: background-color 0.2s ease;
-  border-radius: 8px; /* Легкое закругление при наведении */
+  border-radius: 8px;
 }
 
 .toggle-sidebar-btn:hover {
-  background-color: rgba(255, 255, 255, 0.05); /* Тонкий фон при наведении */
+  background-color: rgba(255, 255, 255, 0.05);
 }
 
-/* Сама SVG иконка */
 .toggle-sidebar-btn svg {
   width: 20px;
   height: 20px;
   fill: none;
-  stroke: #4dabf7; /* Твой фирменный синий для иконок */
-  stroke-width: 2; /* Тонкая, изящная линия */
+  stroke: #4dabf7;
+  stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
-  /* ПЛАВНОЕ ВРАЩЕНИЕ */
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .toggle-sidebar-btn:hover svg {
-  stroke: #74c0fc; /* Легкое высветление синего */
+  stroke: #74c0fc;
 }
 
-/* КЛАСС ВРАЩЕНИЯ: когда сайдбар закрыт, иконка смотрит вправо */
 .toggle-sidebar-btn.sidebar-closed-btn svg {
   transform: rotate(180deg);
 }
@@ -87,9 +82,8 @@
   color: var(--text-primary);
 }
 
-/* --- Поиск (Центр) --- */
 .navbar-search-container {
-  flex: 0 1 320px; /* Фиксированная ширина поиска */
+  flex: 0 1 320px;
   display: flex;
   justify-content: center;
 }
@@ -111,32 +105,27 @@
   border-color: var(--accent-blue);
 }
 
-/* --- Действия (Право) --- */
 .navbar-actions {
   flex: 1;
   display: flex;
   justify-content: flex-end;
 }
 
-/* --- Главный Лейаут и Анимация Сетки --- */
 .catalog-layout {
   display: grid;
-  /* АНИМАЦИЯ КОЛОНОК */
   grid-template-columns: 300px 1fr;
   transition: grid-template-columns 0.4s cubic-bezier(0.4, 0, 0.2, 1), gap 0.4s ease;
   gap: 24px;
   flex: 1;
   overflow: hidden;
-  height: calc(100vh - 72px); /* Учитываем высоту шапки */
+  height: calc(100vh - 72px);
 }
 
-/* КОГДА САЙДБАР ЗАКРЫТ: первая колонка становится 0 */
 .catalog-layout.sidebar-closed {
   grid-template-columns: 0px 1fr;
   gap: 0;
 }
 
-/* --- Сайдбар (Лево) --- */
 .catalog-sidebar {
   transition: opacity 0.2s ease, transform 0.4s ease, min-width 0.4s ease;
   min-width: 300px;
@@ -146,16 +135,15 @@
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  overflow-y: auto; /* Скролл только внутри сайдбара */
+  overflow-y: auto;
   box-sizing: border-box;
 }
 
-/* СКРЫТИЕ КОНТЕНТА САЙДБАРА */
 .sidebar-closed .catalog-sidebar {
   opacity: 0;
-  transform: translateX(-30px); /* Легкий сдвиг влево для глубины */
-  pointer-events: none; /* Чтобы нельзя было кликнуть по скрытым полям */
-  min-width: 0; /* Чтобы колонка реально схлопнулась */
+  transform: translateX(-30px);
+  pointer-events: none;
+  min-width: 0;
 }
 
 .sidebar-heading {
@@ -189,21 +177,19 @@
   border-color: rgba(255, 255, 255, 0.1);
 }
 
-/* --- Основной контент (Центр) --- */
 .catalog-main {
   flex: 1;
   padding: 32px;
-  overflow-y: auto; /* Основной скролл каталога */
+  overflow-y: auto;
   box-sizing: border-box;
 }
 
 .catalog-results-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); /* Чуть уменьшил minmax для лучшей адаптации */
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 24px;
 }
 
-/* Вспомогательные классы для статусных сообщений */
 .catalog-message {
   grid-column: 1 / -1;
   text-align: center;

@@ -5,9 +5,6 @@ import { getPlanes, getCatalogPlanes } from "../../api/planesService";
 import type { PlaneResponse } from "../../contracts/responses/planes/planeResponse";
 import "./CatalogPage.css";
 
-/**
- * Превращает TimeSpan (д.чч:мм:сс) в "Ч ч М мин"
- */
 const formatFlightTime = (timeStr: string | undefined): string => {
     if (!timeStr) return "";
     const regex = /(?:(\d+)\.)?(\d+):(\d+):/;
@@ -31,23 +28,19 @@ export default function CatalogPage() {
     const [error, setError] = useState<string | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-    // Данные маршрута
     const [takeOffAirportId, setTakeOffAirportId] = useState("");
     const [landingAirportId, setLandingAirportId] = useState("");
 
-    // Фильтры
     const [searchValue, setSearchValue] = useState("");
     const [modelNameFilter, setModelNameFilter] = useState("");
     const [minimumPassengerCapacityFilter, setMinimumPassengerCapacityFilter] = useState("");
     const [minimumMaxDistanceFilter, setMinimumMaxDistanceFilter] = useState("");
     const [maximumTransfersFilter, setMaximumTransfersFilter] = useState("");
 
-    // Активен ли расчет маршрута
     const isRouteActive = useMemo(() => {
         return takeOffAirportId.trim() !== "" && landingAirportId.trim() !== "";
     }, [takeOffAirportId, landingAirportId]);
 
-    // Дистанция из API
     const routeDistance = useMemo(() => {
         if (!isRouteActive) return null;
         const planeWithDist = planes.find(p => p.distanceKm && p.distanceKm > 0);
@@ -101,13 +94,11 @@ export default function CatalogPage() {
         <div className="catalog-wrapper">
             <header className="catalog-navbar">
                 <div className="navbar-logo">
-                    {/* КНОПКА СО ВСТРОЕННЫМ SVG: Clean, minimal, professional */}
                     <button 
                         className={`toggle-sidebar-btn ${!isSidebarOpen ? 'sidebar-closed-btn' : ''}`}
                         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                         title={isSidebarOpen ? "Скрыть панель" : "Показать панель"}
                     >
-                        {/* Feather Icon: Arrow Left (SVG) */}
                         <svg viewBox="0 0 24 24">
                             <line x1="19" y1="12" x2="5" y2="12"></line>
                             <polyline points="12 19 5 12 12 5"></polyline>
@@ -131,7 +122,6 @@ export default function CatalogPage() {
                 </div>
             </header>
 
-            {/* Сетка layout, анимируется через grid-template-columns в CSS */}
             <div className={`catalog-layout ${!isSidebarOpen ? 'sidebar-closed' : ''}`}>
                 <aside className="catalog-sidebar">
                     <h2 className="sidebar-heading">Маршрут</h2>
@@ -173,7 +163,6 @@ export default function CatalogPage() {
                                     passengerCapacity={plane.passengerCapacity}
                                     maxDistance={plane.maxDistance}
                                     planeImageBytes={plane.imageBase64}
-                                    // Показываем цену, время и пересадки только при активном маршруте
                                     flightCost={isRouteActive && plane.flightCost ? `${plane.flightCost.toLocaleString('ru-RU')} ₽` : ""}
                                     flightTime={isRouteActive ? formatFlightTime(plane.flightTime) : ""}
                                     numberOfTransfers={isRouteActive && plane.numberOfTransfers !== undefined ? `${plane.numberOfTransfers}` : ""}
