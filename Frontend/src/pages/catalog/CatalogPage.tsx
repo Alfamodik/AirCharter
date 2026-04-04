@@ -5,6 +5,33 @@ import { getPlanes, getCatalogPlanes } from "../../api/planesService";
 import type { PlaneCatalogResponse } from "../../contracts/responses/planes/planeCatalogResponse";
 import "./CatalogPage.css";
 
+// Улучшенный форматтер для TimeSpan (обрабатывает "d.hh:mm:ss" или "hh:mm:ss")
+const formatFlightTime = (timeStr: string | undefined): string => {
+    if (!timeStr) return "";
+
+    // Регулярка для вытаскивания дней, часов и минут
+    // Группы: 1-дни(опционально), 2-часы, 3-минуты
+    const regex = /(?:(\d+)\.)?(\d+):(\d+):/;
+    const match = timeStr.match(regex);
+
+    if (!match) return timeStr;
+
+    const days = match[1] ? parseInt(match[1], 10) : 0;
+    let hours = parseInt(match[2], 10);
+    const minutes = parseInt(match[3], 10);
+
+    // Прибавляем дни к часам, чтобы получить общие часы (например, 1 день 1 час = 25 ч)
+    if (days > 0) {
+        hours += days * 24;
+    }
+
+    let result = "";
+    if (hours > 0) result += `${hours} ч `;
+    if (minutes > 0 || hours === 0) result += `${minutes} мин`;
+    
+    return result.trim();
+};
+
 export default function CatalogPage() {
     // --- Данные из API ---
     const [planes, setPlanes] = useState<PlaneCatalogResponse[]>([]);
@@ -12,7 +39,6 @@ export default function CatalogPage() {
     const [error, setError] = useState<string | null>(null);
 
     // --- Состояния для расчета маршрута (ID аэропортов) ---
-    // В будущем ты заменишь эти инпуты на Select-ы с поиском аэропортов
     const [takeOffAirportId, setTakeOffAirportId] = useState("");
     const [landingAirportId, setLandingAirportId] = useState("");
 
@@ -23,6 +49,12 @@ export default function CatalogPage() {
     const [minimumMaxDistanceFilter, setMinimumMaxDistanceFilter] = useState("");
     const [maximumTransfersFilter, setMaximumTransfersFilter] = useState("");
 
+    // Расстояние маршрута
+    const routeDistance = useMemo(() => {
+        const planeWithDist = planes.find(p => p.distanceKm && p.distanceKm > 0);
+        return planeWithDist ? planeWithDist.distanceKm : null;
+    }, [planes]);
+
     // Логика загрузки данных
     useEffect(() => {
         const fetchPlanes = async () => {
@@ -30,7 +62,6 @@ export default function CatalogPage() {
             try {
                 let data: PlaneCatalogResponse[];
 
-                // Если введены оба ID, запрашиваем расчет, иначе — обычный список
                 if (takeOffAirportId && landingAirportId) {
                     data = await getCatalogPlanes(
                         Number(takeOffAirportId), 
@@ -64,7 +95,6 @@ export default function CatalogPage() {
             const matchesCapacity = !minimumPassengerCapacityFilter || plane.passengerCapacity >= Number(minimumPassengerCapacityFilter);
             const matchesDist = !minimumMaxDistanceFilter || plane.maxDistance >= Number(minimumMaxDistanceFilter);
             
-            // Если numberOfTransfers нет (обычный режим), фильтр по ним пропускаем
             const matchesTransfers = !maximumTransfersFilter || 
                                    (plane.numberOfTransfers !== undefined && plane.numberOfTransfers <= Number(maximumTransfersFilter));
 
@@ -108,7 +138,7 @@ export default function CatalogPage() {
             <div className="catalog-layout">
                 <aside className="catalog-sidebar">
                     <h2 className="sidebar-heading">Маршрут</h2>
-                    <div className="filters-stack" style={{ marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid #eee' }}>
+                    <div className="filters-stack" style={{ marginBottom: '24px' }}>
                         <InputField 
                             label="ID Аэропорта вылета" 
                             value={takeOffAirportId} 
@@ -121,6 +151,12 @@ export default function CatalogPage() {
                             onChange={setLandingAirportId} 
                             type="number"
                         />
+                        
+                        {routeDistance && (
+                            <div style={{ marginTop: '12px', fontSize: '14px', color: '#ccc' }}>
+                                Расстояние: <span style={{ color: '#4dabf7', fontWeight: 600 }}>{routeDistance} км</span>
+                            </div>
+                        )}
                     </div>
 
                     <h2 className="sidebar-heading">Фильтры</h2>
@@ -137,7 +173,7 @@ export default function CatalogPage() {
 
                 <main className="catalog-main">
                     {isLoading ? (
-                        <div className="catalog-message">Загрузка...</div>
+                        <div className="catalog-message">Загрузка данных...</div>
                     ) : error ? (
                         <div className="catalog-message error">{error}</div>
                     ) : (
@@ -150,9 +186,8 @@ export default function CatalogPage() {
                                         passengerCapacity={plane.passengerCapacity}
                                         maxDistance={plane.maxDistance}
                                         planeImageBytes={plane.imageBase64}
-                                        // Передаем данные расчета, только если они есть
-                                        flightCost={plane.flightCost ? `${plane.flightCost.toLocaleString()} ₽` : ""}
-                                        flightTime={plane.flightTime || ""}
+                                        flightCost={plane.flightCost ? `${plane.flightCost.toLocaleString('ru-RU')} ₽` : ""}
+                                        flightTime={formatFlightTime(plane.flightTime)}
                                         numberOfTransfers={plane.numberOfTransfers !== undefined ? `${plane.numberOfTransfers} пересадок` : ""}
                                     />
                                 ))
