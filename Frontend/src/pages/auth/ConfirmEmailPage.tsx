@@ -2,14 +2,8 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import InputField from "../../components/InputField/InputField";
-import {
-    confirmEmail,
-    resendEmailConfirmationCode
-} from "../../api/authService";
-import {
-    getConfirmEmailErrorMessage,
-    getResendCodeErrorMessage
-} from "../../api/authErrorMessages";
+import { confirmEmail, resendEmailConfirmationCode } from "../../api/authService";
+import { getConfirmEmailErrorMessage, getResendCodeErrorMessage } from "../../api//utils/authErrorMessages";
 import "./auth-page.css";
 
 type ConfirmEmailLocationState = {

@@ -1,6 +1,6 @@
-﻿namespace AirCharter.API.Requests
+﻿namespace AirCharter.API.Requests.Authentication
 {
-    public sealed class RegisterRequest
+    public sealed class LoginRequest
     {
         public string Email { get; set; } = string.Empty;
 

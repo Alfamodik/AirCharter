@@ -1,82 +1,76 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import InputField from "../../components/InputField/InputField";
 import CatalogPlaneCard from "../../components/CatalogPlaneCard/CatalogPlaneCard";
+import { getPlanes, getCatalogPlanes } from "../../api/planesService"; 
+import type { PlaneCatalogResponse } from "../../contracts/responses/planes/planeCatalogResponse";
 import "./CatalogPage.css";
 
-type CatalogPlane = {
-    id: number;
-    airlineImageUrl?: string;
-    planeImageUrl?: string;
-    modelName: string;
-    passengerCapacity: number;
-    maxDistance: number;
-    flightCost: string;
-    flightTime: string;
-    numberOfTransfers: string;
-};
-
-const catalogPlanes: CatalogPlane[] = [
-    {
-        id: 1,
-        modelName: "Cessna Citation XLS+",
-        passengerCapacity: 8,
-        maxDistance: 3441,
-        flightCost: "1 250 000 ₽",
-        flightTime: "2 ч 15 мин",
-        numberOfTransfers: "0 пересадок"
-    },
-    {
-        id: 2,
-        modelName: "Bombardier Challenger 350",
-        passengerCapacity: 9,
-        maxDistance: 5926,
-        flightCost: "2 840 000 ₽",
-        flightTime: "4 ч 05 мин",
-        numberOfTransfers: "1 пересадка"
-    },
-    {
-        id: 3,
-        modelName: "Embraer Legacy 600",
-        passengerCapacity: 13,
-        maxDistance: 6019,
-        flightCost: "3 100 000 ₽",
-        flightTime: "4 ч 40 мин",
-        numberOfTransfers: "1 пересадка"
-    },
-    {
-        id: 4,
-        modelName: "Gulfstream G650",
-        passengerCapacity: 18,
-        maxDistance: 12964,
-        flightCost: "6 900 000 ₽",
-        flightTime: "8 ч 30 мин",
-        numberOfTransfers: "0 пересадок"
-    }
-];
-
 export default function CatalogPage() {
+    // --- Данные из API ---
+    const [planes, setPlanes] = useState<PlaneCatalogResponse[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    // --- Состояния для расчета маршрута (ID аэропортов) ---
+    // В будущем ты заменишь эти инпуты на Select-ы с поиском аэропортов
+    const [takeOffAirportId, setTakeOffAirportId] = useState("");
+    const [landingAirportId, setLandingAirportId] = useState("");
+
+    // --- Состояния обычных фильтров ---
     const [searchValue, setSearchValue] = useState("");
     const [modelNameFilter, setModelNameFilter] = useState("");
     const [minimumPassengerCapacityFilter, setMinimumPassengerCapacityFilter] = useState("");
     const [minimumMaxDistanceFilter, setMinimumMaxDistanceFilter] = useState("");
     const [maximumTransfersFilter, setMaximumTransfersFilter] = useState("");
 
+    // Логика загрузки данных
+    useEffect(() => {
+        const fetchPlanes = async () => {
+            setIsLoading(true);
+            try {
+                let data: PlaneCatalogResponse[];
+
+                // Если введены оба ID, запрашиваем расчет, иначе — обычный список
+                if (takeOffAirportId && landingAirportId) {
+                    data = await getCatalogPlanes(
+                        Number(takeOffAirportId), 
+                        Number(landingAirportId)
+                    );
+                } else {
+                    data = await getPlanes();
+                }
+
+                setPlanes(data);
+                setError(null);
+            } catch (err) {
+                console.error(err);
+                setError("Не удалось загрузить данные о самолетах.");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchPlanes();
+    }, [takeOffAirportId, landingAirportId]);
+
+    // Логика фильтрации на клиенте
     const filteredCatalogPlanes = useMemo(() => {
-        return catalogPlanes.filter((plane) => {
+        return planes.filter((plane) => {
             const search = searchValue.toLowerCase();
             const matchesSearch = plane.modelName.toLowerCase().includes(search) || 
-                                 plane.flightCost.toLowerCase().includes(search);
+                                 (plane.flightCost?.toString() || "").includes(search);
             
             const matchesModel = plane.modelName.toLowerCase().includes(modelNameFilter.toLowerCase());
             const matchesCapacity = !minimumPassengerCapacityFilter || plane.passengerCapacity >= Number(minimumPassengerCapacityFilter);
             const matchesDist = !minimumMaxDistanceFilter || plane.maxDistance >= Number(minimumMaxDistanceFilter);
             
-            const transfers = parseInt(plane.numberOfTransfers) || 0;
-            const matchesTransfers = !maximumTransfersFilter || transfers <= Number(maximumTransfersFilter);
+            // Если numberOfTransfers нет (обычный режим), фильтр по ним пропускаем
+            const matchesTransfers = !maximumTransfersFilter || 
+                                   (plane.numberOfTransfers !== undefined && plane.numberOfTransfers <= Number(maximumTransfersFilter));
 
             return matchesSearch && matchesModel && matchesCapacity && matchesDist && matchesTransfers;
         });
-    }, [searchValue, modelNameFilter, minimumPassengerCapacityFilter, minimumMaxDistanceFilter, maximumTransfersFilter]);
+    }, [planes, searchValue, modelNameFilter, minimumPassengerCapacityFilter, minimumMaxDistanceFilter, maximumTransfersFilter]);
 
     const clearFilters = () => {
         setSearchValue("");
@@ -84,6 +78,8 @@ export default function CatalogPage() {
         setMinimumPassengerCapacityFilter("");
         setMinimumMaxDistanceFilter("");
         setMaximumTransfersFilter("");
+        setTakeOffAirportId("");
+        setLandingAirportId("");
     };
 
     return (
@@ -98,7 +94,7 @@ export default function CatalogPage() {
                     <input
                         type="text"
                         className="navbar-search-input"
-                        placeholder="Поиск по модели или цене..."
+                        placeholder="Поиск по модели..."
                         value={searchValue}
                         onChange={(e) => setSearchValue(e.target.value)}
                     />
@@ -111,6 +107,22 @@ export default function CatalogPage() {
 
             <div className="catalog-layout">
                 <aside className="catalog-sidebar">
+                    <h2 className="sidebar-heading">Маршрут</h2>
+                    <div className="filters-stack" style={{ marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid #eee' }}>
+                        <InputField 
+                            label="ID Аэропорта вылета" 
+                            value={takeOffAirportId} 
+                            onChange={setTakeOffAirportId} 
+                            type="number"
+                        />
+                        <InputField 
+                            label="ID Аэропорта прибытия" 
+                            value={landingAirportId} 
+                            onChange={setLandingAirportId} 
+                            type="number"
+                        />
+                    </div>
+
                     <h2 className="sidebar-heading">Фильтры</h2>
                     <div className="filters-stack">
                         <InputField label="Модель самолёта" value={modelNameFilter} onChange={setModelNameFilter} />
@@ -119,16 +131,36 @@ export default function CatalogPage() {
                         <InputField label="Макс. пересадок" value={maximumTransfersFilter} onChange={setMaximumTransfersFilter} type="number" />
                     </div>
                     <button className="reset-filters-btn" onClick={clearFilters}>
-                        Сбросить фильтры
+                        Сбросить всё
                     </button>
                 </aside>
 
                 <main className="catalog-main">
-                    <div className="catalog-results-grid">
-                        {filteredCatalogPlanes.map((plane) => (
-                            <CatalogPlaneCard key={plane.id} {...plane} />
-                        ))}
-                    </div>
+                    {isLoading ? (
+                        <div className="catalog-message">Загрузка...</div>
+                    ) : error ? (
+                        <div className="catalog-message error">{error}</div>
+                    ) : (
+                        <div className="catalog-results-grid">
+                            {filteredCatalogPlanes.length > 0 ? (
+                                filteredCatalogPlanes.map((plane) => (
+                                    <CatalogPlaneCard 
+                                        key={plane.id} 
+                                        modelName={plane.modelName}
+                                        passengerCapacity={plane.passengerCapacity}
+                                        maxDistance={plane.maxDistance}
+                                        planeImageBytes={plane.imageBase64}
+                                        // Передаем данные расчета, только если они есть
+                                        flightCost={plane.flightCost ? `${plane.flightCost.toLocaleString()} ₽` : ""}
+                                        flightTime={plane.flightTime || ""}
+                                        numberOfTransfers={plane.numberOfTransfers !== undefined ? `${plane.numberOfTransfers} пересадок` : ""}
+                                    />
+                                ))
+                            ) : (
+                                <div className="catalog-message">Самолёты не найдены</div>
+                            )}
+                        </div>
+                    )}
                 </main>
             </div>
         </div>

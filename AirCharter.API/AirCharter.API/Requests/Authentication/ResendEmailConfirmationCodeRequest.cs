@@ -1,4 +1,4 @@
-﻿namespace AirCharter.API.Requests
+﻿namespace AirCharter.API.Requests.Authentication
 {
     public sealed class ResendEmailConfirmationCodeRequest
     {

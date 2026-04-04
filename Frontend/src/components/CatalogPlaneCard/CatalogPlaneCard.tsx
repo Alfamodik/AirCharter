@@ -7,7 +7,7 @@ type CatalogPlaneCardProps = {
     flightCost: string;
     flightTime: string;
     numberOfTransfers: string;
-    planeImageUrl?: string;
+    planeImageBytes?: string;
 };
 
 export default function CatalogPlaneCard({
@@ -17,13 +17,13 @@ export default function CatalogPlaneCard({
     flightCost,
     flightTime,
     numberOfTransfers,
-    planeImageUrl
+    planeImageBytes
 }: CatalogPlaneCardProps) {
     return (
         <article className="plane-card">
             <div className="plane-card-image-box">
-                {planeImageUrl ? (
-                    <img src={planeImageUrl} alt={modelName} className="plane-img" />
+                {planeImageBytes ? (
+                    <img src={`data:image/jpeg;base64,${planeImageBytes}`} alt={modelName} className="plane-img" />
                 ) : (
                     <div className="plane-img-placeholder">✈️</div>
                 )}

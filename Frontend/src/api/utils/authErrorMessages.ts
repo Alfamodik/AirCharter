@@ -1,4 +1,4 @@
-import type { ApiError } from "./apiError";
+import type { ApiError } from "./utils/apiError";
 
 export function getRegisterErrorMessage(error: unknown): string {
     const apiError = getApiError(error);

@@ -346,6 +346,7 @@ public partial class AirCharterExtendedContext : DbContext
             entity.Property(e => e.AirlineId).HasColumnName("airline_id");
             entity.Property(e => e.CostPerKilometer).HasColumnName("cost_per_kilometer");
             entity.Property(e => e.CruisingSpeed).HasColumnName("cruising_speed");
+            entity.Property(e => e.FlightHourCost).HasColumnName("flight_hour_cost");
             entity.Property(e => e.Image).HasColumnName("image");
             entity.Property(e => e.MaxDistance).HasColumnName("max_distance");
             entity.Property(e => e.ModelName)

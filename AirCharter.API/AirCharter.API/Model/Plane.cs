@@ -19,6 +19,8 @@ public partial class Plane
 
     public int CostPerKilometer { get; set; }
 
+    public int FlightHourCost { get; set; }
+
     public byte[]? Image { get; set; }
 
     public virtual Airline Airline { get; set; } = null!;

@@ -3,7 +3,7 @@ import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import InputField from "../../components/InputField/InputField";
 import { login } from "../../api/authService";
-import { getLoginErrorMessage } from "../../api/authErrorMessages";
+import { getLoginErrorMessage } from "../../api/utils/authErrorMessages";
 import "./auth-page.css";
 
 export default function LoginPage() {

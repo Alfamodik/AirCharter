@@ -84,6 +84,7 @@ CREATE TABLE planes(
     passanger_capacity INT NOT NULL,
     cruising_speed INT NOT NULL,
     cost_per_kilometer INT NOT NULL,
+    flight_hour_cost INT NOT NULL,
     image LONGBLOB,
     FOREIGN KEY (airline_id) REFERENCES airlines(id)
 );

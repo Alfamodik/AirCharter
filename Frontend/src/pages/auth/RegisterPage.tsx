@@ -3,7 +3,7 @@ import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import InputField from "../../components/InputField/InputField";
 import { register } from "../../api/authService";
-import { getRegisterErrorMessage } from "../../api/authErrorMessages";
+import { getRegisterErrorMessage } from "../../api//utils/authErrorMessages";
 import "./auth-page.css";
 
 export default function RegisterPage() {

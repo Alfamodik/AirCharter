@@ -1,4 +1,4 @@
-import type { ApiError } from "./apiError";
+import type { ApiError } from "./utils/apiError";
 
 const apiBaseUrl = "https://localhost:7219";
 

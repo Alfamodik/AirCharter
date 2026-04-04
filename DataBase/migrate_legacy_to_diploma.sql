@@ -160,6 +160,7 @@ INSERT INTO planes
     passanger_capacity,
     cruising_speed,
     cost_per_kilometer,
+    flight_hour_cost,
     image
 )
 SELECT
@@ -170,6 +171,7 @@ SELECT
     passanger_capacity,
     cruising_speed,
     cost_per_kilometer,
+    0,
     image
 FROM air_charter.plane;
 

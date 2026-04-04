@@ -1,5 +1,5 @@
 ﻿using AirCharter.API.Model;
-using AirCharter.API.Requests;
+using AirCharter.API.Requests.Authentication;
 using AirCharter.API.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -22,15 +22,13 @@ public sealed class AuthController(AirCharterExtendedContext context, JwtService
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request, CancellationToken cancellationToken)
     {
-        string email = NormalizeEmail(request.Email);
-
-        if (string.IsNullOrWhiteSpace(email))
+        if (string.IsNullOrWhiteSpace(request.Email))
             return BadRequest("Email is required.");
 
         if (string.IsNullOrWhiteSpace(request.Password))
             return BadRequest("Password is required.");
 
-        User? existingUser = await _context.Users.FirstOrDefaultAsync(user => user.Email == email, cancellationToken);
+        User? existingUser = await _context.Users.FirstOrDefaultAsync(user => user.Email == request.Email, cancellationToken);
 
         if (existingUser != null)
             return Conflict("User with this email already exists.");
@@ -38,7 +36,7 @@ public sealed class AuthController(AirCharterExtendedContext context, JwtService
         User user = new()
         {
             RoleId = ClientRoleId,
-            Email = email,
+            Email = request.Email,
             IsEmailConfirmed = false,
             IsActive = true
         };
@@ -59,9 +57,7 @@ public sealed class AuthController(AirCharterExtendedContext context, JwtService
     [HttpPost("confirm-email")]
     public async Task<IActionResult> ConfirmEmail([FromBody] ConfirmEmailRequest request, CancellationToken cancellationToken)
     {
-        string email = NormalizeEmail(request.Email);
-
-        if (string.IsNullOrWhiteSpace(email))
+        if (string.IsNullOrWhiteSpace(request.Email))
             return BadRequest("Email is required.");
 
         if (string.IsNullOrWhiteSpace(request.Code))
@@ -69,7 +65,7 @@ public sealed class AuthController(AirCharterExtendedContext context, JwtService
 
         User? user = await _context.Users
             .Include(currentUser => currentUser.Role)
-            .FirstOrDefaultAsync(currentUser => currentUser.Email == email, cancellationToken);
+            .FirstOrDefaultAsync(currentUser => currentUser.Email == request.Email, cancellationToken);
 
         if (user == null)
             return NotFound("User not found.");
@@ -108,12 +104,10 @@ public sealed class AuthController(AirCharterExtendedContext context, JwtService
     [HttpPost("resend-email-confirmation-code")]
     public async Task<IActionResult> ResendEmailConfirmationCode([FromBody] ResendEmailConfirmationCodeRequest request, CancellationToken cancellationToken)
     {
-        string email = NormalizeEmail(request.Email);
-
-        if (string.IsNullOrWhiteSpace(email))
+        if (string.IsNullOrWhiteSpace(request.Email))
             return BadRequest("Email is required.");
 
-        User? user = await _context.Users.FirstOrDefaultAsync(currentUser => currentUser.Email == email, cancellationToken);
+        User? user = await _context.Users.FirstOrDefaultAsync(currentUser => currentUser.Email == request.Email, cancellationToken);
 
         if (user == null)
             return NotFound("User not found.");
@@ -135,9 +129,7 @@ public sealed class AuthController(AirCharterExtendedContext context, JwtService
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
-        string email = NormalizeEmail(request.Email);
-
-        if (string.IsNullOrWhiteSpace(email))
+        if (string.IsNullOrWhiteSpace(request.Email))
             return BadRequest("Email is required.");
 
         if (string.IsNullOrWhiteSpace(request.Password))
@@ -145,7 +137,7 @@ public sealed class AuthController(AirCharterExtendedContext context, JwtService
 
         User? user = await _context.Users
             .Include(currentUser => currentUser.Role)
-            .FirstOrDefaultAsync(currentUser => currentUser.Email == email, cancellationToken);
+            .FirstOrDefaultAsync(currentUser => currentUser.Email == request.Email, cancellationToken);
 
         if (user == null)
             return Unauthorized();
@@ -185,6 +177,4 @@ public sealed class AuthController(AirCharterExtendedContext context, JwtService
         != PasswordVerificationResult.Failed;
 
     private static string GenerateEmailConfirmationCode() => RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
-
-    private static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
 }

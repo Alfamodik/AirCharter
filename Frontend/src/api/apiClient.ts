@@ -1,9 +1,6 @@
 const apiBaseUrl = "https://localhost:7219";
 
-export async function sendRequest<TResponse>(
-    path: string,
-    init?: RequestInit
-): Promise<TResponse> {
+export async function sendRequest<TResponse>(path: string, init?: RequestInit): Promise<TResponse> {
     const response = await fetch(`${apiBaseUrl}${path}`, {
         headers: {
             "Content-Type": "application/json",
