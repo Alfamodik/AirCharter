@@ -13,5 +13,5 @@ public partial class DepartureEmployee
 
     public virtual Departure Departure { get; set; } = null!;
 
-    public virtual Employee Employee { get; set; } = null!;
+    public virtual User Employee { get; set; } = null!;
 }

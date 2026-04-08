@@ -1,20 +1,8 @@
 CREATE DATABASE IF NOT EXISTS air_charter_extended;
 USE air_charter_extended;
 
-CREATE TABLE bank_details(
-	id INT PRIMARY KEY AUTO_INCREMENT,
-    bank_name VARCHAR(45) NOT NULL,
-    taxpayer_id VARCHAR(12) NOT NULL,
-	tax_registration_reason_code VARCHAR(9) NOT NULL,
-	primary_state_registration_number VARCHAR(15) NOT NULL,
-	current_account_number VARCHAR(20) NOT NULL,
-	correspondent_account_number VARCHAR(20) NOT NULL,
-	bank_identifier_code VARCHAR(9) NOT NULL
-);
-
 CREATE TABLE airlines(
 	id INT PRIMARY KEY AUTO_INCREMENT,
-    bank_details_id INT NOT NULL,
     airline_name VARCHAR(45) NOT NULL,
     creation_date DATE NOT NULL,
     organization_full_name VARCHAR(100) NOT NULL,
@@ -23,16 +11,17 @@ CREATE TABLE airlines(
     postal_address VARCHAR(255) NOT NULL,
     phone_number VARCHAR(20) NOT NULL,
     email VARCHAR(255) NOT NULL,
-    image LONGBLOB,
-    FOREIGN KEY (bank_details_id) REFERENCES bank_details(id)
+	bank_name VARCHAR(45) NOT NULL,
+    taxpayer_id VARCHAR(12) NOT NULL,
+	tax_registration_reason_code VARCHAR(9) NOT NULL,
+	primary_state_registration_number VARCHAR(15) NOT NULL,
+	current_account_number VARCHAR(20) NOT NULL,
+	correspondent_account_number VARCHAR(20) NOT NULL,
+	bank_identifier_code VARCHAR(9) NOT NULL,
+    image LONGBLOB
 );
 
 CREATE TABLE roles(
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(45) NOT NULL
-);
-
-CREATE TABLE positions(
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(45) NOT NULL
 );
@@ -48,32 +37,22 @@ CREATE TABLE persons(
     birth_date DATE
 );
 
-CREATE TABLE employees(
-	id INT PRIMARY KEY AUTO_INCREMENT,
-    person_id INT NOT NULL,
-    position_id INT NOT NULL,
-    airline_id INT NOT NULL,
-    FOREIGN KEY (person_id) REFERENCES persons(id),
-    FOREIGN KEY (position_id) REFERENCES positions(id),
-    FOREIGN KEY (airline_id) REFERENCES airlines(id)
-);
-
 CREATE TABLE users(
 	id INT PRIMARY KEY AUTO_INCREMENT,
     person_id INT,
-    role_id INT NOT NULL,
-    bank_details_id INT,
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    legal_address VARCHAR(255),
-    actual_address VARCHAR(255),
+    role_id INT NOT NULL,
+	airline_id INT,
+    #legal_address VARCHAR(255),
+    #actual_address VARCHAR(255),
     email_confirmation_code_hash VARCHAR(255),
     email_confirmation_code_expires_at_utc DATETIME,
     is_email_confirmed BOOLEAN NOT NULL,
     is_active BOOLEAN NOT NULL,
     FOREIGN KEY (person_id) REFERENCES persons(id),
     FOREIGN KEY (role_id) REFERENCES roles(id),
-    FOREIGN KEY (bank_details_id) REFERENCES bank_details(id)
+    FOREIGN KEY (airline_id) REFERENCES airlines(id)
 );
 
 CREATE TABLE planes(
@@ -142,5 +121,5 @@ CREATE TABLE departure_employees(
     departure_id INT NOT NULL,
     employee_id INT NOT NULL,
     FOREIGN KEY (departure_id) REFERENCES departures(id),
-    FOREIGN KEY (employee_id) REFERENCES employees(id)
+    FOREIGN KEY (employee_id) REFERENCES users(id)
 );

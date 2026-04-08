@@ -7,8 +7,6 @@ public partial class Airline
 {
     public int Id { get; set; }
 
-    public int BankDetailsId { get; set; }
-
     public string AirlineName { get; set; } = null!;
 
     public DateOnly CreationDate { get; set; }
@@ -25,11 +23,23 @@ public partial class Airline
 
     public string Email { get; set; } = null!;
 
+    public string BankName { get; set; } = null!;
+
+    public string TaxpayerId { get; set; } = null!;
+
+    public string TaxRegistrationReasonCode { get; set; } = null!;
+
+    public string PrimaryStateRegistrationNumber { get; set; } = null!;
+
+    public string CurrentAccountNumber { get; set; } = null!;
+
+    public string CorrespondentAccountNumber { get; set; } = null!;
+
+    public string BankIdentifierCode { get; set; } = null!;
+
     public byte[]? Image { get; set; }
 
-    public virtual BankDetail BankDetails { get; set; } = null!;
-
-    public virtual ICollection<Employee> Employees { get; set; } = new List<Employee>();
-
     public virtual ICollection<Plane> Planes { get; set; } = new List<Plane>();
+
+    public virtual ICollection<User> Users { get; set; } = new List<User>();
 }

@@ -20,21 +20,15 @@ public partial class AirCharterExtendedContext : DbContext
 
     public virtual DbSet<Airport> Airports { get; set; }
 
-    public virtual DbSet<BankDetail> BankDetails { get; set; }
-
     public virtual DbSet<Departure> Departures { get; set; }
 
     public virtual DbSet<DepartureEmployee> DepartureEmployees { get; set; }
 
     public virtual DbSet<DepartureStatus> DepartureStatuses { get; set; }
 
-    public virtual DbSet<Employee> Employees { get; set; }
-
     public virtual DbSet<Person> Persons { get; set; }
 
     public virtual DbSet<Plane> Planes { get; set; }
-
-    public virtual DbSet<Position> Positions { get; set; }
 
     public virtual DbSet<Role> Roles { get; set; }
 
@@ -54,14 +48,23 @@ public partial class AirCharterExtendedContext : DbContext
 
             entity.ToTable("airlines");
 
-            entity.HasIndex(e => e.BankDetailsId, "bank_details_id");
-
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.AirlineName)
                 .HasMaxLength(45)
                 .HasColumnName("airline_name");
-            entity.Property(e => e.BankDetailsId).HasColumnName("bank_details_id");
+            entity.Property(e => e.BankIdentifierCode)
+                .HasMaxLength(9)
+                .HasColumnName("bank_identifier_code");
+            entity.Property(e => e.BankName)
+                .HasMaxLength(45)
+                .HasColumnName("bank_name");
+            entity.Property(e => e.CorrespondentAccountNumber)
+                .HasMaxLength(20)
+                .HasColumnName("correspondent_account_number");
             entity.Property(e => e.CreationDate).HasColumnName("creation_date");
+            entity.Property(e => e.CurrentAccountNumber)
+                .HasMaxLength(20)
+                .HasColumnName("current_account_number");
             entity.Property(e => e.Email)
                 .HasMaxLength(255)
                 .HasColumnName("email");
@@ -81,11 +84,15 @@ public partial class AirCharterExtendedContext : DbContext
             entity.Property(e => e.PostalAddress)
                 .HasMaxLength(255)
                 .HasColumnName("postal_address");
-
-            entity.HasOne(d => d.BankDetails).WithMany(p => p.Airlines)
-                .HasForeignKey(d => d.BankDetailsId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("airlines_ibfk_1");
+            entity.Property(e => e.PrimaryStateRegistrationNumber)
+                .HasMaxLength(15)
+                .HasColumnName("primary_state_registration_number");
+            entity.Property(e => e.TaxRegistrationReasonCode)
+                .HasMaxLength(9)
+                .HasColumnName("tax_registration_reason_code");
+            entity.Property(e => e.TaxpayerId)
+                .HasMaxLength(12)
+                .HasColumnName("taxpayer_id");
         });
 
         modelBuilder.Entity<Airport>(entity =>
@@ -116,36 +123,6 @@ public partial class AirCharterExtendedContext : DbContext
             entity.Property(e => e.Name)
                 .HasMaxLength(45)
                 .HasColumnName("name");
-        });
-
-        modelBuilder.Entity<BankDetail>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("PRIMARY");
-
-            entity.ToTable("bank_details");
-
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.BankIdentifierCode)
-                .HasMaxLength(9)
-                .HasColumnName("bank_identifier_code");
-            entity.Property(e => e.BankName)
-                .HasMaxLength(45)
-                .HasColumnName("bank_name");
-            entity.Property(e => e.CorrespondentAccountNumber)
-                .HasMaxLength(20)
-                .HasColumnName("correspondent_account_number");
-            entity.Property(e => e.CurrentAccountNumber)
-                .HasMaxLength(20)
-                .HasColumnName("current_account_number");
-            entity.Property(e => e.PrimaryStateRegistrationNumber)
-                .HasMaxLength(15)
-                .HasColumnName("primary_state_registration_number");
-            entity.Property(e => e.TaxRegistrationReasonCode)
-                .HasMaxLength(9)
-                .HasColumnName("tax_registration_reason_code");
-            entity.Property(e => e.TaxpayerId)
-                .HasMaxLength(12)
-                .HasColumnName("taxpayer_id");
         });
 
         modelBuilder.Entity<Departure>(entity =>
@@ -271,39 +248,6 @@ public partial class AirCharterExtendedContext : DbContext
                 .HasConstraintName("departure_statuses_ibfk_2");
         });
 
-        modelBuilder.Entity<Employee>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("PRIMARY");
-
-            entity.ToTable("employees");
-
-            entity.HasIndex(e => e.AirlineId, "airline_id");
-
-            entity.HasIndex(e => e.PersonId, "person_id");
-
-            entity.HasIndex(e => e.PositionId, "position_id");
-
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.AirlineId).HasColumnName("airline_id");
-            entity.Property(e => e.PersonId).HasColumnName("person_id");
-            entity.Property(e => e.PositionId).HasColumnName("position_id");
-
-            entity.HasOne(d => d.Airline).WithMany(p => p.Employees)
-                .HasForeignKey(d => d.AirlineId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("employees_ibfk_3");
-
-            entity.HasOne(d => d.Person).WithMany(p => p.Employees)
-                .HasForeignKey(d => d.PersonId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("employees_ibfk_1");
-
-            entity.HasOne(d => d.Position).WithMany(p => p.Employees)
-                .HasForeignKey(d => d.PositionId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("employees_ibfk_2");
-        });
-
         modelBuilder.Entity<Person>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("PRIMARY");
@@ -360,18 +304,6 @@ public partial class AirCharterExtendedContext : DbContext
                 .HasConstraintName("planes_ibfk_1");
         });
 
-        modelBuilder.Entity<Position>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("PRIMARY");
-
-            entity.ToTable("positions");
-
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.Name)
-                .HasMaxLength(45)
-                .HasColumnName("name");
-        });
-
         modelBuilder.Entity<Role>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("PRIMARY");
@@ -402,7 +334,7 @@ public partial class AirCharterExtendedContext : DbContext
 
             entity.ToTable("users");
 
-            entity.HasIndex(e => e.BankDetailsId, "bank_details_id");
+            entity.HasIndex(e => e.AirlineId, "airline_id");
 
             entity.HasIndex(e => e.Email, "email").IsUnique();
 
@@ -411,10 +343,7 @@ public partial class AirCharterExtendedContext : DbContext
             entity.HasIndex(e => e.RoleId, "role_id");
 
             entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.ActualAddress)
-                .HasMaxLength(255)
-                .HasColumnName("actual_address");
-            entity.Property(e => e.BankDetailsId).HasColumnName("bank_details_id");
+            entity.Property(e => e.AirlineId).HasColumnName("airline_id");
             entity.Property(e => e.Email).HasColumnName("email");
             entity.Property(e => e.EmailConfirmationCodeExpiresAtUtc)
                 .HasColumnType("datetime")
@@ -424,17 +353,14 @@ public partial class AirCharterExtendedContext : DbContext
                 .HasColumnName("email_confirmation_code_hash");
             entity.Property(e => e.IsActive).HasColumnName("is_active");
             entity.Property(e => e.IsEmailConfirmed).HasColumnName("is_email_confirmed");
-            entity.Property(e => e.LegalAddress)
-                .HasMaxLength(255)
-                .HasColumnName("legal_address");
             entity.Property(e => e.PasswordHash)
                 .HasMaxLength(255)
                 .HasColumnName("password_hash");
             entity.Property(e => e.PersonId).HasColumnName("person_id");
             entity.Property(e => e.RoleId).HasColumnName("role_id");
 
-            entity.HasOne(d => d.BankDetails).WithMany(p => p.Users)
-                .HasForeignKey(d => d.BankDetailsId)
+            entity.HasOne(d => d.Airline).WithMany(p => p.Users)
+                .HasForeignKey(d => d.AirlineId)
                 .HasConstraintName("users_ibfk_3");
 
             entity.HasOne(d => d.Person).WithMany(p => p.Users)

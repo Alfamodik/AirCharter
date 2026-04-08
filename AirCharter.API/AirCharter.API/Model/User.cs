@@ -9,17 +9,13 @@ public partial class User
 
     public int? PersonId { get; set; }
 
-    public int RoleId { get; set; }
-
-    public int? BankDetailsId { get; set; }
-
     public string Email { get; set; } = null!;
 
     public string PasswordHash { get; set; } = null!;
 
-    public string? LegalAddress { get; set; }
+    public int RoleId { get; set; }
 
-    public string? ActualAddress { get; set; }
+    public int? AirlineId { get; set; }
 
     public string? EmailConfirmationCodeHash { get; set; }
 
@@ -29,7 +25,9 @@ public partial class User
 
     public bool IsActive { get; set; }
 
-    public virtual BankDetail? BankDetails { get; set; }
+    public virtual Airline? Airline { get; set; }
+
+    public virtual ICollection<DepartureEmployee> DepartureEmployees { get; set; } = new List<DepartureEmployee>();
 
     public virtual ICollection<Departure> Departures { get; set; } = new List<Departure>();
 

@@ -21,8 +21,6 @@ public partial class Person
 
     public DateOnly? BirthDate { get; set; }
 
-    public virtual ICollection<Employee> Employees { get; set; } = new List<Employee>();
-
     public virtual ICollection<User> Users { get; set; } = new List<User>();
 
     public virtual ICollection<Departure> Departures { get; set; } = new List<Departure>();
