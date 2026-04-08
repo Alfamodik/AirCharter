@@ -1,45 +1,40 @@
 .input-field {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .input-field-label {
-    font-size: 15px;
-    font-weight: 400;
-    color: #ffffff;
-}
-
-.input-field-control {
-    display: block;
-}
-
-.input-field-control-with-right {
-    display: grid;
-    grid-template-columns: 1fr 24px;
-    align-items: center;
-    column-gap: 14px;
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--text-primary);
 }
 
 .input-field-input {
-    width: 100%;
-    height: 42px;
-    padding: 0 14px;
-    border: 1px solid #56585f;
-    border-radius: 10px;
-    background: #3b3c41;
-    color: #ffffff;
-    outline: none;
-    box-sizing: border-box;
-    font-size: 15px;
+  width: 100%;
+  height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  outline: none;
+  box-sizing: border-box;
+  font-size: 15px;
+  transition: border-color 0.2s;
 }
 
 .input-field-input:focus {
-    border-color: #1483e6;
+  border-color: var(--accent-blue);
 }
 
-.input-field-right {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.auth-password-toggle {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.auth-password-toggle:hover {
+  color: var(--text-primary);
 }

@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import InputField from "../../components/InputField/InputField";
 import CatalogPlaneCard from "../../components/CatalogPlaneCard/CatalogPlaneCard";
 import { getPlanes, getCatalogPlanes } from "../../api/planesService"; 
-import type { PlaneResponse } from "../../contracts/responses/planes/planeResponse";
+import type { PlaneResponse } from "../../contracts/responses/planes/planeCatalogResponse";
+import { getCurrentUser } from "../../api/userService.ts";
 import "./CatalogPage.css";
 
 const formatFlightTime = (timeStr: string | undefined): string => {
@@ -22,11 +23,21 @@ const formatFlightTime = (timeStr: string | undefined): string => {
     return result.trim();
 };
 
+interface UserData {
+    id: number;
+    email: string;
+    role: { name: string };
+    airlineId?: number | null; 
+}
+
 export default function CatalogPage() {
     const [planes, setPlanes] = useState<PlaneResponse[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    
+    const [userData, setUserData] = useState<UserData | null>(null);
+    const [isUserLoading, setIsUserLoading] = useState(true);
 
     const [takeOffAirportId, setTakeOffAirportId] = useState("");
     const [landingAirportId, setLandingAirportId] = useState("");
@@ -46,6 +57,31 @@ export default function CatalogPage() {
         const planeWithDist = planes.find(p => p.distanceKm && p.distanceKm > 0);
         return planeWithDist ? planeWithDist.distanceKm : null;
     }, [planes, isRouteActive]);
+
+    useEffect(() => {
+        const fetchUserData = async () => {
+            const token = localStorage.getItem("accessToken");
+            if (!token) {
+                setIsUserLoading(false);
+                return;
+            }
+
+            try {
+                const data = await getCurrentUser();
+                setUserData(data);
+            } catch (error: any) {
+                if (error.status === 401) {
+                    localStorage.removeItem("accessToken");
+                    setUserData(null);
+                }
+                console.error("Profile load failed", error);
+            } finally {
+                setIsUserLoading(false);
+            }
+        };
+
+        fetchUserData();
+    }, []);
 
     useEffect(() => {
         const fetchPlanes = async () => {
@@ -90,6 +126,12 @@ export default function CatalogPage() {
         setLandingAirportId("");
     };
 
+    const handleLogout = () => {
+        localStorage.removeItem("accessToken");
+        setUserData(null);
+        window.location.href = "/login";
+    };
+
     return (
         <div className="catalog-wrapper">
             <header className="catalog-navbar">
@@ -97,7 +139,6 @@ export default function CatalogPage() {
                     <button 
                         className={`toggle-sidebar-btn ${!isSidebarOpen ? 'sidebar-closed-btn' : ''}`}
                         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                        title={isSidebarOpen ? "Скрыть панель" : "Показать панель"}
                     >
                         <svg viewBox="0 0 24 24">
                             <line x1="19" y1="12" x2="5" y2="12"></line>
@@ -118,7 +159,24 @@ export default function CatalogPage() {
                 </div>
 
                 <div className="navbar-actions">
-                    <div className="user-avatar-stub" style={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: '#2c2d31', border: '1px solid #3a3b3f' }} />
+                    {!isUserLoading && (
+                        <>
+                            {userData ? (
+                                <>
+                                    <button onClick={handleLogout} className="navbar-link logout-btn">Выход</button>
+                                    <a href="/profile" className="navbar-link management-link">Личный кабинет</a>
+                                    {userData.airlineId && (
+                                        <a href="/management" className="navbar-link management-link">Управление судами</a>
+                                    )}
+                                </>
+                            ) : (
+                                <>
+                                    <a href="/login" className="navbar-link">Вход</a>
+                                    <a href="/register" className="navbar-link register-btn">Регистрация</a>
+                                </>
+                            )}
+                        </>
+                    )}
                 </div>
             </header>
 

@@ -52,8 +52,20 @@ export default function LoginPage() {
         navigate("/register");
     }
 
+    function handleCatalogClick() {
+        navigate("/");
+    }
+
     return (
         <div className="auth-page">
+            <button 
+                type="button" 
+                className="auth-back-button" 
+                onClick={handleCatalogClick}
+            >
+                В каталог
+            </button>
+
             <section className="auth-card">
                 <h1 className="auth-title">Вход</h1>
 

@@ -1,3 +1,14 @@
+:root {
+  --bg-dark: #0f1012;
+  --bg-surface: #16171a;
+  --bg-card: #1e1f23;
+  --accent-blue: #007aff;
+  --accent-soft: #4dabf7;
+  --text-primary: #ffffff;
+  --text-secondary: #909093;
+  --border-color: #2c2d31;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -22,29 +33,32 @@
 }
 
 * {
+  box-sizing: border-box;
   scrollbar-width: thin;
   scrollbar-color: var(--border-color) var(--bg-dark);
-}
-
-* {
-    box-sizing: border-box;
 }
 
 html,
 body,
 #root {
-    margin: 0;
-    width: 100%;
-    min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
 }
 
 body {
-    background: #171717;
-    color: #ffffff;
-    font-family: "Segoe UI", sans-serif;
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 button,
-input {
-    font: inherit;
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
 }

@@ -7,11 +7,19 @@ export async function sendRequest<TResponse>(
     method: string,
     body?: unknown
 ): Promise<TResponse> {
+    const token = localStorage.getItem("accessToken");
+    
+    const headers: Record<string, string> = {
+        "Content-Type": "application/json"
+    };
+
+    if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+    }
+
     const response = await fetch(`${apiBaseUrl}${path}`, {
         method: method,
-        headers: {
-            "Content-Type": "application/json"
-        },
+        headers: headers,
         body: body === undefined ? undefined : JSON.stringify(body)
     });
 
@@ -19,12 +27,10 @@ export async function sendRequest<TResponse>(
         if (response.status === 204) {
             return undefined as TResponse;
         }
-
         return await response.json() as TResponse;
     }
 
     const responseText = await response.text();
-
     throw createApiError(response.status, responseText);
 }
 

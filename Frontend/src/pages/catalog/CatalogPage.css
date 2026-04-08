@@ -1,13 +1,3 @@
-:root {
-  --bg-dark: #0f1012;
-  --bg-surface: #16171a;
-  --bg-card: #1e1f23;
-  --accent-blue: #007aff;
-  --text-primary: #ffffff;
-  --text-secondary: #909093;
-  --border-color: #2c2d31;
-}
-
 .catalog-wrapper {
   display: flex;
   flex-direction: column;
@@ -60,7 +50,7 @@
   width: 20px;
   height: 20px;
   fill: none;
-  stroke: #4dabf7;
+  stroke: var(--accent-soft);
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -68,7 +58,8 @@
 }
 
 .toggle-sidebar-btn:hover svg {
-  stroke: #74c0fc;
+  stroke: var(--accent-soft);
+  filter: brightness(1.2);
 }
 
 .toggle-sidebar-btn.sidebar-closed-btn svg {
@@ -94,7 +85,7 @@
   border-radius: 10px;
   border: 1px solid var(--border-color);
   background-color: var(--bg-dark);
-  color: white;
+  color: var(--text-primary);
   font-size: 14px;
   outline: none;
   transition: border-color 0.2s;
@@ -109,6 +100,28 @@
   flex: 1;
   display: flex;
   justify-content: flex-end;
+  gap: 24px;
+  align-items: center;
+}
+
+.navbar-link {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.navbar-link:hover {
+  color: var(--text-primary);
+}
+
+.navbar-link[href="/management"] {
+  color: var(--accent-soft);
+}
+
+.navbar-link[href="/management"]:hover {
+  filter: brightness(1.2);
 }
 
 .catalog-layout {
@@ -173,8 +186,8 @@
 
 .reset-filters-btn:hover {
   background: rgba(255, 255, 255, 0.05);
-  color: white;
-  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
 }
 
 .catalog-main {
@@ -200,4 +213,21 @@
 
 .catalog-message.error {
   color: #ff6b6b;
+}
+
+.management-link {
+  color: var(--accent-soft);
+  font-weight: 500;
+}
+
+.logout-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.logout-btn:hover {
+    color: #ff6b6b;
 }

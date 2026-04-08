@@ -61,8 +61,20 @@ export default function RegisterPage() {
         navigate("/login");
     }
 
+    function handleCatalogClick() {
+        navigate("/");
+    }
+
     return (
         <div className="auth-page">
+            <button 
+                type="button" 
+                className="auth-back-button" 
+                onClick={handleCatalogClick}
+            >
+                В каталог
+            </button>
+
             <section className="auth-card auth-card-register">
                 <h1 className="auth-title">Регистрация</h1>
 
