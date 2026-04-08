@@ -1,0 +1,119 @@
+.catalog-navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: 72px;
+  min-height: 72px;
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--border-color);
+  box-sizing: border-box;
+}
+
+.navbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.logo-text {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.navbar-search-container {
+  flex: 0 1 320px;
+  display: flex;
+  justify-content: center;
+}
+
+.navbar-search-input {
+  width: 100%;
+  padding: 11px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.navbar-search-input:focus {
+  border-color: var(--accent-blue);
+}
+
+.navbar-actions {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 24px;
+  align-items: center;
+}
+
+.navbar-link, 
+.logout-btn {
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.navbar-link {
+  color: var(--text-secondary);
+}
+
+.management-link {
+  color: var(--accent-soft);
+}
+
+.logout-btn {
+  color: var(--text-secondary);
+}
+
+.navbar-link:hover,
+.management-link:hover {
+  color: var(--text-primary);
+  text-shadow: 0 0 10px rgba(77, 171, 247, 0.6);
+}
+
+.logout-btn:hover {
+  color: #ff6b6b;
+  text-shadow: 0 0 10px rgba(255, 107, 107, 0.4);
+}
+
+.register-btn {
+  background-color: var(--accent-blue);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+}
+
+.register-btn:hover {
+  background-color: var(--accent-soft);
+  text-shadow: none;
+}
+
+.logo-link {
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    transition: opacity 0.2s ease;
+}
+
+.logo-link:hover {
+    opacity: 0.8;
+}

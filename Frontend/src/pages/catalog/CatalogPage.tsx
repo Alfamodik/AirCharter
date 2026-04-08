@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import InputField from "../../components/InputField/InputField";
 import CatalogPlaneCard from "../../components/CatalogPlaneCard/CatalogPlaneCard";
+import Header from "../../components/Header/Header";
 import { getPlanes, getCatalogPlanes } from "../../api/planesService"; 
 import type { PlaneResponse } from "../../contracts/responses/planes/planeCatalogResponse";
-import { getCurrentUser } from "../../api/userService.ts";
 import "./CatalogPage.css";
 
 const formatFlightTime = (timeStr: string | undefined): string => {
@@ -23,21 +23,11 @@ const formatFlightTime = (timeStr: string | undefined): string => {
     return result.trim();
 };
 
-interface UserData {
-    id: number;
-    email: string;
-    role: { name: string };
-    airlineId?: number | null; 
-}
-
 export default function CatalogPage() {
     const [planes, setPlanes] = useState<PlaneResponse[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-    
-    const [userData, setUserData] = useState<UserData | null>(null);
-    const [isUserLoading, setIsUserLoading] = useState(true);
 
     const [takeOffAirportId, setTakeOffAirportId] = useState("");
     const [landingAirportId, setLandingAirportId] = useState("");
@@ -57,31 +47,6 @@ export default function CatalogPage() {
         const planeWithDist = planes.find(p => p.distanceKm && p.distanceKm > 0);
         return planeWithDist ? planeWithDist.distanceKm : null;
     }, [planes, isRouteActive]);
-
-    useEffect(() => {
-        const fetchUserData = async () => {
-            const token = localStorage.getItem("accessToken");
-            if (!token) {
-                setIsUserLoading(false);
-                return;
-            }
-
-            try {
-                const data = await getCurrentUser();
-                setUserData(data);
-            } catch (error: any) {
-                if (error.status === 401) {
-                    localStorage.removeItem("accessToken");
-                    setUserData(null);
-                }
-                console.error("Profile load failed", error);
-            } finally {
-                setIsUserLoading(false);
-            }
-        };
-
-        fetchUserData();
-    }, []);
 
     useEffect(() => {
         const fetchPlanes = async () => {
@@ -126,59 +91,24 @@ export default function CatalogPage() {
         setLandingAirportId("");
     };
 
-    const handleLogout = () => {
-        localStorage.removeItem("accessToken");
-        setUserData(null);
-        window.location.href = "/login";
-    };
-
     return (
         <div className="catalog-wrapper">
-            <header className="catalog-navbar">
-                <div className="navbar-logo">
-                    <button 
-                        className={`toggle-sidebar-btn ${!isSidebarOpen ? 'sidebar-closed-btn' : ''}`}
-                        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                    >
-                        <svg viewBox="0 0 24 24">
-                            <line x1="19" y1="12" x2="5" y2="12"></line>
-                            <polyline points="12 19 5 12 12 5"></polyline>
-                        </svg>
-                    </button>
-                    <span className="logo-text">AirCharter</span>
-                </div>
-
-                <div className="navbar-search-container">
-                    <input
-                        type="text"
-                        className="navbar-search-input"
-                        placeholder="Поиск по модели..."
-                        value={searchValue}
-                        onChange={(e) => setSearchValue(e.target.value)}
-                    />
-                </div>
-
-                <div className="navbar-actions">
-                    {!isUserLoading && (
-                        <>
-                            {userData ? (
-                                <>
-                                    <button onClick={handleLogout} className="navbar-link logout-btn">Выход</button>
-                                    <a href="/profile" className="navbar-link management-link">Личный кабинет</a>
-                                    {userData.airlineId && (
-                                        <a href="/management" className="navbar-link management-link">Управление судами</a>
-                                    )}
-                                </>
-                            ) : (
-                                <>
-                                    <a href="/login" className="navbar-link">Вход</a>
-                                    <a href="/register" className="navbar-link register-btn">Регистрация</a>
-                                </>
-                            )}
-                        </>
-                    )}
-                </div>
-            </header>
+           <Header 
+                showSearch={true} 
+                searchValue={searchValue} 
+                onSearchChange={setSearchValue}
+            >
+                <button 
+                    className="toggle-sidebar-btn" 
+                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                >
+                    <svg viewBox="0 0 24 24" stroke="white">
+                        <line x1="4" y1="6" x2="20" y2="6"></line>
+                        <line x1="4" y1="12" x2="20" y2="12"></line>
+                        <line x1="4" y1="18" x2="20" y2="18"></line>
+                    </svg>
+                </button>
+            </Header>
 
             <div className={`catalog-layout ${!isSidebarOpen ? 'sidebar-closed' : ''}`}>
                 <aside className="catalog-sidebar">

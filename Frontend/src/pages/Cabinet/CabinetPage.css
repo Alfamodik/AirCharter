@@ -1,0 +1,82 @@
+.user-brief-info {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 24px;
+}
+
+.user-email-label {
+    font-size: 14px;
+    color: var(--text-secondary);
+    word-break: break-all;
+}
+
+.profile-redirect-btn {
+    color: var(--accent-blue);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 15px;
+}
+
+.profile-redirect-btn:hover {
+    text-decoration: underline;
+}
+
+.back-btn {
+    margin-top: 20px;
+    text-align: left;
+    justify-content: flex-start;
+    padding-left: 0;
+}
+
+/* Стили для строк заказов */
+.orders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.order-row {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px 24px;
+    display: grid;
+    grid-template-columns: 2fr 1.5fr 1fr 1fr;
+    align-items: center;
+    transition: border-color 0.2s;
+}
+
+.order-row:hover {
+    border-color: var(--accent-soft);
+}
+
+.order-model {
+    display: block;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.order-dest {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.status-badge.confirmed { color: #40c057; }
+.status-badge.pending { color: var(--accent-blue); }
+
+.order-info-price {
+    text-align: right;
+    font-weight: 800;
+    color: var(--accent-soft);
+}
