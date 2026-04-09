@@ -15,9 +15,7 @@ public sealed class FlightsController(AirCharterExtendedContext context, FlightC
     private readonly FlightCalculationService _flightCalculationService = flightCalculationService;
 
     [HttpPost("catalog-planes")]
-    public async Task<IActionResult> GetCatalogPlanes(
-        [FromBody] PlaneCatalogRequest request,
-        CancellationToken cancellationToken)
+    public async Task<IActionResult> GetCatalogPlanes([FromBody] PlaneCatalogRequest request, CancellationToken cancellationToken)
     {
         Airport? takeOffAirport = await _context.Airports
             .AsNoTracking()
@@ -26,9 +24,7 @@ public sealed class FlightsController(AirCharterExtendedContext context, FlightC
                 cancellationToken);
 
         if (takeOffAirport is null)
-        {
             return NotFound("Take-off airport not found.");
-        }
 
         Airport? landingAirport = await _context.Airports
             .AsNoTracking()
@@ -37,9 +33,7 @@ public sealed class FlightsController(AirCharterExtendedContext context, FlightC
                 cancellationToken);
 
         if (landingAirport is null)
-        {
             return NotFound("Landing airport not found.");
-        }
 
         List<Plane> planes = await _context.Planes
             .AsNoTracking()
