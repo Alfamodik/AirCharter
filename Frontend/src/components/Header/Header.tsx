@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useUser } from "../../context/UserContext";
 import "./Header.css";
 
@@ -16,6 +16,12 @@ export default function Header({
     children 
 }: HeaderProps) {
     const { user, isLoading, logout } = useUser();
+    const navigate = useNavigate();
+
+    const handleLogout = () => {
+        logout();
+        navigate("/");
+    };
 
     return (
         <header className="catalog-navbar">
@@ -44,16 +50,22 @@ export default function Header({
                     <>
                         {user ? (
                             <>
-                                <button onClick={logout} className="navbar-link logout-btn">Выход</button>
-                                <a href="/cabinet" className="navbar-link management-link">Личный кабинет</a>
+                                <button onClick={handleLogout} className="navbar-link logout-btn">
+                                    Выход
+                                </button>
+                                <Link to="/cabinet" className="navbar-link management-link">
+                                    Личный кабинет
+                                </Link>
                                 {user.airlineId && (
-                                    <a href="/management" className="navbar-link management-link">Управление вылетами</a>
+                                    <Link to="/management" className="navbar-link management-link">
+                                        Управление вылетами
+                                    </Link>
                                 )}
                             </>
                         ) : (
                             <>
-                                <a href="/login" className="navbar-link">Вход</a>
-                                <a href="/register" className="navbar-link register-btn">Регистрация</a>
+                                <Link to="/login" className="navbar-link">Вход</Link>
+                                <Link to="/register" className="navbar-link register-btn">Регистрация</Link>
                             </>
                         )}
                     </>

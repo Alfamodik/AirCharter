@@ -5,48 +5,39 @@ import type { UserProfileResponse } from "../contracts/responses/users/userProfi
 interface UserContextType {
     user: UserProfileResponse | null;
     isLoading: boolean;
-    refreshUser: () => Promise<void>;
     logout: () => void;
+    refreshUser: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     const [user, setUser] = useState<UserProfileResponse | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    const refreshUser = async () => {
-        const token = localStorage.getItem("accessToken");
-        if (!token) {
-            setUser(null);
-            setIsLoading(false);
-            return;
-        }
-
+    const fetchUser = async () => {
+        setIsLoading(true);
         try {
             const data = await getCurrentUser();
             setUser(data);
-        } catch (error) {
-            console.error("User context error:", error);
-            localStorage.removeItem("accessToken");
+        } catch {
             setUser(null);
         } finally {
             setIsLoading(false);
         }
     };
 
+    useEffect(() => {
+        fetchUser();
+    }, []);
+
     const logout = () => {
         localStorage.removeItem("accessToken");
         setUser(null);
-        window.location.href = "/login";
     };
 
-    useEffect(() => {
-        refreshUser();
-    }, []);
-
     return (
-        <UserContext.Provider value={{ user, isLoading, refreshUser, logout }}>
+        <UserContext.Provider value={{ user, isLoading, logout, refreshUser: fetchUser }}>
             {children}
         </UserContext.Provider>
     );

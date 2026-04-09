@@ -1,8 +1,5 @@
 ﻿using AirCharter.API.Model;
 using AirCharter.API.Responses.Flights;
-using AirCharter.API.Services;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 

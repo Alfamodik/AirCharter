@@ -4,10 +4,12 @@ import { useNavigate } from "react-router-dom";
 import InputField from "../../components/InputField/InputField";
 import { login } from "../../api/authService";
 import { getLoginErrorMessage } from "../../api/utils/authErrorMessages";
+import { useUser } from "../../context/UserContext"; // Импортируем контекст
 import "./auth-page.css";
 
 export default function LoginPage() {
     const navigate = useNavigate();
+    const { refreshUser } = useUser(); // Получаем функцию обновления
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -16,7 +18,6 @@ export default function LoginPage() {
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
-
         setErrorMessage("");
 
         const trimmedEmail = email.trim();
@@ -39,7 +40,9 @@ export default function LoginPage() {
                 password: password
             });
 
+            // 1. Сохраняем токен
             localStorage.setItem("accessToken", response.token);
+            await refreshUser();
             navigate("/");
         } catch (error) {
             setErrorMessage(getLoginErrorMessage(error));

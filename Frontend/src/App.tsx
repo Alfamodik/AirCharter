@@ -3,7 +3,8 @@ import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
 import ConfirmEmailPage from "./pages/auth/ConfirmEmailPage";
 import CatalogPage from "./pages/catalog/CatalogPage";
-import CabinetPage from "./pages/Cabinet/CabinetPage"
+import CabinetPage from "./pages/cabinet/CabinetPage"
+import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
     return (
@@ -16,7 +17,7 @@ export default function App() {
                 <Route path="/register" element={<RegisterPage />} />
                 <Route path="/confirm-email" element={<ConfirmEmailPage />} />
 
-                <Route path="/cabinet" element={<CabinetPage />} />
+                <Route path="/cabinet" element={<ProtectedRoute><CabinetPage/></ProtectedRoute>} />
             </Routes>
         </BrowserRouter>
     );

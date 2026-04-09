@@ -1,20 +1,32 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "../../components/Header/Header";
+import UserDepartureCard from "../../components/DepartureCards/UserDepartureCard";
 import { useUser } from "../../context/UserContext";
+import { getUserDepartures } from "../../api/userService";
+import type { UserDepartureResponse } from "../../contracts/responses/users/userDepartureResponse";
 import "./CabinetPage.css";
 
-interface Order {
-    id: number;
-    modelName: string;
-    departureTime: string;
-    arrivalAirport: string;
-    status: string;
-    price: number;
-}
-
 export default function CabinetPage() {
-    const { user, isLoading } = useUser();
-    const [orders] = useState<Order[]>([]);
+    const { user, isLoading: isUserLoading } = useUser();
+    const [orders, setOrders] = useState<UserDepartureResponse[]>([]);
+    const [isOrdersLoading, setIsOrdersLoading] = useState<boolean>(true);
+
+    useEffect(() => {
+        const fetchOrders = async () => {
+            try {
+                const data = await getUserDepartures();
+                setOrders(data);
+            } catch (error) {
+                console.error("Failed to fetch departures:", error);
+            } finally {
+                setIsOrdersLoading(false);
+            }
+        };
+
+        fetchOrders();
+    }, []);
+
+    const showLoading = isUserLoading || isOrdersLoading;
 
     return (
         <div className="catalog-wrapper">
@@ -35,33 +47,24 @@ export default function CabinetPage() {
                 <aside className="catalog-sidebar">
                     <div className="user-brief-info">
                         <span className="user-email-label">
-                            {isLoading ? "Загрузка..." : user?.email}
+                            {isUserLoading ? "Загрузка..." : user?.email}
                         </span>
-                        <a href="/profile" className="profile-redirect-btn">Профиль пользователя</a>
+                        <a href="/profile" className="profile-redirect-btn">
+                            Профиль пользователя
+                        </a>
                     </div>
                 </aside>
 
                 <main className="catalog-main">
                     <div className="orders-list">
-                        {orders.length > 0 ? (
+                        {showLoading ? (
+                            <div className="catalog-message">Загрузка данных...</div>
+                        ) : orders.length > 0 ? (
                             orders.map((order) => (
-                                <div key={order.id} className="order-row">
-                                    <div className="order-info-main">
-                                        <span className="order-model">{order.modelName}</span>
-                                        <span className="order-dest">Направление: {order.arrivalAirport}</span>
-                                    </div>
-                                    <div className="order-info-date">
-                                        <span>{new Date(order.departureTime).toLocaleString()}</span>
-                                    </div>
-                                    <div className="order-info-status">
-                                        <span className={`status-badge ${order.status.toLowerCase()}`}>
-                                            {order.status}
-                                        </span>
-                                    </div>
-                                    <div className="order-info-price">
-                                        {order.price.toLocaleString()} ₽
-                                    </div>
-                                </div>
+                                <UserDepartureCard 
+                                    key={order.id} 
+                                    departure={order} 
+                                />
                             ))
                         ) : (
                             <div className="catalog-message">У вас пока нет активных заказов</div>

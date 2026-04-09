@@ -1,4 +1,4 @@
-﻿namespace AirCharter.API.Responses
+﻿namespace AirCharter.API.Responses.Users
 {
     public sealed class CurrentUserRoleResponse
     {
