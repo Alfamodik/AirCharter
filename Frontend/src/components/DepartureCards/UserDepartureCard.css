@@ -153,15 +153,42 @@
     font-weight: 800;
 }
 
-/* Статусы */
 .status-badge {
     padding: 6px 12px;
     border-radius: 8px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
+    display: inline-block;
+    letter-spacing: 0.5px;
 }
 
-.status-badge.ожидает { background: #fff4e5; color: #ff9800; }
-.status-badge.подтвержден { background: #e8f5e9; color: #4caf50; }
-.status-badge.отменен { background: #ffebee; color: #f44336; }
+.status-pending, .status-draft {
+    background: #fff4e5;
+    color: #ff9800;
+}
+
+.status-active {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.status-completed {
+    background: #e8f5e9;
+    color: #4caf50;
+}
+
+.status-cancelled {
+    background: #ffebee;
+    color: #f44336;
+}
+
+.status-delayed {
+    background: #fce4ec;
+    color: #d81b60;
+}
+
+.status-default {
+    background: #f5f5f5;
+    color: #757575;
+}

@@ -76,8 +76,8 @@ public sealed class UsersController(AirCharterExtendedContext context) : Control
             {
                 Id = departure.Id,
                 ModelName = departure.Plane.ModelName,
-                TakeOffAirport = departure.TakeOffAirport.Iata + " (" + departure.TakeOffAirport.City + ")",
-                LandingAirport = departure.LandingAirport.Iata + " (" + departure.LandingAirport.City + ")",
+                TakeOffAirport = departure.TakeOffAirport.Iata,// + " (" + departure.TakeOffAirport.City + ")",
+                LandingAirport = departure.LandingAirport.Iata,// + " (" + departure.LandingAirport.City + ")",
                 TakeOffDateTime = departure.RequestedTakeOffDateTime,
                 Status = departure.DepartureStatuses
                     .OrderByDescending(departureStatus => departureStatus.StatusSettingDateTime)
