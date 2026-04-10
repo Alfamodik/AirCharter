@@ -1,10 +1,13 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import ProtectedRoute from "./components/ProtectedRoute";
+
 import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
 import ConfirmEmailPage from "./pages/auth/ConfirmEmailPage";
+
 import CatalogPage from "./pages/catalog/CatalogPage";
-import CabinetPage from "./pages/cabinet/CabinetPage"
-import ProtectedRoute from "./components/ProtectedRoute";
+import CabinetPage from "./pages/cabinet/CabinetPage";
+import ProfilePage from "./pages/ProfilePage/ProfilePage";
 
 export default function App() {
     return (
@@ -18,6 +21,7 @@ export default function App() {
                 <Route path="/confirm-email" element={<ConfirmEmailPage />} />
 
                 <Route path="/cabinet" element={<ProtectedRoute><CabinetPage/></ProtectedRoute>} />
+                <Route path="/profile" element={<ProtectedRoute><ProfilePage/></ProtectedRoute>} />
             </Routes>
         </BrowserRouter>
     );

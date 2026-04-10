@@ -1,12 +1,16 @@
 import type { ReactNode } from "react";
+import { useId } from "react";
 import "./InputField.css";
 
 type InputFieldProps = {
-    id: string;
+    id?: string;
     label: string;
     value: string;
     onChange: (value: string) => void;
     type?: string;
+    required?: boolean;
+    maxLength?: number;
+    max?: string;
     rightElement?: ReactNode;
 };
 
@@ -16,13 +20,18 @@ export default function InputField({
     value,
     onChange,
     type = "text",
+    required,
+    maxLength,
+    max,
     rightElement
 }: InputFieldProps) {
+    const generatedId = useId();
+    const inputId = id || generatedId;
     const hasRightElement = rightElement !== undefined;
 
     return (
         <div className="input-field">
-            <label className="input-field-label" htmlFor={id}>
+            <label className="input-field-label" htmlFor={inputId}>
                 {label}
             </label>
 
@@ -34,18 +43,21 @@ export default function InputField({
                 }
             >
                 <input
-                    id={id}
+                    id={inputId}
                     className="input-field-input"
                     type={type}
                     value={value}
+                    required={required}
+                    maxLength={maxLength}
+                    max={max}
                     onChange={(event) => onChange(event.target.value)}
                 />
 
-                {hasRightElement ? (
+                {hasRightElement && (
                     <div className="input-field-right">
                         {rightElement}
                     </div>
-                ) : null}
+                )}
             </div>
         </div>
     );

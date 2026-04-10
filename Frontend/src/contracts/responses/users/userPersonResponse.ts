@@ -3,8 +3,8 @@ export interface UserPersonResponse {
     firstName: string;
     lastName: string;
     patronymic?: string | null;
-    passportSeries?: string | null;
-    passportNumber?: string | null;
+    passportSeries: string;
+    passportNumber: string;
     birthDate?: string | null;
     email?: string | null;
 }

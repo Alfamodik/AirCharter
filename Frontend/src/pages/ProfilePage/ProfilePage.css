@@ -1,0 +1,42 @@
+.profile-card-width {
+    width: 450px;
+}
+
+.passport-row {
+    display: flex;
+    gap: 12px;
+}
+
+.passport-row > div {
+    flex: 1;
+}
+
+.form-message {
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    text-align: center;
+    margin-top: 10px;
+}
+
+.form-message.success {
+    background: rgba(46, 125, 50, 0.2);
+    color: #81c784;
+    border: 1px solid rgba(46, 125, 50, 0.5);
+}
+
+.form-message.error {
+    background: rgba(198, 40, 40, 0.2);
+    color: #e57373;
+    border: 1px solid rgba(198, 40, 40, 0.5);
+}
+
+.auth-form .input-field-container label {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin-bottom: 4px;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+}

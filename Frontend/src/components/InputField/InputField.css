@@ -1,40 +1,58 @@
 .input-field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  width: 100%;
 }
 
 .input-field-label {
-  font-size: 15px;
-  font-weight: 400;
-  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-left: 4px;
+}
+
+.input-field-control {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .input-field-input {
   width: 100%;
-  height: 42px;
+  height: 44px;
   padding: 0 14px;
   border: 1px solid var(--border-color);
-  border-radius: 10px;
+  border-radius: 12px; 
   background: var(--bg-surface);
   color: var(--text-primary);
   outline: none;
-  box-sizing: border-box;
   font-size: 15px;
-  transition: border-color 0.2s;
+  transition: all 0.2s ease;
 }
 
 .input-field-input:focus {
   border-color: var(--accent-blue);
+  background: var(--bg-surface);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
 }
 
-.auth-password-toggle {
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--text-primary);
+    -webkit-box-shadow: 0 0 0px 1000px var(--bg-surface) inset !important;
+    transition: background-color 5000s ease-in-out 0s;
 }
 
-.auth-password-toggle:hover {
-  color: var(--text-primary);
+input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.8);
+    cursor: pointer;
+}
+
+.auth-submit-button:disabled {
+    background: var(--border-color);
+    color: var(--text-secondary);
+    cursor: not-allowed;
+    opacity: 0.6;
 }

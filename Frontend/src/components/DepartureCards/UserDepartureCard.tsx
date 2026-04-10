@@ -6,7 +6,6 @@ interface UserDepartureCardProps {
 }
 
 export default function UserDepartureCard({ departure }: UserDepartureCardProps) {
-    // Маппинг русских статусов на латинские классы
     const getStatusClass = (status: string): string => {
         const s = status.toLowerCase();
         if (s.includes("ожидает") || s.includes("ожидание")) return "status-pending";

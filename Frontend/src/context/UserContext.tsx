@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { getCurrentUser } from "../api/userService";
-import type { UserProfileResponse } from "../contracts/responses/users/userProfileResponse";
+import type { UserProfileResponse } from "../contracts/responses/users/userPersonResponse";
 
 interface UserContextType {
     user: UserProfileResponse | null;
