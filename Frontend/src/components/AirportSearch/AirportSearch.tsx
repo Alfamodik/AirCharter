@@ -50,17 +50,19 @@ export default function AirportSearch({ label, onSelect, value }: AirportSearchP
     }, []);
 
     const handleSelect = (airport: AirportSearchResponse) => {
-        const displayText = `${airport.city} (${airport.iata})`;
+        const code = airport.iata || airport.icao || "";
+        const displayText = code ? `${airport.city} (${code})` : airport.city;
+        
         setQuery(displayText);
         onSelect(airport.id.toString());
         setIsOpen(false);
-    };
+};
 
     return (
         <div className="airport-search-container" ref={dropdownRef}>
             <InputField 
                 label={label}
-                placeholder="Город или IATA..."
+                placeholder="Город, страна, или код..."
                 value={query}
                 onChange={setQuery}
                 onFocus={() => query.length >= 2 && setIsOpen(true)}
@@ -70,7 +72,10 @@ export default function AirportSearch({ label, onSelect, value }: AirportSearchP
                     {results.map((airport) => (
                         <li key={airport.id} onClick={() => handleSelect(airport)}>
                             <span className="airport-name">{airport.name}</span>
-                            <span className="airport-sub">{airport.city}, {airport.iata}</span>
+                            <span className="airport-sub">
+                                {airport.city}
+                                {(airport.iata || airport.icao) && `, ${airport.iata || airport.icao}`}
+                            </span>
                         </li>
                     ))}
                 </ul>

@@ -143,7 +143,7 @@ export default function CatalogPage() {
                             
                             {routeDistance && (
                                 <div className="route-info">
-                                    <span>Расстояние: {routeDistance} км</span>
+                                    <span>Примерное расстояние: {routeDistance} км</span>
                                 </div>
                             )}
                         </div>
