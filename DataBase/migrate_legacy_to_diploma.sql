@@ -40,8 +40,16 @@ SELECT
     LEFT(COALESCE(name, CONCAT('Airport ', airport_id)), 45),
     LEFT(COALESCE(city, 'Unknown'), 45),
     LEFT(COALESCE(country, 'Unknown'), 45),
-    LEFT(UPPER(COALESCE(IATA, CONCAT('X', LPAD(airport_id, 2, '0')))), 3),
-    LEFT(UPPER(COALESCE(ICAO, CONCAT('X', LPAD(airport_id, 3, '0')))), 4),
+    CASE
+        WHEN IATA IS NULL OR TRIM(IATA) = '' OR UPPER(TRIM(IATA)) = 'NULL' THEN NULL
+        WHEN UPPER(TRIM(IATA)) REGEXP '^[A-Z]{3}$' THEN UPPER(TRIM(IATA))
+        ELSE NULL
+    END,
+    CASE
+        WHEN ICAO IS NULL OR TRIM(ICAO) = '' OR UPPER(TRIM(ICAO)) = 'NULL' THEN NULL
+        WHEN UPPER(TRIM(ICAO)) REGEXP '^[A-Z]{4}$' THEN UPPER(TRIM(ICAO))
+        ELSE NULL
+    END,
     ROUND(COALESCE(latitude, 0), 6),
     ROUND(COALESCE(longitude, 0), 6)
 FROM air_charter.airport;

@@ -1,4 +1,4 @@
-export type PlaneResponse = {
+export type PlaneCatalogResponse = {
     id: number;
     modelName: string;
     passengerCapacity: number;

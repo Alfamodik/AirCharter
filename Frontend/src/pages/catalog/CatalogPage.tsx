@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import InputField from "../../components/InputField/InputField";
 import CatalogPlaneCard from "../../components/CatalogPlaneCard/CatalogPlaneCard";
+import AirportSearch from "../../components/AirportSearch/AirportSearch";
 import Header from "../../components/Header/Header";
 import { getPlanes, getCatalogPlanes } from "../../api/planesService"; 
-import type { PlaneResponse } from "../../contracts/responses/planes/planeCatalogResponse";
+import type { PlaneCatalogResponse } from "../../contracts/responses/planes/planeCatalogResponse";
 import "./CatalogPage.css";
 
 const formatFlightTime = (timeStr: string | undefined): string => {
@@ -24,7 +26,8 @@ const formatFlightTime = (timeStr: string | undefined): string => {
 };
 
 export default function CatalogPage() {
-    const [planes, setPlanes] = useState<PlaneResponse[]>([]);
+    const navigate = useNavigate();
+    const [planes, setPlanes] = useState<PlaneCatalogResponse[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -52,7 +55,7 @@ export default function CatalogPage() {
         const fetchPlanes = async () => {
             setIsLoading(true);
             try {
-                let data: PlaneResponse[];
+                let data: PlaneCatalogResponse[];
                 if (isRouteActive) {
                     data = await getCatalogPlanes(Number(takeOffAirportId), Number(landingAirportId));
                 } else {
@@ -81,6 +84,18 @@ export default function CatalogPage() {
         });
     }, [planes, searchValue, modelNameFilter, minimumPassengerCapacityFilter, minimumMaxDistanceFilter, maximumTransfersFilter]);
 
+    const handleOrder = (plane: PlaneCatalogResponse) => {
+        navigate("/create-order", { 
+            state: { 
+                planeId: plane.id,
+                modelName: plane.modelName,
+                takeOffAirportId,
+                landingAirportId,
+                flightCost: plane.flightCost
+            } 
+        });
+    };
+
     const clearFilters = () => {
         setSearchValue("");
         setModelNameFilter("");
@@ -93,7 +108,7 @@ export default function CatalogPage() {
 
     return (
         <div className="catalog-wrapper">
-           <Header 
+            <Header 
                 showSearch={true} 
                 searchValue={searchValue} 
                 onSearchChange={setSearchValue}
@@ -112,24 +127,34 @@ export default function CatalogPage() {
 
             <div className={`catalog-layout ${!isSidebarOpen ? 'sidebar-closed' : ''}`}>
                 <aside className="catalog-sidebar">
-                    <h2 className="sidebar-heading">Маршрут</h2>
-                    <div className="filters-stack" style={{ marginBottom: '24px' }}>
-                        <InputField label="ID Аэропорта вылета" value={takeOffAirportId} onChange={setTakeOffAirportId} type="number" />
-                        <InputField label="ID Аэропорта прибытия" value={landingAirportId} onChange={setLandingAirportId} type="number" />
-                        
-                        {routeDistance && (
-                            <div style={{ marginTop: '12px', fontSize: '14px' }}>
-                                <span style={{ color: '#4dabf7', fontWeight: 600 }}>Расстояние: {routeDistance} км</span>
-                            </div>
-                        )}
-                    </div>
+                    <div className="sidebar-content">
+                        <h2 className="sidebar-heading">Маршрут</h2>
+                        <div className="filters-stack" style={{ marginBottom: '32px' }}>
+                            <AirportSearch 
+                                label="Вылет" 
+                                value={takeOffAirportId} 
+                                onSelect={setTakeOffAirportId} 
+                            />
+                            <AirportSearch 
+                                label="Прибытие" 
+                                value={landingAirportId} 
+                                onSelect={setLandingAirportId} 
+                            />
+                            
+                            {routeDistance && (
+                                <div className="route-info">
+                                    <span>Расстояние: {routeDistance} км</span>
+                                </div>
+                            )}
+                        </div>
 
-                    <h2 className="sidebar-heading">Фильтры</h2>
-                    <div className="filters-stack">
-                        <InputField label="Модель самолёта" value={modelNameFilter} onChange={setModelNameFilter} />
-                        <InputField label="Минимум мест" value={minimumPassengerCapacityFilter} onChange={setMinimumPassengerCapacityFilter} type="number" />
-                        <InputField label="Мин. дальность (км)" value={minimumMaxDistanceFilter} onChange={setMinimumMaxDistanceFilter} type="number" />
-                        <InputField label="Макс. пересадок" value={maximumTransfersFilter} onChange={setMaximumTransfersFilter} type="number" />
+                        <h2 className="sidebar-heading">Фильтры</h2>
+                        <div className="filters-stack">
+                            <InputField label="Модель самолёта" value={modelNameFilter} onChange={setModelNameFilter} />
+                            <InputField label="Минимум мест" value={minimumPassengerCapacityFilter} onChange={setMinimumPassengerCapacityFilter} type="number" />
+                            <InputField label="Мин. дальность (км)" value={minimumMaxDistanceFilter} onChange={setMinimumMaxDistanceFilter} type="number" />
+                            <InputField label="Макс. пересадок" value={maximumTransfersFilter} onChange={setMaximumTransfersFilter} type="number" />
+                        </div>
                     </div>
 
                     <button className="reset-filters-btn" onClick={clearFilters}>
@@ -154,6 +179,7 @@ export default function CatalogPage() {
                                     flightCost={isRouteActive && plane.flightCost ? `${plane.flightCost.toLocaleString('ru-RU')} ₽` : ""}
                                     flightTime={isRouteActive ? formatFlightTime(plane.flightTime) : ""}
                                     numberOfTransfers={isRouteActive && plane.numberOfTransfers !== undefined ? `${plane.numberOfTransfers}` : ""}
+                                    onOrderClick={() => handleOrder(plane)}
                                 />
                             ))}
                         </div>

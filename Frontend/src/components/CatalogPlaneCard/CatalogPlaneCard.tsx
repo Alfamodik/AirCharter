@@ -8,6 +8,7 @@ type CatalogPlaneCardProps = {
     flightTime: string;
     numberOfTransfers: string;
     planeImageBytes?: string;
+    onOrderClick: () => void;
 };
 
 export default function CatalogPlaneCard({
@@ -17,7 +18,8 @@ export default function CatalogPlaneCard({
     flightCost,
     flightTime,
     numberOfTransfers,
-    planeImageBytes
+    planeImageBytes,
+    onOrderClick
 }: CatalogPlaneCardProps) {
     return (
         <article className="plane-card">
@@ -27,7 +29,7 @@ export default function CatalogPlaneCard({
                 ) : (
                     <div className="plane-img-placeholder">✈️</div>
                 )}
-                <div className="plane-card-badge">{flightTime}</div>
+                {flightTime && <div className="plane-card-badge">{flightTime}</div>}
             </div>
             
             <div className="plane-card-content">
@@ -44,13 +46,15 @@ export default function CatalogPlaneCard({
                     </div>
                     <div className="spec-item">
                         <span className="spec-label">Пересадки:</span>
-                        <span className="spec-value">{numberOfTransfers}</span>
+                        <span className="spec-value">{numberOfTransfers || "0"}</span>
                     </div>
                 </div>
 
                 <div className="plane-card-footer">
                     <div className="plane-price">{flightCost}</div>
-                    <button className="book-btn">Заказать</button>
+                    <button className="book-btn" onClick={onOrderClick}>
+                        Заказать
+                    </button>
                 </div>
             </div>
         </article>

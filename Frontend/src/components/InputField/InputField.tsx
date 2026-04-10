@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode, FocusEvent } from "react";
 import { useId } from "react";
 import "./InputField.css";
 
@@ -7,6 +7,8 @@ type InputFieldProps = {
     label: string;
     value: string;
     onChange: (value: string) => void;
+    onFocus?: (event: FocusEvent<HTMLInputElement>) => void;
+    placeholder?: string;
     type?: string;
     required?: boolean;
     maxLength?: number;
@@ -19,6 +21,8 @@ export default function InputField({
     label,
     value,
     onChange,
+    onFocus,
+    placeholder,
     type = "text",
     required,
     maxLength,
@@ -50,6 +54,8 @@ export default function InputField({
                     required={required}
                     maxLength={maxLength}
                     max={max}
+                    placeholder={placeholder}
+                    onFocus={onFocus}
                     onChange={(event) => onChange(event.target.value)}
                 />
 

@@ -103,6 +103,7 @@ internal class Program
         
         builder.Services.AddScoped<JwtService>();
         builder.Services.AddScoped<EmailService>();
+        builder.Services.AddScoped<AirportSearchService>();
         builder.Services.AddScoped<FlightCalculationService>();
 
         WebApplication app = builder.Build();

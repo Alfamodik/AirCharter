@@ -73,8 +73,8 @@ CREATE TABLE airports(
     name VARCHAR(45) NOT NULL,
     city VARCHAR(45) NOT NULL,
     country VARCHAR(45) NOT NULL,
-    iata VARCHAR(3) NOT NULL,
-    icao VARCHAR(4) NOT NULL,
+    iata VARCHAR(3),
+    icao VARCHAR(4),
     latitude DECIMAL(9, 6) NOT NULL,
     longitude DECIMAL(9, 6) NOT NULL
 );

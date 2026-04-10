@@ -1,0 +1,64 @@
+.airport-search-container {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    width: 100%;
+}
+
+.airport-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-top: none;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    padding: 4px 0;
+    list-style: none;
+    z-index: 1000;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+    margin: 0;
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.airport-dropdown li {
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.airport-dropdown li:last-child {
+    border-bottom: none;
+}
+
+.airport-dropdown li:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.airport-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: block;
+}
+
+.airport-sub {
+    font-size: 12px;
+    color: var(--text-secondary);
+    display: block;
+    margin-top: 2px;
+}
+
+/* Кастомизация скроллбара внутри дропдауна */
+.airport-dropdown::-webkit-scrollbar {
+    width: 4px;
+}
+
+.airport-dropdown::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 10px;
+}

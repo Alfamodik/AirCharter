@@ -13,9 +13,9 @@ public partial class Airport
 
     public string Country { get; set; } = null!;
 
-    public string Iata { get; set; } = null!;
+    public string? Iata { get; set; }
 
-    public string Icao { get; set; } = null!;
+    public string? Icao { get; set; }
 
     public decimal Latitude { get; set; }
 

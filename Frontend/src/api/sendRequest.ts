@@ -5,7 +5,8 @@ const apiBaseUrl = "https://localhost:7219";
 export async function sendRequest<TResponse>(
     path: string,
     method: string,
-    body?: unknown
+    body?: unknown,
+    signal?: AbortSignal
 ): Promise<TResponse> {
     const token = localStorage.getItem("accessToken");
     
@@ -20,7 +21,8 @@ export async function sendRequest<TResponse>(
     const response = await fetch(`${apiBaseUrl}${path}`, {
         method: method,
         headers: headers,
-        body: body === undefined ? undefined : JSON.stringify(body)
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal: signal
     });
 
     if (response.ok) {

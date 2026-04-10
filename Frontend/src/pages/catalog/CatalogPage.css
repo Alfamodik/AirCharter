@@ -1,137 +1,124 @@
 .catalog-wrapper {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  background-color: var(--bg-dark);
-  color: var(--text-primary);
-  overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background-color: var(--bg-dark);
+    color: var(--text-primary);
+    overflow: hidden;
 }
 
 .catalog-layout {
-  display: grid;
-  grid-template-columns: 300px 1fr;
-  transition: grid-template-columns 0.4s cubic-bezier(0.4, 0, 0.2, 1), gap 0.4s ease;
-  gap: 24px;
-  flex: 1;
-  overflow: hidden;
-  height: calc(100vh - 72px);
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    transition: grid-template-columns 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    flex: 1;
+    overflow: hidden;
 }
 
 .catalog-layout.sidebar-closed {
-  grid-template-columns: 0px 1fr;
-  gap: 0;
-}
-
-/* Сайдбар и кнопка переключения */
-.toggle-sidebar-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  margin: 0;
-  outline: none;
-  transition: background-color 0.2s ease;
-  border-radius: 8px;
-}
-
-.toggle-sidebar-btn:hover {
-  background-color: rgba(255, 255, 255, 0.05);
-}
-
-.toggle-sidebar-btn svg {
-  width: 20px;
-  height: 20px;
-  fill: none;
-  stroke: white; 
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition: stroke 0.2s ease, filter 0.2s ease; 
-}
-
-.toggle-sidebar-btn:hover svg {
-  stroke: white;
-  filter: brightness(1.2) drop-shadow(0 0 5px rgba(255, 255, 255, 0.5));
+    grid-template-columns: 0px 1fr;
 }
 
 .catalog-sidebar {
-  transition: opacity 0.2s ease, transform 0.4s ease, min-width 0.4s ease;
-  min-width: 300px;
-  width: 100%;
-  padding: 32px 24px;
-  background-color: var(--bg-surface);
-  border-right: 1px solid var(--border-color);
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  box-sizing: border-box;
+    background-color: var(--bg-surface);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+    overflow-y: auto;
+    transition: transform 0.4s ease, opacity 0.3s ease;
+    z-index: 10;
+    min-width: 300px;
+    box-sizing: border-box;
 }
 
 .sidebar-closed .catalog-sidebar {
-  opacity: 0;
-  transform: translateX(-30px);
-  pointer-events: none;
-  min-width: 0;
+    transform: translateX(-100%);
+    opacity: 0;
+    pointer-events: none;
+    min-width: 0;
+}
+
+.sidebar-content {
+    flex: 1;
 }
 
 .sidebar-heading {
-  font-size: 20px;
-  margin-bottom: 24px;
-  font-weight: 700;
-  color: var(--text-primary);
+    font-size: 20px;
+    margin-bottom: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.sidebar-heading:first-child {
+    margin-top: 0;
 }
 
 .filters-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.route-info {
+    margin-top: 12px;
+    font-size: 14px;
+}
+
+.route-info span {
+    color: #4dabf7;
+    font-weight: 600;
 }
 
 .reset-filters-btn {
-  margin-top: auto;
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 14px;
+    margin-top: 24px;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
 }
 
 .reset-filters-btn:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-primary);
-  border-color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
 }
 
-/* Контентная часть */
 .catalog-main {
-  flex: 1;
-  padding: 32px;
-  overflow-y: auto;
-  box-sizing: border-box;
+    flex: 1;
+    padding: 32px;
+    overflow-y: auto;
+    box-sizing: border-box;
 }
 
 .catalog-results-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 24px;
 }
 
 .catalog-message {
-  grid-column: 1 / -1;
-  text-align: center;
-  padding: 64px;
-  color: var(--text-secondary);
-  font-size: 16px;
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 64px;
+    color: var(--text-secondary);
+    font-size: 16px;
 }
 
 .catalog-message.error {
-  color: #ff6b6b;
+    color: #ff6b6b;
+}
+
+.catalog-sidebar::-webkit-scrollbar,
+.catalog-main::-webkit-scrollbar {
+    width: 6px;
+}
+
+.catalog-sidebar::-webkit-scrollbar-thumb,
+.catalog-main::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 10px;
 }
