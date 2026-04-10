@@ -5,8 +5,10 @@ import { useUser } from "../../context/UserContext";
 import { getUserDepartures } from "../../api/userService";
 import type { UserDepartureResponse } from "../../contracts/responses/users/userDepartureResponse";
 import "./CabinetPage.css";
+import { useNavigate } from "react-router-dom";
 
 export default function CabinetPage() {
+    const navigate = useNavigate();
     const { user, isLoading: isUserLoading } = useUser();
     const [orders, setOrders] = useState<UserDepartureResponse[]>([]);
     const [isOrdersLoading, setIsOrdersLoading] = useState<boolean>(true);
@@ -32,8 +34,8 @@ export default function CabinetPage() {
         <div className="catalog-wrapper">
             <Header showSearch={false}>
                 <button 
-                    className="toggle-sidebar-btn back-navbar-btn" 
-                    onClick={() => window.history.back()}
+                    className="header-icon-btn" 
+                    onClick={() => navigate(-1)}
                     title="Назад"
                 >
                     <svg viewBox="0 0 24 24">

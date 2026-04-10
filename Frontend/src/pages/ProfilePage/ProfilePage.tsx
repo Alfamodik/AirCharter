@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { getMyPerson, updateMyPerson } from "../../api/personService";
 import type { ProfileFormData } from "../../contracts/responses/persons/profileFormData";
 import InputField from "../../components/InputField/InputField";
+import Header from "../../components/Header/Header";
 import "./ProfilePage.css";
 
 export default function ProfilePage() {
@@ -72,10 +73,10 @@ export default function ProfilePage() {
         
         if (!isChanged || isSaving) return;
 
-        // Защита от ввода даты из будущего вручную
+        // Жесткая проверка: блокируем отправку, если дата в будущем
         if (formData.birthDate && new Date(formData.birthDate) > new Date()) {
             setStatusMessage({ text: "Дата рождения не может быть в будущем", type: "error" });
-            return;
+            return; 
         }
 
         setIsSaving(true);
@@ -112,81 +113,92 @@ export default function ProfilePage() {
     if (isLoading) return <div className="auth-page"><div className="auth-title">Загрузка...</div></div>;
 
     return (
-        <div className="auth-page">
-            <button className="auth-back-button" onClick={() => navigate("/cabinet")}>
-                ← Назад
-            </button>
+        <div className="catalog-wrapper">
+            <Header showSearch={false}>
+                <button 
+                    className="header-icon-btn" 
+                    onClick={() => navigate(-1)}
+                    title="Назад"
+                >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="19" y1="12" x2="5" y2="12"></line>
+                        <polyline points="12 19 5 12 12 5"></polyline>
+                    </svg>
+                </button>
+            </Header>
 
-            <div className="auth-card profile-card-width">
-                <h1 className="auth-title">Профиль</h1>
+            <div className="profile-scroll-container">
+                <div className="profile-content-card">
+                    <h1 className="auth-title">Профиль</h1>
 
-                <form onSubmit={handleSubmit} className="auth-form">
-                    <InputField 
-                        label="Фамилия" 
-                        value={formData.lastName} 
-                        onChange={(val) => updateField("lastName", val)} 
-                        required 
-                    />
-                    <InputField 
-                        label="Имя" 
-                        value={formData.firstName} 
-                        onChange={(val) => updateField("firstName", val)} 
-                        required 
-                    />
-                    <InputField 
-                        label="Отчество" 
-                        value={formData.patronymic ?? ""} 
-                        onChange={(val) => updateField("patronymic", val)} 
-                    />
-                    
-                    <div className="passport-row">
+                    <form onSubmit={handleSubmit} className="auth-form">
                         <InputField 
-                            label="Серия" 
-                            value={formData.passportSeries} 
-                            onChange={(val) => updateField("passportSeries", val.replace(/\D/g, ''))} 
-                            maxLength={4} 
+                            label="Фамилия" 
+                            value={formData.lastName} 
+                            onChange={(val) => updateField("lastName", val)} 
                             required 
                         />
                         <InputField 
-                            label="Номер" 
-                            value={formData.passportNumber} 
-                            onChange={(val) => updateField("passportNumber", val.replace(/\D/g, ''))} 
-                            maxLength={6} 
+                            label="Имя" 
+                            value={formData.firstName} 
+                            onChange={(val) => updateField("firstName", val)} 
                             required 
                         />
-                    </div>
-
-                    <InputField 
-                        label="Дата рождения" 
-                        type="date" 
-                        value={formData.birthDate ?? ""} 
-                        max={today}
-                        onChange={(val) => updateField("birthDate", val)} 
-                    />
-                    
-                    <InputField 
-                        label="Email для связи" 
-                        type="email" 
-                        value={formData.email ?? ""} 
-                        onChange={(val) => updateField("email", val)} 
-                    />
-
-                    {statusMessage && (
-                        <div className={`form-message ${statusMessage.type}`}>
-                            {statusMessage.text}
+                        <InputField 
+                            label="Отчество" 
+                            value={formData.patronymic ?? ""} 
+                            onChange={(val) => updateField("patronymic", val)} 
+                        />
+                        
+                        <div className="passport-row">
+                            <InputField 
+                                label="Серия" 
+                                value={formData.passportSeries} 
+                                onChange={(val) => updateField("passportSeries", val.replace(/\D/g, ''))} 
+                                maxLength={4} 
+                                required 
+                            />
+                            <InputField 
+                                label="Номер" 
+                                value={formData.passportNumber} 
+                                onChange={(val) => updateField("passportNumber", val.replace(/\D/g, ''))} 
+                                maxLength={6} 
+                                required 
+                            />
                         </div>
-                    )}
 
-                    <div className="auth-actions">
-                        <button 
-                            type="submit" 
-                            className="auth-submit-button" 
-                            disabled={!isChanged || isSaving}
-                        >
-                            {isSaving ? "Сохранение..." : "Сохранить"}
-                        </button>
-                    </div>
-                </form>
+                        <InputField 
+                            label="Дата рождения" 
+                            type="date" 
+                            value={formData.birthDate ?? ""} 
+                            max={today}
+                            onChange={(val) => updateField("birthDate", val)} 
+                        />
+                        
+                        <InputField 
+                            label="Email для связи" 
+                            type="email" 
+                            value={formData.email ?? ""} 
+                            onChange={(val) => updateField("email", val)} 
+                        />
+
+                        {statusMessage && (
+                            <div className={`form-message ${statusMessage.type}`}>
+                                {statusMessage.text}
+                            </div>
+                        )}
+
+                        <div className="auth-actions">
+                            <button 
+                                type="submit" 
+                                className="auth-submit-button" 
+                                disabled={!isChanged || isSaving}
+                            >
+                                {isSaving ? "Сохранение..." : "Сохранить"}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     );
