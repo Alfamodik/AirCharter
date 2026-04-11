@@ -3,10 +3,10 @@ USE air_charter_extended;
 
 CREATE TABLE airlines(
 	id INT PRIMARY KEY AUTO_INCREMENT,
-    airline_name VARCHAR(45) NOT NULL,
+    airline_name VARCHAR(45) NOT NULL UNIQUE,
     creation_date DATE NOT NULL,
-    organization_full_name VARCHAR(100) NOT NULL,
-    organization_short_name VARCHAR(100) NOT NULL,
+    organization_full_name VARCHAR(100) NOT NULL UNIQUE,
+    organization_short_name VARCHAR(100) NOT NULL UNIQUE,
     legal_address VARCHAR(255) NOT NULL,
     postal_address VARCHAR(255) NOT NULL,
     phone_number VARCHAR(20) NOT NULL,
@@ -23,7 +23,7 @@ CREATE TABLE airlines(
 
 CREATE TABLE roles(
     id INT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(45) NOT NULL
+    name VARCHAR(45) UNIQUE NOT NULL
 );
 
 CREATE TABLE persons(
@@ -40,10 +40,10 @@ CREATE TABLE persons(
 CREATE TABLE users(
 	id INT PRIMARY KEY AUTO_INCREMENT,
     person_id INT,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
     role_id INT NOT NULL,
 	airline_id INT,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
     #legal_address VARCHAR(255),
     #actual_address VARCHAR(255),
     email_confirmation_code_hash VARCHAR(255),
@@ -70,8 +70,8 @@ CREATE TABLE planes(
 
 CREATE TABLE airports(
     id INT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(45) NOT NULL,
-    city VARCHAR(45) NOT NULL,
+    name VARCHAR(225) NOT NULL,
+    city VARCHAR(45),
     country VARCHAR(45) NOT NULL,
     iata VARCHAR(3),
     icao VARCHAR(4),
@@ -117,9 +117,9 @@ CREATE TABLE passenger_departure(
 );
 
 CREATE TABLE departure_employees(
-	id INT PRIMARY KEY AUTO_INCREMENT,
     departure_id INT NOT NULL,
     employee_id INT NOT NULL,
+    PRIMARY KEY (departure_id, employee_id),
     FOREIGN KEY (departure_id) REFERENCES departures(id),
     FOREIGN KEY (employee_id) REFERENCES users(id)
 );

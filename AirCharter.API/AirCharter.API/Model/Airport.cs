@@ -9,7 +9,7 @@ public partial class Airport
 
     public string Name { get; set; } = null!;
 
-    public string City { get; set; } = null!;
+    public string? City { get; set; }
 
     public string Country { get; set; } = null!;
 
