@@ -51,7 +51,7 @@ export default function AirportSearch({ label, onSelect, value }: AirportSearchP
 
     const handleSelect = (airport: AirportSearchResponse) => {
         const code = airport.iata || airport.icao || "";
-        const displayText = code ? `${airport.city} (${code})` : airport.city;
+        const displayText = code ? `${airport.city} (${code})` : airport.city ?? airport.country;
         
         setQuery(displayText);
         onSelect(airport.id.toString());

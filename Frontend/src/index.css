@@ -1,35 +1,46 @@
 :root {
-  --bg-dark: #0f1012;
-  --bg-surface: #16171a;
-  --bg-card: #1e1f23;
-  --accent-blue: #007aff;
-  --accent-soft: #4dabf7;
-  --text-primary: #ffffff;
-  --text-secondary: #909093;
-  --border-color: #2c2d31;
+    --bg-dark: #0f1012;
+    --bg-surface: #16171a;
+    --bg-card: #1e1f23;
+    --accent-blue: #007aff;
+    --accent-soft: #4dabf7;
+    --text-primary: #ffffff;
+    --text-secondary: #909093;
+    --border-color: #2c2d31;
+}
+
+[data-theme='light'] {
+    --bg-dark: #f0f2f5;
+    --bg-surface: #ffffff;
+    --bg-card: #ffffff;
+    --accent-blue: #007aff;
+    --accent-soft: #2196f3;
+    --text-primary: #1c1e21;
+    --text-secondary: #606770;
+    --border-color: #ebedf0;
 }
 
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+    width: 8px;
+    height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-dark);
+    background: var(--bg-dark);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 10px;
-  border: 2px solid var(--bg-dark);
+    background: var(--border-color);
+    border-radius: 10px;
+    border: 2px solid var(--bg-dark);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-secondary);
+    background: var(--text-secondary);
 }
 
 ::-webkit-scrollbar-thumb:active {
-  background: var(--accent-blue);
+    background: var(--accent-blue);
 }
 
 input:-webkit-autofill,
@@ -41,34 +52,35 @@ input:-webkit-autofill:focus {
 }
 
 * {
-  box-sizing: border-box;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-color) var(--bg-dark);
+    box-sizing: border-box;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) var(--bg-dark);
 }
 
 html,
 body,
 #root {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100vh;
 }
 
 body {
-  background-color: var(--bg-dark);
-  color: var(--text-primary);
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+    background-color: var(--bg-dark);
+    color: var(--text-primary);
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 button,
 input,
 textarea,
 select {
-  font: inherit;
-  color: inherit;
+    font: inherit;
+    color: inherit;
 }
 
 .header-icon-btn {

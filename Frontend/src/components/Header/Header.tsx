@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useUser } from "../../context/UserContext";
+import { ThemeToggle } from "../ToggleTheme/ToggleThemeButton";
 import "./Header.css";
 
 interface HeaderProps {
@@ -46,6 +47,8 @@ export default function Header({
             </div>
 
             <div className="navbar-actions">
+                <ThemeToggle />
+                
                 {!isLoading && (
                     <>
                         {user ? (
