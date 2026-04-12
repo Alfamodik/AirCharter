@@ -66,6 +66,7 @@ export default function AirportSearch({ label, onSelect, value }: AirportSearchP
                 value={query}
                 onChange={setQuery}
                 onFocus={() => query.length >= 2 && setIsOpen(true)}
+                autoComplete="off"
             />
             {isOpen && results.length > 0 && (
                 <ul className="airport-dropdown">

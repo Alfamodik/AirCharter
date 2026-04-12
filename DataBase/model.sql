@@ -11,8 +11,8 @@ CREATE TABLE airlines(
     postal_address VARCHAR(255) NOT NULL,
     phone_number VARCHAR(20) NOT NULL,
     email VARCHAR(255) NOT NULL,
-    service_base_cost INT NOT NULL,
-    transfer_base_cost INT NOT NULL,
+    service_base_cost DECIMAL(12, 2) NOT NULL,
+    transfer_base_cost DECIMAL(12, 2) NOT NULL,
 	bank_name VARCHAR(45) NOT NULL,
     taxpayer_id VARCHAR(12) NOT NULL,
 	tax_registration_reason_code VARCHAR(9) NOT NULL,
@@ -46,8 +46,6 @@ CREATE TABLE users(
 	airline_id INT,
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    #legal_address VARCHAR(255),
-    #actual_address VARCHAR(255),
     email_confirmation_code_hash VARCHAR(255),
     email_confirmation_code_expires_at_utc DATETIME,
     is_email_confirmed BOOLEAN NOT NULL,
@@ -64,7 +62,7 @@ CREATE TABLE planes(
     max_distance INT NOT NULL,
     passenger_capacity INT NOT NULL,
     cruising_speed INT NOT NULL,
-    flight_hour_cost INT NOT NULL,
+    flight_hour_cost DECIMAL(12, 2) NOT NULL,
     image LONGBLOB,
     FOREIGN KEY (airline_id) REFERENCES airlines(id)
 );

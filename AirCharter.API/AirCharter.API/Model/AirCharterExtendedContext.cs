@@ -91,14 +91,18 @@ public partial class AirCharterExtendedContext : DbContext
             entity.Property(e => e.PrimaryStateRegistrationNumber)
                 .HasMaxLength(15)
                 .HasColumnName("primary_state_registration_number");
-            entity.Property(e => e.ServiceBaseCost).HasColumnName("service_base_cost");
+            entity.Property(e => e.ServiceBaseCost)
+                .HasPrecision(12, 2)
+                .HasColumnName("service_base_cost");
             entity.Property(e => e.TaxRegistrationReasonCode)
                 .HasMaxLength(9)
                 .HasColumnName("tax_registration_reason_code");
             entity.Property(e => e.TaxpayerId)
                 .HasMaxLength(12)
                 .HasColumnName("taxpayer_id");
-            entity.Property(e => e.TransferBaseCost).HasColumnName("transfer_base_cost");
+            entity.Property(e => e.TransferBaseCost)
+                .HasPrecision(12, 2)
+                .HasColumnName("transfer_base_cost");
         });
 
         modelBuilder.Entity<Airport>(entity =>
@@ -296,7 +300,9 @@ public partial class AirCharterExtendedContext : DbContext
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.AirlineId).HasColumnName("airline_id");
             entity.Property(e => e.CruisingSpeed).HasColumnName("cruising_speed");
-            entity.Property(e => e.FlightHourCost).HasColumnName("flight_hour_cost");
+            entity.Property(e => e.FlightHourCost)
+                .HasPrecision(12, 2)
+                .HasColumnName("flight_hour_cost");
             entity.Property(e => e.Image).HasColumnName("image");
             entity.Property(e => e.MaxDistance).HasColumnName("max_distance");
             entity.Property(e => e.ModelName)

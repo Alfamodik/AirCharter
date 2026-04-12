@@ -13,6 +13,7 @@ type InputFieldProps = {
     required?: boolean;
     maxLength?: number;
     max?: string;
+    autoComplete?: "on" | "off" | "new-password" | string;
     rightElement?: ReactNode;
 };
 
@@ -27,6 +28,7 @@ export default function InputField({
     required,
     maxLength,
     max,
+    autoComplete = "on",
     rightElement
 }: InputFieldProps) {
     const generatedId = useId();
@@ -57,6 +59,7 @@ export default function InputField({
                     placeholder={placeholder}
                     onFocus={onFocus}
                     onChange={(event) => onChange(event.target.value)}
+                    autoComplete={autoComplete}
                 />
 
                 {hasRightElement && (

@@ -72,3 +72,47 @@ UPDATE persons SET email = 'vladislav.fedenev@example.com', birth_date = '2003-0
 UPDATE persons SET email = 'matvey.vasilev@example.com', birth_date = '2004-10-02' WHERE id = 20;
 UPDATE persons SET email = 'ibragim.kuzcenov@example.com', birth_date = '2003-04-19' WHERE id = 21;
 UPDATE persons SET email = 'dmitriy.salnikov2@example.com', birth_date = '2004-09-11' WHERE id = 22;
+
+SET @airline_id = 2;
+
+INSERT INTO persons
+(
+    first_name,
+    last_name,
+    patronymic,
+    passport_series,
+    passport_number,
+    email,
+    birth_date
+)
+VALUES
+    ('Иван', 'Петров', 'Александрович', '4510', '123456', 'ivan.petrov.manager@aircharter.local', '1989-04-12'),
+    ('Алексей', 'Соколов', 'Игоревич', '4511', '234567', 'aleksey.sokolov.pilot@aircharter.local', '1985-07-21'),
+    ('Дмитрий', 'Кузнецов', 'Олегович', '4512', '345678', 'dmitriy.kuznetsov.copilot@aircharter.local', '1990-11-03'),
+    ('Анна', 'Смирнова', 'Сергеевна', '4513', '456789', 'anna.smirnova.attendant@aircharter.local', '1995-02-18'),
+    ('Максим', 'Волков', 'Андреевич', '4514', '567890', 'maksim.volkov.technician@aircharter.local', '1987-09-27');
+
+SET @manager_person_id = LAST_INSERT_ID() - 4;
+SET @pilot_person_id = LAST_INSERT_ID() - 3;
+SET @copilot_person_id = LAST_INSERT_ID() - 2;
+SET @flight_attendant_person_id = LAST_INSERT_ID() - 1;
+SET @technician_person_id = LAST_INSERT_ID();
+
+INSERT INTO users
+(
+    person_id,
+    role_id,
+    airline_id,
+    email,
+    password_hash,
+    email_confirmation_code_hash,
+    email_confirmation_code_expires_at_utc,
+    is_email_confirmed,
+    is_active
+)
+VALUES
+    (@manager_person_id, 3, @airline_id, 'ivan.petrov.manager@aircharter.local', 'HASH_MANAGER', NULL, NULL, 1, 1),
+    (@pilot_person_id, 6, @airline_id, 'aleksey.sokolov.pilot@aircharter.local', 'HASH_PILOT', NULL, NULL, 1, 1),
+    (@copilot_person_id, 7, @airline_id, 'dmitriy.kuznetsov.copilot@aircharter.local', 'HASH_COPILOT', NULL, NULL, 1, 1),
+    (@flight_attendant_person_id, 8, @airline_id, 'anna.smirnova.attendant@aircharter.local', 'HASH_ATTENDANT', NULL, NULL, 1, 1),
+    (@technician_person_id, 9, @airline_id, 'maksim.volkov.technician@aircharter.local', 'HASH_TECHNICIAN', NULL, NULL, 1, 1);

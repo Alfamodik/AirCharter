@@ -23,9 +23,9 @@ public partial class Airline
 
     public string Email { get; set; } = null!;
 
-    public int ServiceBaseCost { get; set; }
+    public decimal ServiceBaseCost { get; set; }
 
-    public int TransferBaseCost { get; set; }
+    public decimal TransferBaseCost { get; set; }
 
     public string BankName { get; set; } = null!;
 

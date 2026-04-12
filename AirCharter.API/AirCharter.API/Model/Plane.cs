@@ -17,7 +17,7 @@ public partial class Plane
 
     public int CruisingSpeed { get; set; }
 
-    public int FlightHourCost { get; set; }
+    public decimal FlightHourCost { get; set; }
 
     public byte[]? Image { get; set; }
 
