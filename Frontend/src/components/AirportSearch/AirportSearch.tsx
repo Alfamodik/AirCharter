@@ -56,7 +56,7 @@ export default function AirportSearch({ label, onSelect, value }: AirportSearchP
         setQuery(displayText);
         onSelect(airport.id.toString());
         setIsOpen(false);
-};
+    };
 
     return (
         <div className="airport-search-container" ref={dropdownRef}>

@@ -1,8 +1,8 @@
-import type { UserDepartureResponse } from "../../contracts/responses/users/myDepartureResponse";
+import type { MyDepartureResponse } from "../../contracts/responses/users/myDepartureResponse";
 import "./UserDepartureCard.css";
 
 interface UserDepartureCardProps {
-    departure: UserDepartureResponse;
+    departure: MyDepartureResponse;
 }
 
 export default function UserDepartureCard({ departure }: UserDepartureCardProps) {
