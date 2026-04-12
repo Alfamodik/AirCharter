@@ -20,7 +20,7 @@ namespace AirCharter.API.Controllers
                 {
                     Id = plane.Id,
                     ModelName = plane.ModelName,
-                    PassengerCapacity = plane.PassangerCapacity,
+                    PassengerCapacity = plane.PassengerCapacity,
                     MaxDistance = plane.MaxDistance,
                     DistanceKm = 0,
                     FlightTime = TimeSpan.Zero,

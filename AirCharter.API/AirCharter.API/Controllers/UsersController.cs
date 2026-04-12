@@ -72,27 +72,24 @@ public sealed class UsersController(AirCharterExtendedContext context) : Control
         List<MyDepartureResponse> departures = await _context.Departures
             .AsNoTracking()
             .Where(departure => departure.CharterRequesterId == userId)
+            .OrderByDescending(departure => departure.RequestedTakeOffDateTime)
             .Select(departure => new MyDepartureResponse
             {
                 Id = departure.Id,
                 ModelName = departure.Plane.ModelName,
-                TakeOffAirport = departure.TakeOffAirport.Iata,// + " (" + departure.TakeOffAirport.City + ")",
-                LandingAirport = departure.LandingAirport.Iata,// + " (" + departure.LandingAirport.City + ")",
+                TakeOffAirport = departure.TakeOffAirport.Iata ?? departure.TakeOffAirport.Icao ?? departure.TakeOffAirport.Name,
+                LandingAirport = departure.LandingAirport.Iata ?? departure.LandingAirport.Icao ?? departure.LandingAirport.Name,
                 TakeOffDateTime = departure.RequestedTakeOffDateTime,
                 Status = departure.DepartureStatuses
                     .OrderByDescending(departureStatus => departureStatus.StatusSettingDateTime)
                     .Select(departureStatus => departureStatus.Status.Status1)
                     .FirstOrDefault() ?? string.Empty,
-                Price = departure.Distance * departure.Plane.CostPerKilometer,
+                Price = departure.Price,
                 FlightTime = departure.FlightTime,
                 Distance = departure.Distance,
-                Transfers = 0,
-                PlaneImage = departure.Plane.Image == null
-                    ? null
-                    : Convert.ToBase64String(departure.Plane.Image),
-                AirlineImage = departure.Plane.Airline.Image == null
-                    ? null
-                    : Convert.ToBase64String(departure.Plane.Airline.Image)
+                Transfers = departure.Transfers,
+                PlaneImage = departure.Plane.Image == null ? null : Convert.ToBase64String(departure.Plane.Image),
+                AirlineImage = departure.Plane.Airline.Image == null ? null : Convert.ToBase64String(departure.Plane.Airline.Image)
             })
             .ToListAsync(cancellationToken);
 

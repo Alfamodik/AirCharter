@@ -72,16 +72,3 @@ UPDATE persons SET email = 'vladislav.fedenev@example.com', birth_date = '2003-0
 UPDATE persons SET email = 'matvey.vasilev@example.com', birth_date = '2004-10-02' WHERE id = 20;
 UPDATE persons SET email = 'ibragim.kuzcenov@example.com', birth_date = '2003-04-19' WHERE id = 21;
 UPDATE persons SET email = 'dmitriy.salnikov2@example.com', birth_date = '2004-09-11' WHERE id = 22;
-
-INSERT INTO planes
-(id, airline_id, model_name, max_distance, passanger_capacity, cruising_speed, cost_per_kilometer, flight_hour_cost, image)
-VALUES
-    (2, 2, 'Cessna Citation XLS+', 3441, 9, 815, 4, 3000, NULL),
-    (3, 2, 'Cessna Citation Latitude', 5000, 9, 826, 6, 5000, NULL),
-    (4, 2, 'Bombardier Challenger 350', 5926, 10, 870, 7, 6000, NULL),
-    (5, 2, 'Bombardier Global 6000', 11112, 13, 904, 10, 9500, NULL),
-    (9, 2, 'Dassault Falcon 2000', 6020, 10, 851, 8, 6500, NULL),
-    (10, 2, 'Dassault Falcon 7X', 11019, 14, 900, 10, 9000, NULL),
-    (11, 5, 'Hawker 800XP', 4893, 8, 745, 5, 4000, NULL),
-    (12, 5, 'Learjet 60', 4445, 8, 839, 5, 4200, NULL),
-    (13, 5, 'Embraer Legacy 600', 6019, 13, 834, 7, 6000, NULL);

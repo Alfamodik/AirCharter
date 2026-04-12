@@ -13,11 +13,9 @@ public partial class Plane
 
     public int MaxDistance { get; set; }
 
-    public int PassangerCapacity { get; set; }
+    public int PassengerCapacity { get; set; }
 
     public int CruisingSpeed { get; set; }
-
-    public int CostPerKilometer { get; set; }
 
     public int FlightHourCost { get; set; }
 

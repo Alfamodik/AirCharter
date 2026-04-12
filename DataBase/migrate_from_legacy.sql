@@ -56,6 +56,8 @@ INSERT INTO airlines
     postal_address,
     phone_number,
     email,
+    service_base_cost,
+    transfer_base_cost,
     bank_name,
     taxpayer_id,
     tax_registration_reason_code,
@@ -75,6 +77,8 @@ SELECT
     'Не указано',
     COALESCE(representative_phone_number, ''),
     CONCAT('airline', airline_id, '@legacy.local'),
+    50000,
+    100000,
     CONCAT('Bank ', name),
     LPAD(airline_id, 12, '0'),
     LPAD(airline_id, 9, '0'),
@@ -145,9 +149,8 @@ INSERT INTO planes
     airline_id,
     model_name,
     max_distance,
-    passanger_capacity,
+    passenger_capacity,
     cruising_speed,
-    cost_per_kilometer,
     flight_hour_cost,
     image
 )
@@ -156,9 +159,8 @@ SELECT
     airline_id,
     model_name,
     COALESCE(max_distance, 0),
-    COALESCE(passanger_capacity, 0),
+    COALESCE(passenger_capacity, 0),
     COALESCE(cruising_speed, 0),
-    COALESCE(cost_per_kilometer, 0),
     0,
     image
 FROM air_charter.plane;
@@ -184,6 +186,8 @@ INSERT INTO departures
     landing_airport_id,
     distance,
     flight_time,
+    price,
+    transfers,
     requested_take_off_date_time
 )
 SELECT
@@ -194,9 +198,18 @@ SELECT
     d.landing_airport_id,
     COALESCE(d.distance, 0),
     CASE
-        WHEN p.cruising_speed IS NULL OR p.cruising_speed = 0 THEN '00:00:00'
+        WHEN p.cruising_speed IS NULL
+             OR p.cruising_speed = 0
+             OR d.distance IS NULL
+            THEN '00:00:00'
         ELSE SEC_TO_TIME(ROUND(d.distance / p.cruising_speed * 3600))
     END,
+    CASE
+        WHEN d.distance IS NULL OR p.cost_per_kilometer IS NULL
+            THEN 0
+        ELSE ROUND(d.distance * p.cost_per_kilometer, 2)
+    END,
+    0,
     d.requested_take_off_date_time
 FROM air_charter.departure d
 INNER JOIN air_charter.plane p ON p.plane_id = d.plane_id;

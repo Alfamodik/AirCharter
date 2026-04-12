@@ -36,6 +36,7 @@ public sealed class FlightsController(AirCharterExtendedContext context, FlightC
             return NotFound("Landing airport not found.");
 
         List<Plane> planes = await _context.Planes
+            .Include(plane => plane.Airline)
             .AsNoTracking()
             .ToListAsync(cancellationToken);
 

@@ -1,4 +1,4 @@
-import type { UserDepartureResponse } from "../../contracts/responses/users/userDepartureResponse";
+import type { UserDepartureResponse } from "../../contracts/responses/users/myDepartureResponse";
 import "./UserDepartureCard.css";
 
 interface UserDepartureCardProps {
@@ -80,7 +80,7 @@ export default function UserDepartureCard({ departure }: UserDepartureCardProps)
                     </div>
                     <div className="info-item price-item">
                         <span className="info-label">Стоимость</span>
-                        <span className="info-value price-text">{departure.price.toLocaleString()} ₽</span>
+                        <span className="info-value price-text">{(Math.round(departure.price / 1000) * 1000).toLocaleString('ru-RU')} ₽</span>
                     </div>
                 </div>
             </div>

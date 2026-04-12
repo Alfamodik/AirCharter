@@ -1,6 +1,6 @@
 import { sendRequest } from "./sendRequest";
 import type { UserPersonResponse } from "../contracts/responses/users/UserPersonResponse";
-import type { UserDepartureResponse } from "../contracts/responses/users/userDepartureResponse";
+import type { UserDepartureResponse } from "../contracts/responses/users/myDepartureResponse";
 
 export async function getCurrentUser(): Promise<UserPersonResponse> {
     return await sendRequest<UserPersonResponse>("/users/me", "GET");

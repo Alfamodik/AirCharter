@@ -1,4 +1,4 @@
-export interface UserDepartureResponse {
+export interface MyDepartureResponse {
     id: number;
     modelName: string;
     takeOffAirport: string;

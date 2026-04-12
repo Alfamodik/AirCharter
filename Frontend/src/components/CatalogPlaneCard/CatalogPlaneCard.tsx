@@ -4,7 +4,7 @@ type CatalogPlaneCardProps = {
     modelName: string;
     passengerCapacity: number;
     maxDistance: number;
-    flightCost: string;
+    flightCost?: number;
     flightTime: string;
     numberOfTransfers: string;
     planeImageBytes?: string;
@@ -51,7 +51,9 @@ export default function CatalogPlaneCard({
                 </div>
 
                 <div className="plane-card-footer">
-                    <div className="plane-price">{flightCost}</div>
+                    <div className="plane-price">
+                        {flightCost ? `${Math.floor(flightCost).toLocaleString('ru-RU')} ₽` : ""}
+                    </div>
                     <button className="book-btn" onClick={onOrderClick}>
                         Заказать
                     </button>

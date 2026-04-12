@@ -10,12 +10,12 @@ import "./CatalogPage.css";
 
 const formatFlightTime = (timeStr: string | undefined): string => {
     if (!timeStr) return "";
-    const regex = /(?:(\d+)\.)?(\d+):(\d+):/;
+    const regex = /(?:(\d+)\.)?(\d+):(\d+)(?::(\d+))?/;
     const match = timeStr.match(regex);
     if (!match) return "";
 
     const days = match[1] ? parseInt(match[1], 10) : 0;
-    let hours = parseInt(match[2], 10) + (days * 24);
+    const hours = parseInt(match[2], 10) + (days * 24);
     const minutes = parseInt(match[3], 10);
 
     let result = "";
@@ -46,21 +46,17 @@ export default function CatalogPage() {
     }, [takeOffAirportId, landingAirportId]);
 
     const routeDistance = useMemo(() => {
-        if (!isRouteActive) return null;
-        const planeWithDist = planes.find(p => p.distanceKm && p.distanceKm > 0);
-        return planeWithDist ? planeWithDist.distanceKm : null;
+        if (!isRouteActive || planes.length === 0) return null;
+        return planes[0].distanceKm || null;
     }, [planes, isRouteActive]);
 
     useEffect(() => {
         const fetchPlanes = async () => {
             setIsLoading(true);
             try {
-                let data: PlaneCatalogResponse[];
-                if (isRouteActive) {
-                    data = await getCatalogPlanes(Number(takeOffAirportId), Number(landingAirportId));
-                } else {
-                    data = await getPlanes();
-                }
+                const data = isRouteActive 
+                    ? await getCatalogPlanes(Number(takeOffAirportId), Number(landingAirportId))
+                    : await getPlanes();
                 setPlanes(data);
                 setError(null);
             } catch (err) {
@@ -143,7 +139,7 @@ export default function CatalogPage() {
                             
                             {routeDistance && (
                                 <div className="route-info">
-                                    <span>Примерное расстояние: {routeDistance} км</span>
+                                    <span>Расстояние: {routeDistance} км</span>
                                 </div>
                             )}
                         </div>
@@ -176,7 +172,7 @@ export default function CatalogPage() {
                                     passengerCapacity={plane.passengerCapacity}
                                     maxDistance={plane.maxDistance}
                                     planeImageBytes={plane.imageBase64}
-                                    flightCost={isRouteActive && plane.flightCost ? `${plane.flightCost.toLocaleString('ru-RU')} ₽` : ""}
+                                    flightCost={isRouteActive ? plane.flightCost : undefined}
                                     flightTime={isRouteActive ? formatFlightTime(plane.flightTime) : ""}
                                     numberOfTransfers={isRouteActive && plane.numberOfTransfers !== undefined ? `${plane.numberOfTransfers}` : ""}
                                     onOrderClick={() => handleOrder(plane)}

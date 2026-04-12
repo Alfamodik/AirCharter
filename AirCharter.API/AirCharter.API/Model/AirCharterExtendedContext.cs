@@ -22,8 +22,6 @@ public partial class AirCharterExtendedContext : DbContext
 
     public virtual DbSet<Departure> Departures { get; set; }
 
-    public virtual DbSet<DepartureEmployee> DepartureEmployees { get; set; }
-
     public virtual DbSet<DepartureStatus> DepartureStatuses { get; set; }
 
     public virtual DbSet<Person> Persons { get; set; }
@@ -47,6 +45,12 @@ public partial class AirCharterExtendedContext : DbContext
             entity.HasKey(e => e.Id).HasName("PRIMARY");
 
             entity.ToTable("airlines");
+
+            entity.HasIndex(e => e.AirlineName, "airline_name").IsUnique();
+
+            entity.HasIndex(e => e.OrganizationFullName, "organization_full_name").IsUnique();
+
+            entity.HasIndex(e => e.OrganizationShortName, "organization_short_name").IsUnique();
 
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.AirlineName)
@@ -87,12 +91,14 @@ public partial class AirCharterExtendedContext : DbContext
             entity.Property(e => e.PrimaryStateRegistrationNumber)
                 .HasMaxLength(15)
                 .HasColumnName("primary_state_registration_number");
+            entity.Property(e => e.ServiceBaseCost).HasColumnName("service_base_cost");
             entity.Property(e => e.TaxRegistrationReasonCode)
                 .HasMaxLength(9)
                 .HasColumnName("tax_registration_reason_code");
             entity.Property(e => e.TaxpayerId)
                 .HasMaxLength(12)
                 .HasColumnName("taxpayer_id");
+            entity.Property(e => e.TransferBaseCost).HasColumnName("transfer_base_cost");
         });
 
         modelBuilder.Entity<Airport>(entity =>
@@ -121,7 +127,7 @@ public partial class AirCharterExtendedContext : DbContext
                 .HasPrecision(9, 6)
                 .HasColumnName("longitude");
             entity.Property(e => e.Name)
-                .HasMaxLength(45)
+                .HasMaxLength(225)
                 .HasColumnName("name");
         });
 
@@ -147,10 +153,14 @@ public partial class AirCharterExtendedContext : DbContext
                 .HasColumnName("flight_time");
             entity.Property(e => e.LandingAirportId).HasColumnName("landing_airport_id");
             entity.Property(e => e.PlaneId).HasColumnName("plane_id");
+            entity.Property(e => e.Price)
+                .HasPrecision(12, 2)
+                .HasColumnName("price");
             entity.Property(e => e.RequestedTakeOffDateTime)
                 .HasColumnType("datetime")
                 .HasColumnName("requested_take_off_date_time");
             entity.Property(e => e.TakeOffAirportId).HasColumnName("take_off_airport_id");
+            entity.Property(e => e.Transfers).HasColumnName("transfers");
 
             entity.HasOne(d => d.CharterRequester).WithMany(p => p.Departures)
                 .HasForeignKey(d => d.CharterRequesterId)
@@ -171,6 +181,28 @@ public partial class AirCharterExtendedContext : DbContext
                 .HasForeignKey(d => d.TakeOffAirportId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("departures_ibfk_3");
+
+            entity.HasMany(d => d.Employees).WithMany(p => p.DeparturesNavigation)
+                .UsingEntity<Dictionary<string, object>>(
+                    "DepartureEmployee",
+                    r => r.HasOne<User>().WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.ClientSetNull)
+                        .HasConstraintName("departure_employees_ibfk_2"),
+                    l => l.HasOne<Departure>().WithMany()
+                        .HasForeignKey("DepartureId")
+                        .OnDelete(DeleteBehavior.ClientSetNull)
+                        .HasConstraintName("departure_employees_ibfk_1"),
+                    j =>
+                    {
+                        j.HasKey("DepartureId", "EmployeeId")
+                            .HasName("PRIMARY")
+                            .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0 });
+                        j.ToTable("departure_employees");
+                        j.HasIndex(new[] { "EmployeeId" }, "employee_id");
+                        j.IndexerProperty<int>("DepartureId").HasColumnName("departure_id");
+                        j.IndexerProperty<int>("EmployeeId").HasColumnName("employee_id");
+                    });
 
             entity.HasMany(d => d.People).WithMany(p => p.Departures)
                 .UsingEntity<Dictionary<string, object>>(
@@ -193,31 +225,6 @@ public partial class AirCharterExtendedContext : DbContext
                         j.IndexerProperty<int>("DepartureId").HasColumnName("departure_id");
                         j.IndexerProperty<int>("PersonId").HasColumnName("person_id");
                     });
-        });
-
-        modelBuilder.Entity<DepartureEmployee>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("PRIMARY");
-
-            entity.ToTable("departure_employees");
-
-            entity.HasIndex(e => e.DepartureId, "departure_id");
-
-            entity.HasIndex(e => e.EmployeeId, "employee_id");
-
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.DepartureId).HasColumnName("departure_id");
-            entity.Property(e => e.EmployeeId).HasColumnName("employee_id");
-
-            entity.HasOne(d => d.Departure).WithMany(p => p.DepartureEmployees)
-                .HasForeignKey(d => d.DepartureId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("departure_employees_ibfk_1");
-
-            entity.HasOne(d => d.Employee).WithMany(p => p.DepartureEmployees)
-                .HasForeignKey(d => d.EmployeeId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("departure_employees_ibfk_2");
         });
 
         modelBuilder.Entity<DepartureStatus>(entity =>
@@ -288,7 +295,6 @@ public partial class AirCharterExtendedContext : DbContext
 
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.AirlineId).HasColumnName("airline_id");
-            entity.Property(e => e.CostPerKilometer).HasColumnName("cost_per_kilometer");
             entity.Property(e => e.CruisingSpeed).HasColumnName("cruising_speed");
             entity.Property(e => e.FlightHourCost).HasColumnName("flight_hour_cost");
             entity.Property(e => e.Image).HasColumnName("image");
@@ -296,7 +302,7 @@ public partial class AirCharterExtendedContext : DbContext
             entity.Property(e => e.ModelName)
                 .HasMaxLength(45)
                 .HasColumnName("model_name");
-            entity.Property(e => e.PassangerCapacity).HasColumnName("passanger_capacity");
+            entity.Property(e => e.PassengerCapacity).HasColumnName("passenger_capacity");
 
             entity.HasOne(d => d.Airline).WithMany(p => p.Planes)
                 .HasForeignKey(d => d.AirlineId)
@@ -309,6 +315,8 @@ public partial class AirCharterExtendedContext : DbContext
             entity.HasKey(e => e.Id).HasName("PRIMARY");
 
             entity.ToTable("roles");
+
+            entity.HasIndex(e => e.Name, "name").IsUnique();
 
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.Name)

@@ -3,7 +3,7 @@ import Header from "../../components/Header/Header";
 import UserDepartureCard from "../../components/DepartureCards/UserDepartureCard";
 import { useUser } from "../../context/UserContext";
 import { getUserDepartures } from "../../api/userService";
-import type { UserDepartureResponse } from "../../contracts/responses/users/userDepartureResponse";
+import type { UserDepartureResponse } from "../../contracts/responses/users/myDepartureResponse";
 import "./CabinetPage.css";
 import { useNavigate } from "react-router-dom";
 
