@@ -21,10 +21,32 @@ export default function ProfilePage() {
         email: "",
         birthDate: ""
     });
+
+    const emptyProfileFormData: ProfileFormData = {
+        firstName: "",
+        lastName: "",
+        patronymic: "",
+        passportSeries: "",
+        passportNumber: "",
+        email: "",
+        birthDate: ""
+    };
     
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [statusMessage, setStatusMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+
+    function isApiErrorWithStatus(error: unknown, status: number): boolean {
+        if (typeof error !== "object" || error === null) {
+            return false;
+        }
+
+        if (!("status" in error)) {
+            return false;
+        }
+
+        return error.status === status;
+    }
 
     useEffect(() => {
         loadPersonData();
@@ -33,6 +55,7 @@ export default function ProfilePage() {
     async function loadPersonData() {
         try {
             const person = await getMyPerson();
+
             const data: ProfileFormData = {
                 firstName: person.firstName,
                 lastName: person.lastName,
@@ -40,12 +63,20 @@ export default function ProfilePage() {
                 passportSeries: person.passportSeries ?? "",
                 passportNumber: person.passportNumber ?? "",
                 email: person.email ?? "",
-                birthDate: person.birthDate ? person.birthDate.toString().split('T')[0] : ""
+                birthDate: person.birthDate ? person.birthDate.toString().split("T")[0] : ""
             };
+
             setFormData(data);
             setInitialData(data);
+            setStatusMessage(null);
         } catch (error: unknown) {
-            // Здесь тоже можно использовать сервис, если нужно более детальное описание
+            if (isApiErrorWithStatus(error, 404)) {
+                setFormData(emptyProfileFormData);
+                setInitialData(emptyProfileFormData);
+                setStatusMessage(null);
+                return;
+            }
+
             setStatusMessage({ text: "Ошибка загрузки профиля", type: "error" });
         } finally {
             setIsLoading(false);

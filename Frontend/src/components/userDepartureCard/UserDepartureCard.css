@@ -31,23 +31,14 @@
     position: absolute;
     top: 15px;
     left: 15px;
-    /* Убираем жесткий белый фон background: white; */
-    
-    /* Делаем сам контейнер круглым и скрываем все, что выходит за пределы */
     border-radius: 50%; 
     overflow: hidden; 
-    
     width: 45px;
     height: 45px;
-    
-    /* Тень, чтобы лого выделялось */
     box-shadow: 0 4px 10px rgba(0,0,0,0.3); 
-    
     display: flex;
     align-items: center;
     justify-content: center;
-    
-    /* Необязательно: тонкая обводка для лучшего контраста на темном самолете */
     border: 1px solid rgba(255, 255, 255, 0.2); 
 }
 
@@ -136,10 +127,11 @@ departure-airline-badge img {
 
 .departure-details-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(190px, auto);
     gap: 15px;
     padding-top: 20px;
     border-top: 1px solid var(--border-color);
+    align-items: start;
 }
 
 .info-item {

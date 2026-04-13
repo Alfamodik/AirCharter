@@ -8,7 +8,7 @@ import ConfirmEmailPage from "./pages/auth/ConfirmEmailPage";
 import CatalogPage from "./pages/catalog/CatalogPage";
 import CabinetPage from "./pages/cabinet/CabinetPage";
 import ProfilePage from "./pages/profilePage/ProfilePage";
-import OrderPage from "./pages/OrderPage/OrderPage.tsx";
+import OrderPage from "./pages/orderPage/OrderPage.tsx";
 import StaffRoute from "./components/StaffRoute";
 import ManagementPage from "./pages/management/ManagementPage";
 
