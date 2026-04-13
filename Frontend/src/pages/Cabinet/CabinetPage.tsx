@@ -52,7 +52,7 @@ export default function CabinetPage() {
                             {isUserLoading ? "Загрузка..." : user?.email}
                         </span>
                         <a href="/profile" className="profile-redirect-btn">
-                            Профиль пользователя
+                            Профиль
                         </a>
                     </div>
                 </aside>
