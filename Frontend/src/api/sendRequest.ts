@@ -8,14 +8,14 @@ export async function sendRequest<TResponse>(
     body?: unknown,
     signal?: AbortSignal
 ): Promise<TResponse> {
-    const token = localStorage.getItem("accessToken");
-    
+    const accessToken = localStorage.getItem("accessToken");
+
     const headers: Record<string, string> = {
         "Content-Type": "application/json"
     };
 
-    if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
+    if (accessToken) {
+        headers["Authorization"] = `Bearer ${accessToken}`;
     }
 
     const response = await fetch(`${apiBaseUrl}${path}`, {
@@ -29,6 +29,7 @@ export async function sendRequest<TResponse>(
         if (response.status === 204) {
             return undefined as TResponse;
         }
+
         return await response.json() as TResponse;
     }
 

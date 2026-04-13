@@ -80,7 +80,12 @@ export default function UserDepartureCard({ departure }: UserDepartureCardProps)
                     </div>
                     <div className="info-item price-item">
                         <span className="info-label">Стоимость</span>
-                        <span className="info-value price-text">{(Math.round(departure.price / 1000) * 1000).toLocaleString('ru-RU')} ₽</span>
+                        <span className="info-value price-text">
+                        {departure.price.toLocaleString("ru-RU", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                        })} ₽
+                    </span>
                     </div>
                 </div>
             </div>

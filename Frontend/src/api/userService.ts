@@ -1,11 +1,11 @@
 import { sendRequest } from "./sendRequest";
-import type { UserPersonResponse } from "../contracts/responses/users/userPersonResponse";
 import type { MyDepartureResponse } from "../contracts/responses/users/myDepartureResponse";
+import type { UserProfileResponse } from "../contracts/responses/users/userPersonResponse";
 
-export async function getCurrentUser(): Promise<UserPersonResponse> {
-    return await sendRequest<UserPersonResponse>("/users/me", "GET");
+export async function getCurrentUser(signal?: AbortSignal): Promise<UserProfileResponse> {
+    return await sendRequest<UserProfileResponse>("/users/me", "GET", undefined, signal);
 }
 
-export async function getUserDepartures(): Promise<MyDepartureResponse[]> {
-    return await sendRequest<MyDepartureResponse[]>("/users/me/departures", "GET");
+export async function getUserDepartures(signal?: AbortSignal): Promise<MyDepartureResponse[]> {
+    return await sendRequest<MyDepartureResponse[]>("/users/me/departures", "GET", undefined, signal);
 }

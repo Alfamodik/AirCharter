@@ -126,5 +126,61 @@ namespace AirCharter.API.Controllers
 
             return Ok(response);
         }
+
+        [HttpGet("management")]
+        [Authorize(Roles = "Owner,Manager,Admin,GeneralDirector,Employee")]
+        public async Task<ActionResult<IEnumerable<ManagementDepartureResponse>>> GetManagementDepartures(CancellationToken cancellationToken)
+        {
+            Claim? userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+            if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
+            {
+                return Unauthorized();
+            }
+
+            int? userAirlineId = await _context.Users
+                .AsNoTracking()
+                .Where(user => user.Id == userId)
+                .Select(user => user.AirlineId)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (userAirlineId == null)
+            {
+                return Forbid();
+            }
+
+            List<ManagementDepartureResponse> departures = await _context.Departures
+                .AsNoTracking()
+                .Where(departure => departure.Plane.AirlineId == userAirlineId.Value)
+                .OrderByDescending(departure => departure.RequestedTakeOffDateTime)
+                .Select(departure => new ManagementDepartureResponse
+                {
+                    Id = departure.Id,
+                    PlaneModelName = departure.Plane.ModelName,
+
+                    TakeOffAirportName = departure.TakeOffAirport.Name,
+                    TakeOffAirportCity = departure.TakeOffAirport.City,
+                    TakeOffAirportIata = departure.TakeOffAirport.Iata,
+                    TakeOffAirportIcao = departure.TakeOffAirport.Icao,
+
+                    LandingAirportName = departure.LandingAirport.Name,
+                    LandingAirportCity = departure.LandingAirport.City,
+                    LandingAirportIata = departure.LandingAirport.Iata,
+                    LandingAirportIcao = departure.LandingAirport.Icao,
+
+                    RequestedTakeOffDateTime = departure.RequestedTakeOffDateTime,
+                    Price = departure.Price,
+
+                    StatusName = departure.DepartureStatuses
+                        .OrderByDescending(departureStatus => departureStatus.StatusSettingDateTime)
+                        .Select(departureStatus => departureStatus.Status.Status1)
+                        .FirstOrDefault() ?? "Без статуса",
+
+                    CharterRequesterEmail = departure.CharterRequester.Email
+                })
+                .ToListAsync(cancellationToken);
+
+            return Ok(departures);
+        }
     }
 }
