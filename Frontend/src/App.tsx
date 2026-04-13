@@ -7,7 +7,8 @@ import ConfirmEmailPage from "./pages/auth/ConfirmEmailPage";
 
 import CatalogPage from "./pages/catalog/CatalogPage";
 import CabinetPage from "./pages/cabinet/CabinetPage";
-import ProfilePage from "./pages/ProfilePage/ProfilePage";
+import ProfilePage from "./pages/profilePage/ProfilePage";
+import OrderPage from "./pages/OrderPage/OrderPage.tsx";
 
 export default function App() {
     return (
@@ -22,6 +23,7 @@ export default function App() {
 
                 <Route path="/cabinet" element={<ProtectedRoute><CabinetPage/></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><ProfilePage/></ProtectedRoute>} />
+                <Route path="/create-order" element={<ProtectedRoute><OrderPage/></ProtectedRoute>} />
             </Routes>
         </BrowserRouter>
     );

@@ -1,4 +1,4 @@
-import type { ApiError } from "./utils/apiError";
+import type { ApiError } from "../utils/apiError";
 
 export function getRegisterErrorMessage(error: unknown): string {
     const apiError = getApiError(error);
@@ -167,5 +167,58 @@ function getResendCodeBadRequestMessage(message?: string): string {
 
         default:
             return "Не удалось отправить код повторно.";
+    }
+}
+
+export function getUpdateProfileErrorMessage(error: unknown): string {
+    const apiError = getApiError(error);
+
+    if (apiError === null) {
+        return "Не удалось сохранить данные.";
+    }
+
+    switch (apiError.status) {
+        case 400:
+            return getUpdateProfileBadRequestMessage(apiError.message);
+
+        case 401:
+            return "Сессия истекла. Пожалуйста, войдите снова.";
+
+        case 409:
+            return "Человек с такими паспортными данными уже зарегистрирован.";
+
+        default:
+            return "Не удалось сохранить данные.";
+    }
+}
+
+function getUpdateProfileBadRequestMessage(message?: string): string {
+    switch (message) {
+        case "First name is required.":
+            return "Имя обязательно для заполнения.";
+
+        case "Last name is required.":
+            return "Фамилия обязательна для заполнения.";
+
+        case "Passport series is required.":
+            return "Серия паспорта обязательна.";
+
+        case "Passport number is required.":
+            return "Номер паспорта обязателен.";
+
+        case "Passport series must contain digits only.":
+            return "Серия паспорта должна состоять только из цифр.";
+
+        case "Passport number must contain digits only.":
+            return "Номер паспорта должен состоять только из цифр.";
+
+        case "Passport series must contain 4 digits.":
+            return "Серия паспорта должна содержать 4 цифры.";
+
+        case "Passport number must contain 6 digits.":
+            return "Номер паспорта должен содержать 6 цифр.";
+
+        default:
+            return message || "Некорректные данные.";
     }
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getMyPerson, updateMyPerson } from "../../api/personService";
+import { getUpdateProfileErrorMessage } from "../../api/utils/authErrorMessages";
 import type { ProfileFormData } from "../../contracts/responses/persons/profileFormData";
 import InputField from "../../components/InputField/InputField";
 import Header from "../../components/Header/Header";
@@ -43,7 +44,8 @@ export default function ProfilePage() {
             };
             setFormData(data);
             setInitialData(data);
-        } catch {
+        } catch (error: unknown) {
+            // Здесь тоже можно использовать сервис, если нужно более детальное описание
             setStatusMessage({ text: "Ошибка загрузки профиля", type: "error" });
         } finally {
             setIsLoading(false);
@@ -73,7 +75,6 @@ export default function ProfilePage() {
         
         if (!isChanged || isSaving) return;
 
-        // Жесткая проверка: блокируем отправку, если дата в будущем
         if (formData.birthDate && new Date(formData.birthDate) > new Date()) {
             setStatusMessage({ text: "Дата рождения не может быть в будущем", type: "error" });
             return; 
@@ -103,8 +104,9 @@ export default function ProfilePage() {
             } else {
                 setStatusMessage({ text: "Изменения сохранены", type: "success" });
             }
-        } catch {
-            setStatusMessage({ text: "Не удалось сохранить данные. Проверьте поля.", type: "error" });
+        } catch (error: unknown) {
+            const errorMessage = getUpdateProfileErrorMessage(error);
+            setStatusMessage({ text: errorMessage, type: "error" });
         } finally {
             setIsSaving(false);
         }

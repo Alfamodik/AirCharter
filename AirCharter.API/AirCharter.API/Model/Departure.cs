@@ -17,7 +17,7 @@ public partial class Departure
 
     public int Distance { get; set; }
 
-    public TimeOnly FlightTime { get; set; }
+    public TimeSpan FlightTime { get; set; }
 
     public decimal Price { get; set; }
 

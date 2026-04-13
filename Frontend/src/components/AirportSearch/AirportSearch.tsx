@@ -1,73 +1,117 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { searchAirports } from "../../api/airportsService";
 import type { AirportSearchResponse } from "../../contracts/responses/airports/AirportSearchResponse";
-import InputField from "../InputField/InputField"; 
+import InputField from "../InputField/InputField";
 import "./AirportSearch.css";
+
+export type AirportSelection = {
+    id: string;
+    displayName: string;
+};
 
 interface AirportSearchProps {
     label: string;
-    onSelect: (id: string) => void;
-    value: string;
+    selectedAirportId: string;
+    selectedAirportDisplayName: string;
+    onSelect: (airport: AirportSelection) => void;
 }
 
-export default function AirportSearch({ label, onSelect, value }: AirportSearchProps) {
-    const [query, setQuery] = useState("");
+function buildAirportDisplayName(airport: AirportSearchResponse): string {
+    const code = airport.iata || airport.icao;
+    const city = airport.city || airport.country || airport.name;
+
+    if (!code) {
+        return city;
+    }
+
+    return `${city} (${code})`;
+}
+
+export default function AirportSearch({
+    label,
+    selectedAirportId,
+    selectedAirportDisplayName,
+    onSelect
+}: AirportSearchProps) {
+    const [query, setQuery] = useState(selectedAirportDisplayName);
     const [results, setResults] = useState<AirportSearchResponse[]>([]);
     const [isOpen, setIsOpen] = useState(false);
+
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const skipSearchRef = useRef(false);
 
     useEffect(() => {
-        if (!value) setQuery("");
-    }, [value]);
+        skipSearchRef.current = true;
+        setQuery(selectedAirportDisplayName);
+        setResults([]);
+        setIsOpen(false);
+    }, [selectedAirportId, selectedAirportDisplayName]);
 
     useEffect(() => {
-        if (query.length < 2) {
-            setResults([]);
+        if (skipSearchRef.current) {
+            skipSearchRef.current = false;
             return;
         }
 
-        const delayDebounce = setTimeout(async () => {
+        if (query.trim().length < 2) {
+            setResults([]);
+            setIsOpen(false);
+            return;
+        }
+
+        const debounceTimeout = window.setTimeout(async () => {
             try {
                 const data = await searchAirports(query, 5);
                 setResults(data);
                 setIsOpen(true);
-            } catch (err) {
-                console.error("Airport search failed", err);
+            } catch {
+                setResults([]);
+                setIsOpen(false);
             }
         }, 400);
 
-        return () => clearTimeout(delayDebounce);
+        return () => window.clearTimeout(debounceTimeout);
     }, [query]);
 
     useEffect(() => {
-        const handleClickOutside = (e: MouseEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        function handleClickOutside(event: MouseEvent) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
                 setIsOpen(false);
             }
-        };
+        }
+
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    const handleSelect = (airport: AirportSearchResponse) => {
-        const code = airport.iata || airport.icao || "";
-        const displayText = code ? `${airport.city} (${code})` : airport.city ?? airport.country;
-        
-        setQuery(displayText);
-        onSelect(airport.id.toString());
+    function handleSelect(airport: AirportSearchResponse) {
+        const displayName = buildAirportDisplayName(airport);
+
+        setQuery(displayName);
+        setResults([]);
         setIsOpen(false);
-    };
+
+        onSelect({
+            id: airport.id.toString(),
+            displayName
+        });
+    }
 
     return (
         <div className="airport-search-container" ref={dropdownRef}>
-            <InputField 
+            <InputField
                 label={label}
                 placeholder="Город, страна, или код..."
                 value={query}
                 onChange={setQuery}
-                onFocus={() => query.length >= 2 && setIsOpen(true)}
+                onFocus={() => {
+                    if (results.length > 0) {
+                        setIsOpen(true);
+                    }
+                }}
                 autoComplete="off"
             />
+
             {isOpen && results.length > 0 && (
                 <ul className="airport-dropdown">
                     {results.map((airport) => (

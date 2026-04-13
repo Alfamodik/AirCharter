@@ -35,7 +35,7 @@ export default function CabinetPage() {
             <Header showSearch={false}>
                 <button 
                     className="header-icon-btn" 
-                    onClick={() => navigate(-1)}
+                    onClick={() => navigate("/catalog")}
                     title="Назад"
                 >
                     <svg viewBox="0 0 24 24">

@@ -9,7 +9,7 @@
         public DateTime TakeOffDateTime { get; set; }
         public string Status { get; set; } = string.Empty;
         public decimal Price { get; set; }
-        public TimeOnly FlightTime { get; set; }
+        public TimeSpan FlightTime { get; set; }
         public int Distance { get; set; }
         public int Transfers { get; set; }
         public string? PlaneImage { get; set; }

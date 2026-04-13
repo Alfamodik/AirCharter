@@ -4,12 +4,12 @@ import { useNavigate } from "react-router-dom";
 import InputField from "../../components/InputField/InputField";
 import { login } from "../../api/authService";
 import { getLoginErrorMessage } from "../../api/utils/authErrorMessages";
-import { useUser } from "../../context/UserContext"; // Импортируем контекст
+import { useUser } from "../../context/UserContext";
 import "./auth-page.css";
 
 export default function LoginPage() {
     const navigate = useNavigate();
-    const { refreshUser } = useUser(); // Получаем функцию обновления
+    const { refreshUser } = useUser();
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");

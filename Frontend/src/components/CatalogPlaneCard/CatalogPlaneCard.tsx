@@ -1,3 +1,4 @@
+import React from "react";
 import "./CatalogPlaneCard.css";
 
 type CatalogPlaneCardProps = {
@@ -7,7 +8,7 @@ type CatalogPlaneCardProps = {
     flightCost?: number;
     flightTime: string;
     numberOfTransfers: string;
-    planeImageBytes?: string;
+    imageBase64?: string;
     onOrderClick: () => void;
 };
 
@@ -18,23 +19,23 @@ export default function CatalogPlaneCard({
     flightCost,
     flightTime,
     numberOfTransfers,
-    planeImageBytes,
+    imageBase64,
     onOrderClick
 }: CatalogPlaneCardProps) {
     return (
         <article className="plane-card">
             <div className="plane-card-image-box">
-                {planeImageBytes ? (
-                    <img src={`data:image/jpeg;base64,${planeImageBytes}`} alt={modelName} className="plane-img" />
+                {imageBase64 ? (
+                    <img src={`data:image/jpeg;base64,${imageBase64}`} alt={modelName} className="plane-img" />
                 ) : (
                     <div className="plane-img-placeholder">✈️</div>
                 )}
                 {flightTime && <div className="plane-card-badge">{flightTime}</div>}
             </div>
-            
+
             <div className="plane-card-content">
                 <h3 className="plane-model-title">{modelName}</h3>
-                
+
                 <div className="plane-specs-list">
                     <div className="spec-item">
                         <span className="spec-label">Мест:</span>
@@ -52,7 +53,7 @@ export default function CatalogPlaneCard({
 
                 <div className="plane-card-footer">
                     <div className="plane-price">
-                        {flightCost ? `${Math.floor(flightCost).toLocaleString('ru-RU')} ₽` : ""}
+                        {flightCost !== undefined ? `${Math.floor(flightCost).toLocaleString("ru-RU")} ₽` : ""}
                     </div>
                     <button className="book-btn" onClick={onOrderClick}>
                         Заказать

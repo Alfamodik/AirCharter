@@ -11,6 +11,24 @@ public sealed class FlightCalculationService
 
     public PlaneCatalogResponse Calculate(Plane plane, Airport departureAirport, Airport arrivalAirport)
     {
+        FlightCalculationResponse calculation = CalculateFlight(plane, departureAirport, arrivalAirport);
+
+        return new PlaneCatalogResponse
+        {
+            Id = plane.Id,
+            ModelName = plane.ModelName,
+            PassengerCapacity = plane.PassengerCapacity,
+            MaxDistance = plane.MaxDistance,
+            DistanceKm = calculation.DistanceKm,
+            FlightTime = calculation.FlightTime,
+            FlightCost = decimal.Round(calculation.FlightCost, 0),
+            NumberOfTransfers = calculation.NumberOfTransfers,
+            ImageBase64 = ConvertImageToBase64(plane.Image)
+        };
+    }
+
+    public FlightCalculationResponse CalculateFlight(Plane plane, Airport departureAirport, Airport arrivalAirport)
+    {
         int distanceKilometers = CalculateDistanceKilometers(
             Convert.ToDouble(departureAirport.Latitude),
             Convert.ToDouble(departureAirport.Longitude),
@@ -21,17 +39,12 @@ public sealed class FlightCalculationService
         TimeSpan flightTime = CalculateFlightTime(distanceKilometers, plane.CruisingSpeed, numberOfTransfers);
         decimal flightCost = CalculateFlightCost(distanceKilometers, plane, numberOfTransfers);
 
-        return new PlaneCatalogResponse
+        return new FlightCalculationResponse
         {
-            Id = plane.Id,
-            ModelName = plane.ModelName,
-            PassengerCapacity = plane.PassengerCapacity,
-            MaxDistance = plane.MaxDistance,
             DistanceKm = distanceKilometers,
             FlightTime = flightTime,
             FlightCost = decimal.Round(flightCost, 0),
-            NumberOfTransfers = numberOfTransfers,
-            ImageBase64 = ConvertImageToBase64(plane.Image)
+            NumberOfTransfers = numberOfTransfers
         };
     }
 
@@ -103,9 +116,7 @@ public sealed class FlightCalculationService
     private static string? ConvertImageToBase64(byte[]? image)
     {
         if (image is null || image.Length == 0)
-        {
             return null;
-        }
 
         return Convert.ToBase64String(image);
     }
