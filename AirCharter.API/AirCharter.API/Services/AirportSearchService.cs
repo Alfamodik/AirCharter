@@ -13,10 +13,7 @@ namespace AirCharter.API.Services
 
         private readonly AirCharterExtendedContext _context = context;
 
-        public async Task<IReadOnlyCollection<AirportSearchResponse>> SearchAsync(
-            string query,
-            int limit,
-            CancellationToken cancellationToken)
+        public async Task<IReadOnlyCollection<AirportSearchResponse>> SearchAsync(string query, int limit, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(query))
                 return Array.Empty<AirportSearchResponse>();
@@ -24,10 +21,7 @@ namespace AirCharter.API.Services
             int normalizedLimit = NormalizeLimit(limit);
             string normalizedQuery = Normalize(query);
 
-            List<AirportSearchCandidate> exactCandidates = await GetExactCandidatesAsync(
-                query,
-                normalizedQuery,
-                cancellationToken);
+            List<AirportSearchCandidate> exactCandidates = await GetExactCandidatesAsync(query, normalizedQuery, cancellationToken);
 
             List<AirportSearchCandidate> rankedExactCandidates = exactCandidates
                 .Select(airport => new RankedAirportSearchCandidate(
@@ -41,9 +35,7 @@ namespace AirCharter.API.Services
                 .ToList();
 
             if (rankedExactCandidates.Count >= normalizedLimit)
-                return rankedExactCandidates
-                    .Select(MapResponse)
-                    .ToList();
+                return rankedExactCandidates.Select(MapResponse).ToList();
 
             List<AirportSearchCandidate> fuzzyCandidates = await GetFuzzyCandidatesAsync(
                 normalizedQuery,
@@ -58,10 +50,7 @@ namespace AirCharter.API.Services
                 .ToList();
         }
 
-        private async Task<List<AirportSearchCandidate>> GetExactCandidatesAsync(
-            string query,
-            string normalizedQuery,
-            CancellationToken cancellationToken)
+        private async Task<List<AirportSearchCandidate>> GetExactCandidatesAsync(string query, string normalizedQuery, CancellationToken cancellationToken)
         {
             string trimmedQuery = query.Trim();
             string upperQuery = trimmedQuery.ToUpperInvariant();
@@ -86,11 +75,7 @@ namespace AirCharter.API.Services
                 .ToListAsync(cancellationToken);
         }
 
-        private async Task<List<AirportSearchCandidate>> GetFuzzyCandidatesAsync(
-            string normalizedQuery,
-            List<AirportSearchCandidate> exactCandidates,
-            int limit,
-            CancellationToken cancellationToken)
+        private async Task<List<AirportSearchCandidate>> GetFuzzyCandidatesAsync(string normalizedQuery, List<AirportSearchCandidate> exactCandidates, int limit, CancellationToken cancellationToken)
         {
             HashSet<int> existingAirportIds = exactCandidates
                 .Select(airport => airport.Id)
@@ -257,10 +242,12 @@ namespace AirCharter.API.Services
             string City,
             string Country,
             string? Iata,
-            string? Icao);
+            string? Icao
+            );
 
         private sealed record RankedAirportSearchCandidate(
             AirportSearchCandidate Airport,
-            int Score);
+            int Score
+            );
     }
 }

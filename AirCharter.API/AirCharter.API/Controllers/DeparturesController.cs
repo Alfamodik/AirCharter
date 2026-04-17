@@ -3,6 +3,7 @@ using AirCharter.API.Requests.Departures;
 using AirCharter.API.Responses.Departures;
 using AirCharter.API.Responses.Flights;
 using AirCharter.API.Services;
+using AirCharter.API.Services.Documents;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,10 +14,13 @@ namespace AirCharter.API.Controllers
     [Authorize]
     [ApiController]
     [Route("departures")]
-    public class DeparturesController(AirCharterExtendedContext context, FlightCalculationService flightCalculationService) : ControllerBase
+    public class DeparturesController(AirCharterExtendedContext context, FlightCalculationService flightCalculationService, DeparturePdfDataFactory departurePdfDataFactory, TicketPdfService ticketPdfService) : ControllerBase
     {
         private readonly AirCharterExtendedContext _context = context;
         private readonly FlightCalculationService _flightCalculationService = flightCalculationService;
+        
+        private readonly TicketPdfService _ticketPdfService = ticketPdfService;
+        private readonly DeparturePdfDataFactory _departurePdfDataFactory = departurePdfDataFactory;
 
         [HttpPost("create-order")]
         public async Task<IActionResult> CreateOrder(CreateDepartureRequest createDepartureRequest, CancellationToken cancellationToken)
@@ -181,6 +185,32 @@ namespace AirCharter.API.Controllers
                 .ToListAsync(cancellationToken);
 
             return Ok(departures);
+        }
+
+        [HttpGet("{departureId:int}/ticket")]
+        public async Task<IActionResult> DownloadTicket(int departureId, CancellationToken cancellationToken)
+        {
+            Claim? userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+            if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
+                return Unauthorized();
+
+            Departure? departure = await _context.Departures
+                .Include(departure => departure.Plane)
+                .Include(departure => departure.TakeOffAirport)
+                .Include(departure => departure.LandingAirport)
+                .Include(departure => departure.People)
+                .FirstOrDefaultAsync(
+                    departure => departure.Id == departureId && departure.CharterRequesterId == userId,
+                    cancellationToken);
+
+            if (departure == null)
+                return NotFound();
+
+            DeparturePdfData departurePdfData = _departurePdfDataFactory.Create(departure);
+            byte[] pdfBytes = _ticketPdfService.Generate(departurePdfData);
+
+            return File(pdfBytes, "application/pdf", $"ticket-{departureId}.pdf");
         }
     }
 }

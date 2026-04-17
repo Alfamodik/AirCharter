@@ -2,16 +2,23 @@ using System.Text;
 using System.Text.Json.Serialization;
 using AirCharter.API.Model;
 using AirCharter.API.Services;
+using AirCharter.API.Services.Documents;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-
+using MigraDoc;
+using MigraDoc.DocumentObjectModel;
+using MigraDoc.Rendering;
+using PdfSharp.Fonts;
 internal class Program
 {
     private static void Main(string[] args)
     {
         WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+
+        GlobalFontSettings.UseWindowsFontsUnderWindows = true;
+        PredefinedFontsAndChars.ErrorFontName = "Arial";
 
         builder.Services.AddControllers();
         builder.Services.AddEndpointsApiExplorer();
@@ -105,6 +112,8 @@ internal class Program
         builder.Services.AddScoped<EmailService>();
         builder.Services.AddScoped<AirportSearchService>();
         builder.Services.AddScoped<FlightCalculationService>();
+        builder.Services.AddScoped<DeparturePdfDataFactory>();
+        builder.Services.AddScoped<TicketPdfService>();
 
         WebApplication app = builder.Build();
 
