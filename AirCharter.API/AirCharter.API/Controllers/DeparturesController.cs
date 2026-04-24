@@ -14,10 +14,10 @@ namespace AirCharter.API.Controllers
     [Authorize]
     [ApiController]
     [Route("departures")]
-    public class DeparturesController(AirCharterExtendedContext context, FlightCalculationService flightCalculationService, DeparturePdfDataFactory departurePdfDataFactory, TicketPdfService ticketPdfService) : ControllerBase
+    public class DeparturesController(AirCharterExtendedContext context, FlightLegCalculationService flightCalculationService, DeparturePdfDataFactory departurePdfDataFactory, TicketPdfService ticketPdfService) : ControllerBase
     {
         private readonly AirCharterExtendedContext _context = context;
-        private readonly FlightCalculationService _flightCalculationService = flightCalculationService;
+        private readonly FlightLegCalculationService _flightCalculationService = flightCalculationService;
         
         private readonly TicketPdfService _ticketPdfService = ticketPdfService;
         private readonly DeparturePdfDataFactory _departurePdfDataFactory = departurePdfDataFactory;

@@ -110,8 +110,12 @@ internal class Program
         
         builder.Services.AddScoped<JwtService>();
         builder.Services.AddScoped<EmailService>();
+        
         builder.Services.AddScoped<AirportSearchService>();
-        builder.Services.AddScoped<FlightCalculationService>();
+        
+        builder.Services.AddScoped<FlightLegCalculationService>();
+        builder.Services.AddScoped<RoutePlanningService>();
+
         builder.Services.AddScoped<DeparturePdfDataFactory>();
         builder.Services.AddScoped<TicketPdfService>();
 

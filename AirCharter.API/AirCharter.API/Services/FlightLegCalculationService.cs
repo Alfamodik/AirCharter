@@ -3,7 +3,7 @@ using AirCharter.API.Responses.Flights;
 
 namespace AirCharter.API.Services;
 
-public sealed class FlightCalculationService
+public sealed class FlightLegCalculationService
 {
     private const double EarthRadiusKilometers = 6371.0;
     private const double BaseOperationalDurationHours = 0.5;
@@ -46,6 +46,14 @@ public sealed class FlightCalculationService
             FlightCost = decimal.Round(flightCost, 0),
             NumberOfTransfers = numberOfTransfers
         };
+    }
+    public int CalculateDistanceKilometers(Airport departureAirport, Airport arrivalAirport)
+    {
+        return CalculateDistanceKilometers(
+            Convert.ToDouble(departureAirport.Latitude),
+            Convert.ToDouble(departureAirport.Longitude),
+            Convert.ToDouble(arrivalAirport.Latitude),
+            Convert.ToDouble(arrivalAirport.Longitude));
     }
 
     private static int CalculateDistanceKilometers(double departureLatitude, double departureLongitude, double arrivalLatitude, double arrivalLongitude)
@@ -100,7 +108,7 @@ public sealed class FlightCalculationService
 
     private static decimal CalculateFlightCost(int distanceKilometers, Plane plane, int numberOfTransfers)
     {
-        if (plane.CruisingSpeed <= 0)
+        if (plane.CruisingSpeed <= 0 || plane.Airline is null)
             return 0;
 
         Airline airline = plane.Airline;
