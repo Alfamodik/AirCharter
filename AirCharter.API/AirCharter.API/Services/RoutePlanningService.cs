@@ -1,345 +1,489 @@
 ﻿using AirCharter.API.Model;
 using AirCharter.API.Responses.Airports;
 using AirCharter.API.Responses.Flights;
+using AirCharter.API.Services.Routing;
 
-namespace AirCharter.API.Services
+namespace AirCharter.API.Services;
+
+public sealed class RoutePlanningService
 {
-    public sealed class RoutePlanningService
+    private const double RangeSafetyFactor = 0.85;
+    private const double BaseOperationalDurationHours = 0.5;
+    private const double TransferBaseDurationHours = 1.5;
+
+    public IReadOnlyCollection<PlaneCatalogResponse> CalculateCatalog(
+        IReadOnlyCollection<Plane> planes,
+        AirportGraph airportGraph,
+        int departureAirportId,
+        int arrivalAirportId)
     {
-        private const double RangeSafetyFactor = 0.85;
-        private const double BaseOperationalDurationHours = 0.5;
-        private const double TransferBaseDurationHours = 1.5;
+        AirportRouteNode departureAirport = airportGraph.GetAirport(departureAirportId);
+        AirportRouteNode arrivalAirport = airportGraph.GetAirport(arrivalAirportId);
 
-        private readonly FlightLegCalculationService _flightLegCalculationService;
+        Dictionary<int, RoutePlan?> routePlanByMaximumLegDistance = new Dictionary<int, RoutePlan?>();
+        List<PlaneCatalogResponse> planeCatalogResponses = new List<PlaneCatalogResponse>(planes.Count);
 
-        public RoutePlanningService(FlightLegCalculationService flightLegCalculationService)
+        foreach (Plane plane in planes)
         {
-            _flightLegCalculationService = flightLegCalculationService;
+            if (plane.MaxDistance <= 0 || plane.CruisingSpeed <= 0)
+            {
+                planeCatalogResponses.Add(CreateRouteNotFoundResponse(plane));
+                continue;
+            }
+
+            int maximumLegDistanceKilometers = GetMaximumLegDistanceKilometers(plane.MaxDistance);
+
+            if (!routePlanByMaximumLegDistance.TryGetValue(
+                    maximumLegDistanceKilometers,
+                    out RoutePlan? routePlan))
+            {
+                routePlan = FindRoute(
+                    airportGraph,
+                    departureAirport,
+                    arrivalAirport,
+                    maximumLegDistanceKilometers);
+
+                routePlanByMaximumLegDistance.Add(maximumLegDistanceKilometers, routePlan);
+            }
+
+            planeCatalogResponses.Add(CreatePlaneCatalogResponse(plane, routePlan));
         }
 
-        public PlaneCatalogResponse Calculate(
-            Plane plane,
-            Airport departureAirport,
-            Airport arrivalAirport,
-            IReadOnlyCollection<Airport> airports)
+        return planeCatalogResponses;
+    }
+
+    private static RoutePlan? FindRoute(
+        AirportGraph airportGraph,
+        AirportRouteNode departureAirport,
+        AirportRouteNode arrivalAirport,
+        int maximumLegDistanceKilometers)
+    {
+        int directDistanceKilometers = GeoDistanceCalculator.CalculateDistanceKilometers(
+            departureAirport,
+            arrivalAirport);
+
+        if (directDistanceKilometers <= maximumLegDistanceKilometers)
         {
-            FlightCalculationResponse calculation = CalculateFlight(
-                plane,
+            return CreateDirectRoutePlan(
                 departureAirport,
                 arrivalAirport,
-                airports);
-
-            return new PlaneCatalogResponse
-            {
-                Id = plane.Id,
-                ModelName = plane.ModelName,
-                PassengerCapacity = plane.PassengerCapacity,
-                MaxDistance = plane.MaxDistance,
-                IsRouteFound = calculation.IsRouteFound,
-                DistanceKm = calculation.DistanceKm,
-                FlightTime = calculation.FlightTime,
-                FlightCost = calculation.FlightCost,
-                NumberOfTransfers = calculation.NumberOfTransfers,
-                RouteAirports = calculation.RouteAirports,
-                ImageBase64 = ConvertImageToBase64(plane.Image)
-            };
+                directDistanceKilometers);
         }
 
-        public FlightCalculationResponse CalculateFlight(
-            Plane plane,
-            Airport departureAirport,
-            Airport arrivalAirport,
-            IReadOnlyCollection<Airport> airports)
+        RouteSearchScore startScore = new RouteSearchScore(0, 0);
+
+        Dictionary<int, RouteSearchScore> bestScoreByAirportId = new Dictionary<int, RouteSearchScore>
         {
-            if (plane.MaxDistance <= 0 || plane.CruisingSpeed <= 0 || plane.Airline is null)
-                return CreateRouteNotFoundResponse();
+            [departureAirport.Id] = startScore
+        };
 
-            RoutePlan? routePlan = FindRoute(plane, departureAirport, arrivalAirport, airports);
-
-            if (routePlan is null)
-                return CreateRouteNotFoundResponse();
-
-            int numberOfTransfers = Math.Max(0, routePlan.RouteAirports.Count - 2);
-            TimeSpan flightTime = CalculateRouteFlightTime(
-                routePlan.TotalDistanceKilometers,
-                plane.CruisingSpeed,
-                numberOfTransfers);
-
-            decimal flightCost = CalculateRouteFlightCost(
-                routePlan.TotalDistanceKilometers,
-                plane,
-                numberOfTransfers);
-
-            return new FlightCalculationResponse
-            {
-                IsRouteFound = true,
-                DistanceKm = routePlan.TotalDistanceKilometers,
-                FlightTime = flightTime,
-                FlightCost = decimal.Round(flightCost, 0),
-                NumberOfTransfers = numberOfTransfers,
-                RouteAirports = routePlan.RouteAirports
-            };
-        }
-
-        private RoutePlan? FindRoute(
-            Plane plane,
-            Airport departureAirport,
-            Airport arrivalAirport,
-            IReadOnlyCollection<Airport> airports)
+        Dictionary<int, int?> previousAirportIdByAirportId = new Dictionary<int, int?>
         {
-            int maximumLegDistanceKilometers = GetMaximumLegDistanceKilometers(plane.MaxDistance);
-            Dictionary<int, Airport> airportById = CreateAirportDictionary(
-                airports,
-                departureAirport,
-                arrivalAirport);
+            [departureAirport.Id] = null
+        };
 
-            RoutePriority startPriority = new RoutePriority(0, 0);
+        Dictionary<int, int> legDistanceByAirportId = new Dictionary<int, int>();
 
-            Dictionary<int, RoutePriority> bestPriorityByAirportId = new Dictionary<int, RoutePriority>
+        PriorityQueue<RouteSearchNode, RouteSearchPriority> queue =
+            new PriorityQueue<RouteSearchNode, RouteSearchPriority>();
+
+        queue.Enqueue(
+            new RouteSearchNode(departureAirport.Id, startScore),
+            CreatePriority(startScore, departureAirport, arrivalAirport, maximumLegDistanceKilometers));
+
+        while (queue.Count > 0)
+        {
+            RouteSearchNode currentNode = queue.Dequeue();
+
+            if (!bestScoreByAirportId.TryGetValue(
+                    currentNode.AirportId,
+                    out RouteSearchScore bestKnownScore))
             {
-                [departureAirport.Id] = startPriority
-            };
-
-            Dictionary<int, int?> previousAirportIdByAirportId = new Dictionary<int, int?>
-            {
-                [departureAirport.Id] = null
-            };
-
-            Dictionary<int, int> legDistanceByAirportId = new Dictionary<int, int>();
-
-            PriorityQueue<RouteNode, RoutePriority> queue = new PriorityQueue<RouteNode, RoutePriority>();
-
-            queue.Enqueue(
-                new RouteNode(departureAirport.Id, startPriority),
-                startPriority);
-
-            while (queue.Count > 0)
-            {
-                RouteNode currentNode = queue.Dequeue();
-
-                if (!bestPriorityByAirportId.TryGetValue(
-                        currentNode.AirportId,
-                        out RoutePriority bestKnownPriority))
-                {
-                    continue;
-                }
-
-                if (bestKnownPriority.CompareTo(currentNode.Priority) < 0)
-                    continue;
-
-                if (currentNode.AirportId == arrivalAirport.Id)
-                    break;
-
-                Airport currentAirport = airportById[currentNode.AirportId];
-
-                foreach (Airport candidateAirport in airportById.Values)
-                {
-                    if (candidateAirport.Id == currentAirport.Id)
-                        continue;
-
-                    int legDistanceKilometers = _flightLegCalculationService.CalculateDistanceKilometers(
-                        currentAirport,
-                        candidateAirport);
-
-                    if (legDistanceKilometers > maximumLegDistanceKilometers)
-                        continue;
-
-                    RoutePriority nextPriority = new RoutePriority(
-                        currentNode.Priority.LegsCount + 1,
-                        currentNode.Priority.TotalDistanceKilometers + legDistanceKilometers);
-
-                    if (bestPriorityByAirportId.TryGetValue(
-                            candidateAirport.Id,
-                            out RoutePriority existingPriority) &&
-                        existingPriority.CompareTo(nextPriority) <= 0)
-                    {
-                        continue;
-                    }
-
-                    bestPriorityByAirportId[candidateAirport.Id] = nextPriority;
-                    previousAirportIdByAirportId[candidateAirport.Id] = currentAirport.Id;
-                    legDistanceByAirportId[candidateAirport.Id] = legDistanceKilometers;
-
-                    queue.Enqueue(
-                        new RouteNode(candidateAirport.Id, nextPriority),
-                        nextPriority);
-                }
+                continue;
             }
 
-            if (!bestPriorityByAirportId.ContainsKey(arrivalAirport.Id))
-                return null;
+            if (bestKnownScore.CompareTo(currentNode.Score) < 0)
+                continue;
 
-            List<int> routeAirportIds = RebuildRouteAirportIds(
+            AirportRouteNode currentAirport = airportGraph.GetAirport(currentNode.AirportId);
+
+            if (currentAirport.Id == arrivalAirport.Id)
+            {
+                return CreateRoutePlan(
+                    airportGraph,
+                    arrivalAirport.Id,
+                    previousAirportIdByAirportId,
+                    legDistanceByAirportId,
+                    currentNode.Score.TotalDistanceKilometers);
+            }
+
+            foreach (AirportNeighbor airportNeighbor in airportGraph.SpatialIndex.FindAirportsWithinDistance(
+                         currentAirport,
+                         maximumLegDistanceKilometers))
+            {
+                AirportRouteNode candidateAirport = airportNeighbor.Airport;
+
+                RouteSearchScore nextScore = new RouteSearchScore(
+                    currentNode.Score.LegsCount + 1,
+                    currentNode.Score.TotalDistanceKilometers + airportNeighbor.DistanceKilometers);
+
+                if (bestScoreByAirportId.TryGetValue(
+                        candidateAirport.Id,
+                        out RouteSearchScore existingScore) &&
+                    existingScore.CompareTo(nextScore) <= 0)
+                {
+                    continue;
+                }
+
+                bestScoreByAirportId[candidateAirport.Id] = nextScore;
+                previousAirportIdByAirportId[candidateAirport.Id] = currentAirport.Id;
+                legDistanceByAirportId[candidateAirport.Id] = airportNeighbor.DistanceKilometers;
+
+                RouteSearchPriority nextPriority = CreatePriority(
+                    nextScore,
+                    candidateAirport,
+                    arrivalAirport,
+                    maximumLegDistanceKilometers);
+
+                queue.Enqueue(
+                    new RouteSearchNode(candidateAirport.Id, nextScore),
+                    nextPriority);
+            }
+        }
+
+        return null;
+    }
+
+    private static RouteSearchPriority CreatePriority(
+        RouteSearchScore currentScore,
+        AirportRouteNode currentAirport,
+        AirportRouteNode arrivalAirport,
+        int maximumLegDistanceKilometers)
+    {
+        int remainingDistanceKilometers = GeoDistanceCalculator.CalculateDistanceKilometers(
+            currentAirport,
+            arrivalAirport);
+
+        int estimatedRemainingLegsCount = CalculateMinimumLegsCount(
+            remainingDistanceKilometers,
+            maximumLegDistanceKilometers);
+
+        return new RouteSearchPriority(
+            currentScore.LegsCount + estimatedRemainingLegsCount,
+            currentScore.TotalDistanceKilometers + remainingDistanceKilometers,
+            currentScore.LegsCount,
+            currentScore.TotalDistanceKilometers);
+    }
+
+    private static int CalculateMinimumLegsCount(
+        int distanceKilometers,
+        int maximumLegDistanceKilometers)
+    {
+        if (distanceKilometers <= 0)
+            return 0;
+
+        return (int)Math.Ceiling((double)distanceKilometers / maximumLegDistanceKilometers);
+    }
+
+    private static RoutePlan CreateDirectRoutePlan(
+        AirportRouteNode departureAirport,
+        AirportRouteNode arrivalAirport,
+        int directDistanceKilometers)
+    {
+        List<AirportSearchResponse> routeAirports = new List<AirportSearchResponse>
+        {
+            CreateAirportSearchResponse(departureAirport),
+            CreateAirportSearchResponse(arrivalAirport)
+        };
+
+        List<RouteSegment> routeSegments = new List<RouteSegment>
+        {
+            new RouteSegment(
+                departureAirport.Id,
                 arrivalAirport.Id,
-                previousAirportIdByAirportId);
+                directDistanceKilometers)
+        };
 
-            List<AirportSearchResponse> routeAirports = new List<AirportSearchResponse>(routeAirportIds.Count);
+        return new RoutePlan(
+            routeAirports,
+            routeSegments,
+            directDistanceKilometers);
+    }
 
-            foreach (int airportId in routeAirportIds)
+    private static RoutePlan CreateRoutePlan(
+        AirportGraph airportGraph,
+        int arrivalAirportId,
+        IReadOnlyDictionary<int, int?> previousAirportIdByAirportId,
+        IReadOnlyDictionary<int, int> legDistanceByAirportId,
+        int totalDistanceKilometers)
+    {
+        List<int> routeAirportIds = RebuildRouteAirportIds(
+            arrivalAirportId,
+            previousAirportIdByAirportId);
+
+        List<AirportSearchResponse> routeAirports = new List<AirportSearchResponse>(routeAirportIds.Count);
+        List<RouteSegment> routeSegments = new List<RouteSegment>(routeAirportIds.Count - 1);
+
+        foreach (int airportId in routeAirportIds)
+        {
+            AirportRouteNode airport = airportGraph.GetAirport(airportId);
+            routeAirports.Add(CreateAirportSearchResponse(airport));
+        }
+
+        for (int airportIndex = 1; airportIndex < routeAirportIds.Count; airportIndex++)
+        {
+            int fromAirportId = routeAirportIds[airportIndex - 1];
+            int toAirportId = routeAirportIds[airportIndex];
+            int distanceKilometers = legDistanceByAirportId[toAirportId];
+
+            routeSegments.Add(new RouteSegment(
+                fromAirportId,
+                toAirportId,
+                distanceKilometers));
+        }
+
+        return new RoutePlan(
+            routeAirports,
+            routeSegments,
+            totalDistanceKilometers);
+    }
+
+    private static List<int> RebuildRouteAirportIds(
+        int arrivalAirportId,
+        IReadOnlyDictionary<int, int?> previousAirportIdByAirportId)
+    {
+        List<int> routeAirportIds = new List<int>();
+        int? currentAirportId = arrivalAirportId;
+
+        while (currentAirportId.HasValue)
+        {
+            routeAirportIds.Add(currentAirportId.Value);
+            currentAirportId = previousAirportIdByAirportId[currentAirportId.Value];
+        }
+
+        routeAirportIds.Reverse();
+
+        return routeAirportIds;
+    }
+
+    private static AirportSearchResponse CreateAirportSearchResponse(AirportRouteNode airport)
+    {
+        return new AirportSearchResponse
+        {
+            Id = airport.Id,
+            Name = airport.Name,
+            City = airport.City,
+            Country = airport.Country,
+            Iata = airport.Iata,
+            Icao = airport.Icao,
+            Latitude = airport.Latitude,
+            Longitude = airport.Longitude
+        };
+    }
+
+    private static PlaneCatalogResponse CreatePlaneCatalogResponse(
+        Plane plane,
+        RoutePlan? routePlan)
+    {
+        if (routePlan is null)
+            return CreateRouteNotFoundResponse(plane);
+
+        int numberOfTransfers = Math.Max(0, routePlan.RouteAirports.Count - 2);
+
+        TimeSpan flightTime = CalculateRouteFlightTime(
+            routePlan.TotalDistanceKilometers,
+            plane.CruisingSpeed,
+            numberOfTransfers);
+
+        decimal flightCost = CalculateRouteFlightCost(
+            routePlan.TotalDistanceKilometers,
+            plane,
+            numberOfTransfers);
+
+        return new PlaneCatalogResponse
+        {
+            Id = plane.Id,
+            ModelName = plane.ModelName,
+            PassengerCapacity = plane.PassengerCapacity,
+            MaxDistance = plane.MaxDistance,
+            IsRouteFound = true,
+            DistanceKm = routePlan.TotalDistanceKilometers,
+            FlightTime = flightTime,
+            FlightCost = decimal.Round(flightCost, 0),
+            NumberOfTransfers = numberOfTransfers,
+            RouteAirports = routePlan.RouteAirports,
+            RouteLegs = CreateRouteLegResponses(routePlan.RouteSegments, plane.CruisingSpeed),
+            ImageBase64 = ConvertImageToBase64(plane.Image)
+        };
+    }
+
+    private static IReadOnlyCollection<RouteLegResponse> CreateRouteLegResponses(
+        IReadOnlyCollection<RouteSegment> routeSegments,
+        int cruisingSpeed)
+    {
+        List<RouteLegResponse> routeLegResponses = new List<RouteLegResponse>(routeSegments.Count);
+
+        foreach (RouteSegment routeSegment in routeSegments)
+        {
+            routeLegResponses.Add(new RouteLegResponse
             {
-                Airport airport = airportById[airportId];
-
-                routeAirports.Add(new AirportSearchResponse
-                {
-                    Id = airport.Id,
-                    Name = airport.Name,
-                    City = airport.City,
-                    Country = airport.Country,
-                    Iata = airport.Iata,
-                    Icao = airport.Icao
-                });
-            }
-
-            int totalDistanceKilometers = 0;
-
-            for (int airportIndex = 1; airportIndex < routeAirportIds.Count; airportIndex++)
-            {
-                int airportId = routeAirportIds[airportIndex];
-                totalDistanceKilometers += legDistanceByAirportId[airportId];
-            }
-
-            return new RoutePlan(routeAirports, totalDistanceKilometers);
+                FromAirportId = routeSegment.FromAirportId,
+                ToAirportId = routeSegment.ToAirportId,
+                DistanceKm = routeSegment.DistanceKilometers,
+                FlightTime = CalculateLegFlightTime(routeSegment.DistanceKilometers, cruisingSpeed)
+            });
         }
 
-        private static Dictionary<int, Airport> CreateAirportDictionary(
-            IReadOnlyCollection<Airport> airports,
-            Airport departureAirport,
-            Airport arrivalAirport)
+        return routeLegResponses;
+    }
+
+    private static PlaneCatalogResponse CreateRouteNotFoundResponse(Plane plane)
+    {
+        return new PlaneCatalogResponse
         {
-            Dictionary<int, Airport> airportById = new Dictionary<int, Airport>();
+            Id = plane.Id,
+            ModelName = plane.ModelName,
+            PassengerCapacity = plane.PassengerCapacity,
+            MaxDistance = plane.MaxDistance,
+            IsRouteFound = false,
+            DistanceKm = 0,
+            FlightTime = TimeSpan.Zero,
+            FlightCost = 0,
+            NumberOfTransfers = 0,
+            RouteAirports = Array.Empty<AirportSearchResponse>(),
+            RouteLegs = Array.Empty<RouteLegResponse>(),
+            ImageBase64 = ConvertImageToBase64(plane.Image)
+        };
+    }
 
-            foreach (Airport airport in airports)
-            {
-                if (!airportById.ContainsKey(airport.Id))
-                    airportById.Add(airport.Id, airport);
-            }
+    private static int GetMaximumLegDistanceKilometers(int maxDistance)
+    {
+        return Math.Max(1, (int)Math.Floor(maxDistance * RangeSafetyFactor));
+    }
 
-            if (!airportById.ContainsKey(departureAirport.Id))
-                airportById.Add(departureAirport.Id, departureAirport);
+    private static TimeSpan CalculateLegFlightTime(
+        int distanceKilometers,
+        int cruisingSpeed)
+    {
+        if (cruisingSpeed <= 0)
+            return TimeSpan.Zero;
 
-            if (!airportById.ContainsKey(arrivalAirport.Id))
-                airportById.Add(arrivalAirport.Id, arrivalAirport);
+        double flightDurationHours = (double)distanceKilometers / cruisingSpeed;
 
-            return airportById;
+        return TimeSpan.FromHours(flightDurationHours);
+    }
+
+    private static TimeSpan CalculateRouteFlightTime(
+        int distanceKilometers,
+        int cruisingSpeed,
+        int numberOfTransfers)
+    {
+        if (cruisingSpeed <= 0)
+            return TimeSpan.Zero;
+
+        double flightDurationHours = (double)distanceKilometers / cruisingSpeed;
+        double transferDurationHours = numberOfTransfers * TransferBaseDurationHours;
+
+        return TimeSpan.FromHours(
+            flightDurationHours +
+            BaseOperationalDurationHours +
+            transferDurationHours);
+    }
+
+    private static decimal CalculateRouteFlightCost(
+        int distanceKilometers,
+        Plane plane,
+        int numberOfTransfers)
+    {
+        if (plane.CruisingSpeed <= 0 || plane.Airline is null)
+            return 0;
+
+        Airline airline = plane.Airline;
+
+        decimal flightDurationHours = (decimal)distanceKilometers / plane.CruisingSpeed;
+        decimal flightCostByHours = flightDurationHours * plane.FlightHourCost;
+        decimal serviceBaseCost = airline.ServiceBaseCost;
+        decimal transferBaseCost = numberOfTransfers * airline.TransferBaseCost;
+
+        return flightCostByHours + serviceBaseCost + transferBaseCost;
+    }
+
+    private static string? ConvertImageToBase64(byte[]? image)
+    {
+        if (image is null || image.Length == 0)
+            return null;
+
+        return Convert.ToBase64String(image);
+    }
+
+    private sealed class RoutePlan
+    {
+        public RoutePlan(
+            IReadOnlyCollection<AirportSearchResponse> routeAirports,
+            IReadOnlyCollection<RouteSegment> routeSegments,
+            int totalDistanceKilometers)
+        {
+            RouteAirports = routeAirports;
+            RouteSegments = routeSegments;
+            TotalDistanceKilometers = totalDistanceKilometers;
         }
 
-        private static List<int> RebuildRouteAirportIds(
-            int arrivalAirportId,
-            IReadOnlyDictionary<int, int?> previousAirportIdByAirportId)
+        public IReadOnlyCollection<AirportSearchResponse> RouteAirports { get; }
+
+        public IReadOnlyCollection<RouteSegment> RouteSegments { get; }
+
+        public int TotalDistanceKilometers { get; }
+    }
+
+    private readonly record struct RouteSegment(
+        int FromAirportId,
+        int ToAirportId,
+        int DistanceKilometers);
+
+    private readonly record struct RouteSearchNode(
+        int AirportId,
+        RouteSearchScore Score);
+
+    private readonly record struct RouteSearchScore(
+        int LegsCount,
+        int TotalDistanceKilometers) : IComparable<RouteSearchScore>
+    {
+        public int CompareTo(RouteSearchScore other)
         {
-            List<int> routeAirportIds = new List<int>();
-            int? currentAirportId = arrivalAirportId;
+            int legsComparison = LegsCount.CompareTo(other.LegsCount);
 
-            while (currentAirportId.HasValue)
-            {
-                routeAirportIds.Add(currentAirportId.Value);
-                currentAirportId = previousAirportIdByAirportId[currentAirportId.Value];
-            }
+            if (legsComparison != 0)
+                return legsComparison;
 
-            routeAirportIds.Reverse();
-            return routeAirportIds;
+            return TotalDistanceKilometers.CompareTo(other.TotalDistanceKilometers);
         }
+    }
 
-        private static int GetMaximumLegDistanceKilometers(int maxDistance)
+    private readonly record struct RouteSearchPriority(
+        int EstimatedLegsCount,
+        int EstimatedTotalDistanceKilometers,
+        int ActualLegsCount,
+        int ActualTotalDistanceKilometers) : IComparable<RouteSearchPriority>
+    {
+        public int CompareTo(RouteSearchPriority other)
         {
-            return Math.Max(1, (int)Math.Floor(maxDistance * RangeSafetyFactor));
-        }
+            int estimatedLegsComparison = EstimatedLegsCount.CompareTo(other.EstimatedLegsCount);
 
-        private static TimeSpan CalculateRouteFlightTime(
-            int distanceKilometers,
-            int cruisingSpeed,
-            int numberOfTransfers)
-        {
-            if (cruisingSpeed <= 0)
-                return TimeSpan.Zero;
+            if (estimatedLegsComparison != 0)
+                return estimatedLegsComparison;
 
-            double flightDurationHours = (double)distanceKilometers / cruisingSpeed;
-            double transferDurationHours = numberOfTransfers * TransferBaseDurationHours;
+            int estimatedDistanceComparison = EstimatedTotalDistanceKilometers.CompareTo(
+                other.EstimatedTotalDistanceKilometers);
 
-            return TimeSpan.FromHours(
-                flightDurationHours +
-                BaseOperationalDurationHours +
-                transferDurationHours);
-        }
+            if (estimatedDistanceComparison != 0)
+                return estimatedDistanceComparison;
 
-        private static decimal CalculateRouteFlightCost(
-            int distanceKilometers,
-            Plane plane,
-            int numberOfTransfers)
-        {
-            if (plane.CruisingSpeed <= 0 || plane.Airline is null)
-                return 0;
+            int actualLegsComparison = ActualLegsCount.CompareTo(other.ActualLegsCount);
 
-            Airline airline = plane.Airline;
+            if (actualLegsComparison != 0)
+                return actualLegsComparison;
 
-            decimal flightDurationHours = (decimal)distanceKilometers / plane.CruisingSpeed;
-            decimal flightCostByHours = flightDurationHours * plane.FlightHourCost;
-            decimal serviceBaseCost = airline.ServiceBaseCost;
-            decimal transferBaseCost = numberOfTransfers * airline.TransferBaseCost;
-
-            return flightCostByHours + serviceBaseCost + transferBaseCost;
-        }
-
-        private static FlightCalculationResponse CreateRouteNotFoundResponse()
-        {
-            return new FlightCalculationResponse
-            {
-                IsRouteFound = false,
-                DistanceKm = 0,
-                FlightTime = TimeSpan.Zero,
-                FlightCost = 0,
-                NumberOfTransfers = 0,
-                RouteAirports = Array.Empty<AirportSearchResponse>()
-            };
-        }
-
-        private static string? ConvertImageToBase64(byte[]? image)
-        {
-            if (image is null || image.Length == 0)
-                return null;
-
-            return Convert.ToBase64String(image);
-        }
-
-        private sealed class RoutePlan
-        {
-            public RoutePlan(
-                IReadOnlyCollection<AirportSearchResponse> routeAirports,
-                int totalDistanceKilometers)
-            {
-                RouteAirports = routeAirports;
-                TotalDistanceKilometers = totalDistanceKilometers;
-            }
-
-            public IReadOnlyCollection<AirportSearchResponse> RouteAirports { get; }
-            public int TotalDistanceKilometers { get; }
-        }
-
-        private sealed class RouteNode
-        {
-            public RouteNode(int airportId, RoutePriority priority)
-            {
-                AirportId = airportId;
-                Priority = priority;
-            }
-
-            public int AirportId { get; }
-            public RoutePriority Priority { get; }
-        }
-
-        private readonly record struct RoutePriority(
-            int LegsCount,
-            int TotalDistanceKilometers) : IComparable<RoutePriority>
-        {
-            public int CompareTo(RoutePriority other)
-            {
-                int legsComparison = LegsCount.CompareTo(other.LegsCount);
-
-                if (legsComparison != 0)
-                    return legsComparison;
-
-                return TotalDistanceKilometers.CompareTo(other.TotalDistanceKilometers);
-            }
+            return ActualTotalDistanceKilometers.CompareTo(other.ActualTotalDistanceKilometers);
         }
     }
 }

@@ -113,8 +113,10 @@ internal class Program
         
         builder.Services.AddScoped<AirportSearchService>();
         
-        builder.Services.AddScoped<FlightLegCalculationService>();
+        builder.Services.AddScoped<FlightLegCalculationService>(); //legacy
+
         builder.Services.AddScoped<RoutePlanningService>();
+        builder.Services.AddSingleton<AirportGraphCache>();
 
         builder.Services.AddScoped<DeparturePdfDataFactory>();
         builder.Services.AddScoped<TicketPdfService>();

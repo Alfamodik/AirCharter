@@ -3,11 +3,16 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import InputField from "../../components/InputField/InputField";
 import AirportSearch, { type AirportSelection } from "../../components/AirportSearch/AirportSearch";
 import { createOrder, getFlightCost } from "../../api/orderService";
+import type {
+    AirportRouteResponse,
+    PlaneCatalogResponse,
+    RouteLegResponse
+} from "../../contracts/requests/orders/createOrderRequest";
 import "./OrderPage.css";
 
 type OrderNavigationState = {
     imageBase64?: string;
-    flightCost?: number;
+    flightCalculation?: PlaneCatalogResponse;
 };
 
 const catalogPagePath = "/";
@@ -21,6 +26,84 @@ function getTodayLocalDateString(): string {
     return `${year}-${month}-${day}`;
 }
 
+function formatMoney(value: number): string {
+    return `${Math.round(value).toLocaleString("ru-RU")} ₽`;
+}
+
+function formatDistance(value: number): string {
+    return `${value.toLocaleString("ru-RU")} км`;
+}
+
+function formatFlightDuration(value: string): string {
+    if (!value) {
+        return "0 мин";
+    }
+
+    const timeSpanParts = value.split(".");
+    const hasDays = timeSpanParts.length === 3 || value.includes(".") && timeSpanParts[0].length <= 2 && timeSpanParts[1].includes(":");
+
+    let days = 0;
+    let timeValue = value;
+
+    if (hasDays) {
+        days = Number(timeSpanParts[0]);
+        timeValue = timeSpanParts.slice(1).join(".");
+    }
+
+    const timeWithoutFraction = timeValue.split(".")[0];
+    const timeParts = timeWithoutFraction.split(":");
+
+    if (timeParts.length < 2) {
+        return "0 мин";
+    }
+
+    const hours = Number(timeParts[0]) + days * 24;
+    const minutes = Number(timeParts[1]);
+
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+        return "0 мин";
+    }
+
+    if (hours <= 0) {
+        return `${minutes} мин`;
+    }
+
+    if (minutes <= 0) {
+        return `${hours} ч`;
+    }
+
+    return `${hours} ч ${minutes} мин`;
+}
+
+function getAirportDisplayName(airport: AirportRouteResponse): string {
+    const airportCode = airport.iata || airport.icao || "";
+    const city = airport.city || airport.name;
+
+    if (!airportCode) {
+        return city;
+    }
+
+    return `${city} (${airportCode})`;
+}
+
+function getRouteTitle(orderFormData: {
+    takeOffAirportDisplayName: string;
+    landingAirportDisplayName: string;
+}, modelName: string): string {
+    if (!orderFormData.takeOffAirportDisplayName || !orderFormData.landingAirportDisplayName) {
+        return modelName;
+    }
+
+    return `Маршрут: ${orderFormData.takeOffAirportDisplayName} → ${orderFormData.landingAirportDisplayName}`;
+}
+
+function findAirportById(
+    airports: AirportRouteResponse[],
+    airportId: number
+): AirportRouteResponse | undefined {
+    return airports.find((airport) => airport.id === airportId);
+}
+
 export default function OrderPage() {
     const navigate = useNavigate();
     const location = useLocation();
@@ -31,7 +114,9 @@ export default function OrderPage() {
     const planeId = Number(searchParameters.get("planeId") || "0");
     const modelName = searchParameters.get("modelName") || "Выбранный самолёт";
 
-    const [planeImageBase64] = useState<string | undefined>(navigationState?.imageBase64);
+    const [planeImageBase64] = useState<string | undefined>(
+        navigationState?.imageBase64 || navigationState?.flightCalculation?.imageBase64 || undefined
+    );
 
     const [orderFormData, setOrderFormData] = useState({
         takeOffAirportId: searchParameters.get("from") || "",
@@ -42,14 +127,21 @@ export default function OrderPage() {
         departureTime: "12:00"
     });
 
-    const [currentFlightCost, setCurrentFlightCost] = useState<number>(navigationState?.flightCost ?? 0);
+    const [flightCalculation, setFlightCalculation] = useState<PlaneCatalogResponse | null>(
+        navigationState?.flightCalculation ?? null
+    );
+
     const [statusMessage, setStatusMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isCalculatingFlight, setIsCalculatingFlight] = useState(false);
 
     const minimumDate = getTodayLocalDateString();
+
     const heroImageUrl = planeImageBase64
         ? `data:image/jpeg;base64,${planeImageBase64}`
         : "/assets/images/noname_plane.png";
+
+    const routeTitle = getRouteTitle(orderFormData, modelName);
 
     useEffect(() => {
         if (!planeId) {
@@ -57,10 +149,11 @@ export default function OrderPage() {
         }
 
         if (!orderFormData.takeOffAirportId || !orderFormData.landingAirportId) {
+            setFlightCalculation(null);
             return;
         }
 
-        updateFlightPrice();
+        updateFlightCalculation();
     }, [planeId, orderFormData.takeOffAirportId, orderFormData.landingAirportId]);
 
     function updateSearchParameters(updates: Record<string, string>) {
@@ -75,20 +168,40 @@ export default function OrderPage() {
             updatedSearchParameters.set(name, value);
         });
 
-        setSearchParameters(updatedSearchParameters);
+        setSearchParameters(updatedSearchParameters, {
+            replace: true,
+            state: {
+                imageBase64: planeImageBase64,
+                flightCalculation
+            }
+        });
     }
 
-    async function updateFlightPrice() {
+    async function updateFlightCalculation() {
+        setIsCalculatingFlight(true);
+
         try {
-            const priceResponse = await getFlightCost({
+            const routeCalculation = await getFlightCost({
                 planeId,
                 takeOffAirportId: Number(orderFormData.takeOffAirportId),
                 landingAirportId: Number(orderFormData.landingAirportId)
             });
 
-            setCurrentFlightCost(priceResponse.cost);
+            if (!routeCalculation.isRouteFound) {
+                setFlightCalculation(null);
+                setStatusMessage({
+                    text: "Для выбранного самолёта маршрут не найден",
+                    type: "error"
+                });
+                return;
+            }
+
+            setFlightCalculation(routeCalculation);
+            setStatusMessage(null);
         } catch {
-            setCurrentFlightCost(0);
+            setFlightCalculation(null);
+        } finally {
+            setIsCalculatingFlight(false);
         }
     }
 
@@ -123,6 +236,11 @@ export default function OrderPage() {
 
         if (!planeId || !orderFormData.takeOffAirportId || !orderFormData.landingAirportId || !orderFormData.departureDate) {
             setStatusMessage({ text: "Заполните все поля", type: "error" });
+            return;
+        }
+
+        if (!flightCalculation?.isRouteFound) {
+            setStatusMessage({ text: "Сначала дождитесь расчёта маршрута", type: "error" });
             return;
         }
 
@@ -178,7 +296,8 @@ export default function OrderPage() {
                         </button>
 
                         <div className="order-plane-info-overlay">
-                            <h1 className="model-value-large">{modelName}</h1>
+                            <h1 className="model-value-large">{routeTitle}</h1>
+                            <p className="order-plane-model-name">{modelName}</p>
                         </div>
                     </div>
 
@@ -232,9 +351,67 @@ export default function OrderPage() {
                             <div className="summary-item">
                                 <span className="summary-label">Итоговая стоимость:</span>
                                 <span className="price-highlight">
-                                    {currentFlightCost.toLocaleString("ru-RU")} ₽
+                                    {isCalculatingFlight
+                                        ? "Расчёт..."
+                                        : formatMoney(flightCalculation?.flightCost ?? 0)}
                                 </span>
                             </div>
+
+                            {flightCalculation && (
+                                <>
+                                    <div className="summary-item">
+                                        <span className="summary-label">Расстояние:</span>
+                                        <span>{formatDistance(flightCalculation.distanceKm)}</span>
+                                    </div>
+
+                                    <div className="summary-item">
+                                        <span className="summary-label">Время в пути:</span>
+                                        <span>{formatFlightDuration(flightCalculation.flightTime)}</span>
+                                    </div>
+
+                                    <div className="summary-item">
+                                        <span className="summary-label">Пересадки:</span>
+                                        <span>{flightCalculation.numberOfTransfers}</span>
+                                    </div>
+
+                                    {flightCalculation.routeLegs.length > 0 && (
+                                        <div className="route-legs-list">
+                                            <div className="summary-label">Детали маршрута</div>
+
+                                            {flightCalculation.routeLegs.map((routeLeg: RouteLegResponse) => {
+                                                const fromAirport = findAirportById(
+                                                    flightCalculation.routeAirports,
+                                                    routeLeg.fromAirportId
+                                                );
+
+                                                const toAirport = findAirportById(
+                                                    flightCalculation.routeAirports,
+                                                    routeLeg.toAirportId
+                                                );
+
+                                                return (
+                                                    <div
+                                                        className="route-leg-item"
+                                                        key={`${routeLeg.fromAirportId}-${routeLeg.toAirportId}`}
+                                                    >
+                                                        <div className="route-leg-title">
+                                                            {fromAirport ? getAirportDisplayName(fromAirport) : routeLeg.fromAirportId}
+                                                            {" → "}
+                                                            {toAirport ? getAirportDisplayName(toAirport) : routeLeg.toAirportId}
+                                                        </div>
+
+                                                        <div className="route-leg-description">
+                                                            {formatDistance(routeLeg.distanceKm)}
+                                                            {" • "}
+                                                            {formatFlightDuration(routeLeg.flightTime)}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </>
+                            )}
                         </div>
 
                         {statusMessage && (
@@ -243,7 +420,11 @@ export default function OrderPage() {
                             </div>
                         )}
 
-                        <button type="submit" className="auth-submit-button" disabled={isSubmitting}>
+                        <button
+                            type="submit"
+                            className="auth-submit-button"
+                            disabled={isSubmitting || isCalculatingFlight}
+                        >
                             {isSubmitting ? "Создание..." : "Подтвердить заказ"}
                         </button>
                     </form>

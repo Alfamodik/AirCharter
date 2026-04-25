@@ -4,6 +4,7 @@ using AirCharter.API.Responses.Departures;
 using AirCharter.API.Responses.Flights;
 using AirCharter.API.Services;
 using AirCharter.API.Services.Documents;
+using AirCharter.API.Services.Routing;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,11 +15,12 @@ namespace AirCharter.API.Controllers
     [Authorize]
     [ApiController]
     [Route("departures")]
-    public class DeparturesController(AirCharterExtendedContext context, FlightLegCalculationService flightCalculationService, DeparturePdfDataFactory departurePdfDataFactory, TicketPdfService ticketPdfService) : ControllerBase
+    public class DeparturesController(AirCharterExtendedContext context, RoutePlanningService routePlanningService, AirportGraphCache airportGraphCache, DeparturePdfDataFactory departurePdfDataFactory, TicketPdfService ticketPdfService) : ControllerBase
     {
         private readonly AirCharterExtendedContext _context = context;
-        private readonly FlightLegCalculationService _flightCalculationService = flightCalculationService;
-        
+        private readonly RoutePlanningService _routePlanningService = routePlanningService;
+        private readonly AirportGraphCache _airportGraphCache = airportGraphCache;
+
         private readonly TicketPdfService _ticketPdfService = ticketPdfService;
         private readonly DeparturePdfDataFactory _departurePdfDataFactory = departurePdfDataFactory;
 
@@ -41,9 +43,7 @@ namespace AirCharter.API.Controllers
 
             Plane? plane = await _context.Planes
                 .Include(currentPlane => currentPlane.Airline)
-                .FirstOrDefaultAsync(
-                    currentPlane => currentPlane.Id == createDepartureRequest.PlaneId,
-                    cancellationToken);
+                .FirstOrDefaultAsync(currentPlane => currentPlane.Id == createDepartureRequest.PlaneId, cancellationToken);
 
             if (plane == null)
                 return NotFound("Plane not found.");
@@ -64,19 +64,38 @@ namespace AirCharter.API.Controllers
             if (landingAirport == null)
                 return NotFound("Landing airport not found.");
 
-            FlightCalculationResponse calculation = _flightCalculationService.CalculateFlight(plane, takeOffAirport, landingAirport);
+            AirportGraph airportGraph = await _airportGraphCache.GetOrCreateAsync(_context, cancellationToken);
 
-            Departure departure = new()
+            if (!airportGraph.ContainsAirport(createDepartureRequest.TakeOffAirportId))
+                return NotFound("Аэропорт вылета не найден.");
+
+            if (!airportGraph.ContainsAirport(createDepartureRequest.LandingAirportId))
+                return NotFound("Аэропорт посадки не найден.");
+
+            Plane[] selectedPlanes = new Plane[] { plane };
+
+            PlaneCatalogResponse routeCalculation = _routePlanningService
+                .CalculateCatalog(
+                    selectedPlanes,
+                    airportGraph,
+                    createDepartureRequest.TakeOffAirportId,
+                    createDepartureRequest.LandingAirportId)
+                .First();
+
+            if (!routeCalculation.IsRouteFound)
+                return BadRequest("Для выбранного самолёта маршрут не найден.");
+
+            Departure departure = new Departure
             {
-                CharterRequesterId = user.Id,
+                CharterRequesterId = userId,
                 PlaneId = createDepartureRequest.PlaneId,
                 TakeOffAirportId = createDepartureRequest.TakeOffAirportId,
                 LandingAirportId = createDepartureRequest.LandingAirportId,
-                RequestedTakeOffDateTime = createDepartureRequest.RequestedTakeOffDateTime,
-                Distance = calculation.DistanceKm,
-                FlightTime = calculation.FlightTime,
-                Price = calculation.FlightCost,
-                Transfers = calculation.NumberOfTransfers
+                Distance = routeCalculation.DistanceKm,
+                FlightTime = routeCalculation.FlightTime,
+                Price = routeCalculation.FlightCost,
+                Transfers = routeCalculation.NumberOfTransfers,
+                RequestedTakeOffDateTime = createDepartureRequest.RequestedTakeOffDateTime
             };
 
             departure.DepartureStatuses.Add(new DepartureStatus()
@@ -94,41 +113,41 @@ namespace AirCharter.API.Controllers
         }
 
         [HttpPost("calculate-cost")]
-        public async Task<ActionResult<FlightCostResponse>> CalculateCost(FlightCostRequest request, CancellationToken cancellationToken)
+        public async Task<IActionResult> CalculateCost(FlightCostRequest request, CancellationToken cancellationToken)
         {
-            if (request.TakeOffAirportId == request.LandingAirportId)
-                return BadRequest("The landing airport and the take off airport must not be the same.");
-
             Plane? plane = await _context.Planes
-                .Include(currentPlane => currentPlane.Airline)
-                .FirstOrDefaultAsync(currentPlane => currentPlane.Id == request.PlaneId, cancellationToken);
+                .Include(plane => plane.Airline)
+                .FirstOrDefaultAsync(
+                    plane => plane.Id == request.PlaneId,
+                    cancellationToken);
 
-            if (plane == null)
-                return NotFound("Plane not found.");
+            if (plane is null)
+                return NotFound("Самолёт не найден.");
 
-            Airport? takeOffAirport = await _context.Airports
-                .FirstOrDefaultAsync(airport => airport.Id == request.TakeOffAirportId, cancellationToken);
+            AirportGraph airportGraph = await _airportGraphCache.GetOrCreateAsync(
+                _context,
+                cancellationToken);
 
-            if (takeOffAirport == null)
-                return NotFound("Take off airport not found.");
+            if (!airportGraph.ContainsAirport(request.TakeOffAirportId))
+                return NotFound("Аэропорт вылета не найден.");
 
-            Airport? landingAirport = await _context.Airports
-                .FirstOrDefaultAsync(airport => airport.Id == request.LandingAirportId, cancellationToken);
+            if (!airportGraph.ContainsAirport(request.LandingAirportId))
+                return NotFound("Аэропорт посадки не найден.");
 
-            if (landingAirport == null)
-                return NotFound("Landing airport not found.");
+            Plane[] selectedPlanes = new Plane[] { plane };
 
-            FlightCalculationResponse calculation = _flightCalculationService.CalculateFlight(
-                plane,
-                takeOffAirport,
-                landingAirport);
+            PlaneCatalogResponse routeCalculation = _routePlanningService
+                .CalculateCatalog(
+                    selectedPlanes,
+                    airportGraph,
+                    request.TakeOffAirportId,
+                    request.LandingAirportId)
+                .First();
 
-            FlightCostResponse response = new()
-            {
-                Cost = calculation.FlightCost
-            };
+            if (!routeCalculation.IsRouteFound)
+                return BadRequest("Для выбранного самолёта маршрут не найден.");
 
-            return Ok(response);
+            return Ok(routeCalculation);
         }
 
         [HttpGet("management")]

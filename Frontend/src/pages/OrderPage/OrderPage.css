@@ -44,7 +44,9 @@
     inset: 0;
     background: linear-gradient(to top, #121212 0%, rgba(18, 18, 18, 0.1) 100%);
     display: flex;
-    align-items: flex-end;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: flex-start;
     padding: 12px 20px;
 }
 
@@ -84,8 +86,11 @@
 }
 
 .order-summary-section {
-    margin-top: 0px;
+    margin-top: 10px;
     padding-top: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .summary-item {
@@ -146,4 +151,36 @@
     background: rgba(0, 255, 0, 0.1);
     color: #00c851;
     border: 1px solid #00c851;
+}
+
+.order-plane-model-name {
+    margin: 6px 0 0;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 15px;
+    font-weight: 500;
+}
+
+.route-legs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.route-leg-item {
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.route-leg-title {
+    font-weight: 700;
+    margin-bottom: 4px;
+    line-height: 1.35;
+    word-break: break-word;
+}
+
+.route-leg-description {
+    color: #7d8797;
+    font-size: 14px;
 }

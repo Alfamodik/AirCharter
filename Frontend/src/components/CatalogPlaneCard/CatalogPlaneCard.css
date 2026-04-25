@@ -89,17 +89,52 @@
   border-top: 1px solid var(--border-color);
 }
 
+.footer-actions-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
 .plane-price {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 800;
   color: var(--accent-blue);
+}
+
+.route-icon-btn {
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    border: none;
+    border-radius: 12px;
+    background: transparent;
+    cursor: pointer;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.route-icon-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.route-icon-img {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+    display: block;
+}
+
+[data-theme='dark'] .route-icon-btn svg path[fill="#000"] {
+    fill: #fff;
 }
 
 .book-btn {
   background-color: var(--accent-blue);
   color: white;
   border: none;
-  padding: 8px 16px;
+  padding: 10px 20px;
   border-radius: 8px;
   font-weight: 600;
   cursor: pointer;

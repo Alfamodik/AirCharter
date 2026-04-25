@@ -13,7 +13,10 @@ namespace AirCharter.API.Services
 
         private readonly AirCharterExtendedContext _context = context;
 
-        public async Task<IReadOnlyCollection<AirportSearchResponse>> SearchAsync(string query, int limit, CancellationToken cancellationToken)
+        public async Task<IReadOnlyCollection<AirportSearchResponse>> SearchAsync(
+            string query,
+            int limit,
+            CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(query))
                 return Array.Empty<AirportSearchResponse>();
@@ -21,13 +24,17 @@ namespace AirCharter.API.Services
             int normalizedLimit = NormalizeLimit(limit);
             string normalizedQuery = Normalize(query);
 
-            List<AirportSearchCandidate> exactCandidates = await GetExactCandidatesAsync(query, normalizedQuery, cancellationToken);
+            List<AirportSearchCandidate> exactCandidates = await GetExactCandidatesAsync(
+                query,
+                normalizedQuery,
+                cancellationToken);
 
             List<AirportSearchCandidate> rankedExactCandidates = exactCandidates
                 .Select(airport => new RankedAirportSearchCandidate(
                     airport,
                     CalculateExactScore(airport, normalizedQuery)))
                 .OrderBy(candidate => candidate.Score)
+                .ThenBy(candidate => candidate.Airport.Country)
                 .ThenBy(candidate => candidate.Airport.City)
                 .ThenBy(candidate => candidate.Airport.Name)
                 .Select(candidate => candidate.Airport)
@@ -50,7 +57,10 @@ namespace AirCharter.API.Services
                 .ToList();
         }
 
-        private async Task<List<AirportSearchCandidate>> GetExactCandidatesAsync(string query, string normalizedQuery, CancellationToken cancellationToken)
+        private async Task<List<AirportSearchCandidate>> GetExactCandidatesAsync(
+            string query,
+            string normalizedQuery,
+            CancellationToken cancellationToken)
         {
             string trimmedQuery = query.Trim();
             string upperQuery = trimmedQuery.ToUpperInvariant();
@@ -60,7 +70,8 @@ namespace AirCharter.API.Services
                 .Where(airport =>
                     (airport.Iata != null && airport.Iata == upperQuery) ||
                     (airport.Icao != null && airport.Icao == upperQuery) ||
-                    airport.City.ToLower().Contains(normalizedQuery) ||
+                    (airport.City != null && airport.City.ToLower().Contains(normalizedQuery)) ||
+                    airport.Country.ToLower().Contains(normalizedQuery) ||
                     airport.Name.ToLower().Contains(normalizedQuery) ||
                     (airport.Iata != null && airport.Iata.ToLower().Contains(normalizedQuery)) ||
                     (airport.Icao != null && airport.Icao.ToLower().Contains(normalizedQuery)))
@@ -75,7 +86,11 @@ namespace AirCharter.API.Services
                 .ToListAsync(cancellationToken);
         }
 
-        private async Task<List<AirportSearchCandidate>> GetFuzzyCandidatesAsync(string normalizedQuery, List<AirportSearchCandidate> exactCandidates, int limit, CancellationToken cancellationToken)
+        private async Task<List<AirportSearchCandidate>> GetFuzzyCandidatesAsync(
+            string normalizedQuery,
+            List<AirportSearchCandidate> exactCandidates,
+            int limit,
+            CancellationToken cancellationToken)
         {
             HashSet<int> existingAirportIds = exactCandidates
                 .Select(airport => airport.Id)
@@ -99,6 +114,7 @@ namespace AirCharter.API.Services
                     CalculateFuzzyScore(airport, normalizedQuery)))
                 .Where(candidate => candidate.Score <= MaxFuzzyDistance)
                 .OrderBy(candidate => candidate.Score)
+                .ThenBy(candidate => candidate.Airport.Country)
                 .ThenBy(candidate => candidate.Airport.City)
                 .ThenBy(candidate => candidate.Airport.Name)
                 .Select(candidate => candidate.Airport)
@@ -135,6 +151,7 @@ namespace AirCharter.API.Services
             string iata = Normalize(airport.Iata);
             string icao = Normalize(airport.Icao);
             string city = Normalize(airport.City);
+            string country = Normalize(airport.Country);
             string name = Normalize(airport.Name);
 
             if (iata == query)
@@ -146,34 +163,43 @@ namespace AirCharter.API.Services
             if (city == query)
                 return 2;
 
-            if (name == query)
+            if (country == query)
                 return 3;
 
-            if (!string.IsNullOrEmpty(iata) && iata.StartsWith(query))
+            if (name == query)
                 return 4;
 
-            if (!string.IsNullOrEmpty(icao) && icao.StartsWith(query))
+            if (!string.IsNullOrEmpty(iata) && iata.StartsWith(query))
                 return 5;
 
-            if (city.StartsWith(query))
+            if (!string.IsNullOrEmpty(icao) && icao.StartsWith(query))
                 return 6;
 
-            if (name.StartsWith(query))
+            if (city.StartsWith(query))
                 return 7;
 
-            if (city.Contains(query))
+            if (country.StartsWith(query))
                 return 8;
 
-            if (name.Contains(query))
+            if (name.StartsWith(query))
                 return 9;
 
-            if (!string.IsNullOrEmpty(iata) && iata.Contains(query))
+            if (city.Contains(query))
                 return 10;
 
-            if (!string.IsNullOrEmpty(icao) && icao.Contains(query))
+            if (country.Contains(query))
                 return 11;
 
-            return 12;
+            if (name.Contains(query))
+                return 12;
+
+            if (!string.IsNullOrEmpty(iata) && iata.Contains(query))
+                return 13;
+
+            if (!string.IsNullOrEmpty(icao) && icao.Contains(query))
+                return 14;
+
+            return 15;
         }
 
         private static int CalculateFuzzyScore(AirportSearchCandidate airport, string query)
@@ -181,16 +207,20 @@ namespace AirCharter.API.Services
             string iata = Normalize(airport.Iata);
             string icao = Normalize(airport.Icao);
             string city = Normalize(airport.City);
+            string country = Normalize(airport.Country);
             string name = Normalize(airport.Name);
 
             int iataDistance = LevenshteinDistance(iata, query);
             int icaoDistance = LevenshteinDistance(icao, query);
             int cityDistance = LevenshteinDistance(city, query);
+            int countryDistance = LevenshteinDistance(country, query);
             int nameDistance = LevenshteinDistance(name, query);
 
             return Math.Min(
                 Math.Min(iataDistance, icaoDistance),
-                Math.Min(cityDistance, nameDistance));
+                Math.Min(
+                    Math.Min(cityDistance, countryDistance),
+                    nameDistance));
         }
 
         private static string Normalize(string? value)
@@ -239,15 +269,15 @@ namespace AirCharter.API.Services
         private sealed record AirportSearchCandidate(
             int Id,
             string Name,
-            string City,
+            string? City,
             string Country,
             string? Iata,
             string? Icao
-            );
+        );
 
         private sealed record RankedAirportSearchCandidate(
             AirportSearchCandidate Airport,
             int Score
-            );
+        );
     }
 }

@@ -8,6 +8,7 @@ import Header from "../../components/Header/Header";
 import { getPlanes, getCatalogPlanes } from "../../api/planesService";
 import type { PlaneCatalogResponse } from "../../contracts/responses/planes/planeCatalogResponse";
 import "./CatalogPage.css";
+import RouteModal from "../../components/routeModal/RouteModal";
 
 const formatFlightTime = (timeString: string | undefined): string => {
     if (!timeString) {
@@ -59,6 +60,8 @@ export default function CatalogPage() {
     const [minimumMaxDistanceFilter, setMinimumMaxDistanceFilter] = useState(searchParameters.get("minDistance") || "");
     const [maximumTransfersFilter, setMaximumTransfersFilter] = useState(searchParameters.get("maxTransfers") || "");
 
+    const [selectedRoutePlane, setSelectedRoutePlane] = useState<PlaneCatalogResponse | null>(null);
+    
     const isRouteActive = useMemo(() => {
         return takeOffAirportId.trim() !== "" && landingAirportId.trim() !== "";
     }, [takeOffAirportId, landingAirportId]);
@@ -310,6 +313,9 @@ export default function CatalogPage() {
                                             ? plane.numberOfTransfers.toString()
                                             : "0"
                                     }
+                                    routeAirports={plane.routeAirports}
+                                    routeLegs={plane.routeLegs}
+                                    onRouteClick={() => setSelectedRoutePlane(plane)}
                                     onOrderClick={() => handleOrderNavigation(plane)}
                                 />
                             ))}
@@ -317,6 +323,17 @@ export default function CatalogPage() {
                     )}
                 </main>
             </div>
+
+            {selectedRoutePlane !== null && selectedRoutePlane.routeAirports !== undefined && (
+                <RouteModal
+                    onClose={() => setSelectedRoutePlane(null)}
+                    airports={selectedRoutePlane.routeAirports}
+                    legs={selectedRoutePlane.routeLegs || []}
+                    modelName={selectedRoutePlane.modelName}
+                    totalCost={selectedRoutePlane.flightCost}
+                    totalTime={formatFlightTime(selectedRoutePlane.flightTime)}
+                />
+            )}
         </div>
     );
 }
