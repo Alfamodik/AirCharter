@@ -1,6 +1,6 @@
 import React from "react";
 import "./CatalogPlaneCard.css";
-import flightRouteIcon from "../../assets/icons/flight-route.png";
+import flightRouteIcon from "../../assets/icons/flight-route-white.png";
 
 type Airport = {
     id: number;
