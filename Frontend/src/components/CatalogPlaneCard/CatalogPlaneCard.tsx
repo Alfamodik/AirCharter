@@ -1,4 +1,3 @@
-import React from "react";
 import "./CatalogPlaneCard.css";
 import flightRouteIcon from "../../assets/icons/flight-route-white.png";
 
@@ -18,6 +17,8 @@ type RouteLeg = {
     toAirportId: number;
     distanceKm: number;
     flightTime: string;
+    flightCost: number;
+    groundTimeAfterArrival: string | null;
 };
 
 type CatalogPlaneCardProps = {

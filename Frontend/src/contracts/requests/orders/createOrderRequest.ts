@@ -42,4 +42,6 @@ export interface RouteLegResponse {
     toAirportId: number;
     distanceKm: number;
     flightTime: string;
+    flightCost: number;
+    groundTimeAfterArrival: string | null;
 }

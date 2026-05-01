@@ -3,8 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { getMyPerson, updateMyPerson } from "../../api/personService";
 import { getUpdateProfileErrorMessage } from "../../api/utils/authErrorMessages";
 import type { ProfileFormData } from "../../contracts/responses/persons/profileFormData";
-import InputField from "../../components/InputField/InputField";
-import Header from "../../components/Header/Header";
+import InputField from "../../components/inputField/InputField";
+import Header from "../../components/header/Header";
 import "./ProfilePage.css";
 
 export default function ProfilePage() {

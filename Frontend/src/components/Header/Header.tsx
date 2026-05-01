@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useUser } from "../../context/UserContext";
-import { ThemeToggle } from "../ToggleTheme/ToggleThemeButton";
+import { ThemeToggle } from "../toggleTheme/ToggleThemeButton";
 import "./Header.css";
 
 interface HeaderProps {

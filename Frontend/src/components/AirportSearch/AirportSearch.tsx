@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { searchAirports } from "../../api/airportsService";
-import type { AirportSearchResponse } from "../../contracts/responses/airports/AirportSearchResponse";
-import InputField from "../InputField/InputField";
+import type { AirportSearchResponse } from "../../contracts/responses/airports/airportSearchResponse";
+import InputField from "../inputField/InputField";
 import "./AirportSearch.css";
 
 export type AirportSelection = {

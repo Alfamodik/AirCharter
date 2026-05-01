@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import InputField from "../../components/InputField/InputField";
+import InputField from "../../components/inputField/InputField";
 import { confirmEmail, resendEmailConfirmationCode } from "../../api/authService";
 import { getConfirmEmailErrorMessage, getResendCodeErrorMessage } from "../../api//utils/authErrorMessages";
 import "./auth-page.css";

@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import InputField from "../../components/InputField/InputField";
-import AirportSearch, { type AirportSelection } from "../../components/AirportSearch/AirportSearch";
+import InputField from "../../components/inputField/InputField";
+import AirportSearch, { type AirportSelection } from "../../components/airportSearch/AirportSearch";
 import { createOrder, getFlightCost } from "../../api/orderService";
 import type {
     AirportRouteResponse,
@@ -404,7 +404,15 @@ export default function OrderPage() {
                                                             {formatDistance(routeLeg.distanceKm)}
                                                             {" • "}
                                                             {formatFlightDuration(routeLeg.flightTime)}
+                                                            {" • "}
+                                                            {formatMoney(routeLeg.flightCost)}
                                                         </div>
+
+                                                        {routeLeg.groundTimeAfterArrival && (
+                                                            <div className="route-leg-ground-time">
+                                                                Стоянка в аэропорту: {formatFlightDuration(routeLeg.groundTimeAfterArrival)}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 );
                                             })}

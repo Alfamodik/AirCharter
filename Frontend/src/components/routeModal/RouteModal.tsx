@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { YMaps, Map, Placemark, Polyline } from "@pbe/react-yandex-maps";
 import "./RouteModal.css";
 
@@ -18,6 +18,8 @@ type RouteLeg = {
     toAirportId: number;
     distanceKm: number;
     flightTime: string;
+    flightCost: number;
+    groundTimeAfterArrival: string | null;
 };
 
 type RouteModalProps = {
@@ -114,6 +116,10 @@ function formatLegTime(timeString: string): string {
     return `${hours} ч ${minutes} мин`;
 }
 
+function formatMoney(value: number): string {
+    return `${Math.round(value).toLocaleString("ru-RU")} ₽`;
+}
+
 function getAirportCode(airport: Airport): string {
     return airport.iata || airport.icao;
 }
@@ -149,8 +155,17 @@ function getAirportBalloonContent(airport: Airport): string {
 function getLegStats(leg: RouteLeg): string {
     const distance = Math.round(leg.distanceKm).toLocaleString("ru-RU");
     const flightTime = formatLegTime(leg.flightTime);
+    const flightCost = formatMoney(leg.flightCost);
 
-    return `${distance} км • ${flightTime}`;
+    return `${distance} км • ${flightTime} • ${flightCost}`;
+}
+
+function getGroundTimeText(leg: RouteLeg): string {
+    if (!leg.groundTimeAfterArrival) {
+        return "";
+    }
+
+    return `Стоянка в аэропорту: ${formatLegTime(leg.groundTimeAfterArrival)}`;
 }
 
 function getLegHintContent(fromAirport: Airport, toAirport: Airport, leg: RouteLeg): string {
@@ -158,10 +173,16 @@ function getLegHintContent(fromAirport: Airport, toAirport: Airport, leg: RouteL
 }
 
 function getLegBalloonContent(fromAirport: Airport, toAirport: Airport, leg: RouteLeg): string {
+    const groundTimeText = getGroundTimeText(leg);
+    const groundTimeHtml = groundTimeText
+        ? `<span>${escapeHtml(groundTimeText)}</span>`
+        : "";
+
     return `
         <div class="route-leg-balloon">
             <strong>${escapeHtml(getAirportDisplayName(fromAirport))} → ${escapeHtml(getAirportDisplayName(toAirport))}</strong>
             <span>${escapeHtml(getLegStats(leg))}</span>
+            ${groundTimeHtml}
         </div>
     `;
 }
@@ -486,6 +507,12 @@ export default function RouteModal({
                                             <div className="leg-stats">
                                                 {getLegStats(leg)}
                                             </div>
+
+                                            {leg.groundTimeAfterArrival && (
+                                                <div className="leg-ground-time">
+                                                    {getGroundTimeText(leg)}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 );

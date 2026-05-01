@@ -46,7 +46,22 @@
   align-items: center;
   justify-content: center;
   gap: 18px;
-  margin-top: 16px;
+  margin-top: 8px;
+}
+
+.auth-error-message,
+.auth-success-message {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.auth-error-message {
+  color: var(--text-primary);
+}
+
+.auth-success-message {
+  color: #00c851;
 }
 
 .auth-link-button,

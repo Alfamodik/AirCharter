@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useUser } from "../../context/UserContext";
-import InputField from "../../components/InputField/InputField";
-import CatalogPlaneCard from "../../components/CatalogPlaneCard/CatalogPlaneCard";
-import AirportSearch, { type AirportSelection } from "../../components/AirportSearch/AirportSearch";
-import Header from "../../components/Header/Header";
+import InputField from "../../components/inputField/InputField";
+import CatalogPlaneCard from "../../components/catalogPlaneCard/CatalogPlaneCard";
+import AirportSearch, { type AirportSelection } from "../../components/airportSearch/AirportSearch";
+import Header from "../../components/header/Header";
 import { getPlanes, getCatalogPlanes } from "../../api/planesService";
 import type { PlaneCatalogResponse } from "../../contracts/responses/planes/planeCatalogResponse";
 import "./CatalogPage.css";

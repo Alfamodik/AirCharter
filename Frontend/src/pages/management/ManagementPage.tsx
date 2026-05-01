@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
-import Header from "../../components/Header/Header";
+import { Navigate, useNavigate } from "react-router-dom";
+import Header from "../../components/header/Header";
 import { useUser } from "../../context/UserContext";
 import { getManagementDepartures } from "../../api/managementService";
 import type { ManagementDepartureResponse } from "../../contracts/responses/departures/managementDepartureResponse";

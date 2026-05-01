@@ -312,26 +312,39 @@ public sealed class RoutePlanningService
             FlightCost = decimal.Round(flightCost, 0),
             NumberOfTransfers = numberOfTransfers,
             RouteAirports = routePlan.RouteAirports,
-            RouteLegs = CreateRouteLegResponses(routePlan.RouteSegments, plane.CruisingSpeed),
+            RouteLegs = CreateRouteLegResponses(routePlan.RouteSegments, plane),
             ImageBase64 = ConvertImageToBase64(plane.Image)
         };
     }
 
     private static IReadOnlyCollection<RouteLegResponse> CreateRouteLegResponses(
         IReadOnlyCollection<RouteSegment> routeSegments,
-        int cruisingSpeed)
+        Plane plane)
     {
         List<RouteLegResponse> routeLegResponses = new List<RouteLegResponse>(routeSegments.Count);
+        int routeSegmentIndex = 0;
 
         foreach (RouteSegment routeSegment in routeSegments)
         {
+            bool isLastRouteSegment = routeSegmentIndex == routeSegments.Count - 1;
+
             routeLegResponses.Add(new RouteLegResponse
             {
                 FromAirportId = routeSegment.FromAirportId,
                 ToAirportId = routeSegment.ToAirportId,
                 DistanceKm = routeSegment.DistanceKilometers,
-                FlightTime = CalculateLegFlightTime(routeSegment.DistanceKilometers, cruisingSpeed)
+                FlightTime = CalculateLegFlightTime(routeSegment.DistanceKilometers, plane.CruisingSpeed),
+                FlightCost = decimal.Round(CalculateLegFlightCost(
+                    routeSegment.DistanceKilometers,
+                    plane,
+                    routeSegmentIndex,
+                    isLastRouteSegment), 0),
+                GroundTimeAfterArrival = isLastRouteSegment
+                    ? null
+                    : TimeSpan.FromHours(TransferBaseDurationHours)
             });
+
+            routeSegmentIndex++;
         }
 
         return routeLegResponses;
@@ -404,6 +417,29 @@ public sealed class RoutePlanningService
         decimal flightCostByHours = flightDurationHours * plane.FlightHourCost;
         decimal serviceBaseCost = airline.ServiceBaseCost;
         decimal transferBaseCost = numberOfTransfers * airline.TransferBaseCost;
+
+        return flightCostByHours + serviceBaseCost + transferBaseCost;
+    }
+
+    private static decimal CalculateLegFlightCost(
+        int distanceKilometers,
+        Plane plane,
+        int routeSegmentIndex,
+        bool isLastRouteSegment)
+    {
+        if (plane.CruisingSpeed <= 0 || plane.Airline is null)
+            return 0;
+
+        Airline airline = plane.Airline;
+
+        decimal flightDurationHours = (decimal)distanceKilometers / plane.CruisingSpeed;
+        decimal flightCostByHours = flightDurationHours * plane.FlightHourCost;
+        decimal serviceBaseCost = routeSegmentIndex == 0
+            ? airline.ServiceBaseCost
+            : 0;
+        decimal transferBaseCost = isLastRouteSegment
+            ? 0
+            : airline.TransferBaseCost;
 
         return flightCostByHours + serviceBaseCost + transferBaseCost;
     }

@@ -1,4 +1,4 @@
-import type { AirportSearchResponse } from "../contracts/responses/airports/AirportSearchResponse";
+import type { AirportSearchResponse } from "../contracts/responses/airports/airportSearchResponse";
 import { sendRequest } from "./sendRequest";
 
 export async function searchAirports(

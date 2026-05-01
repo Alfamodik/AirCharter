@@ -9,4 +9,8 @@ public sealed class RouteLegResponse
     public int DistanceKm { get; set; }
 
     public TimeSpan FlightTime { get; set; }
+
+    public decimal FlightCost { get; set; }
+
+    public TimeSpan? GroundTimeAfterArrival { get; set; }
 }
