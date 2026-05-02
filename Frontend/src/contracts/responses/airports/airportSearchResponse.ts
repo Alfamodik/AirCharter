@@ -5,4 +5,6 @@ export interface AirportSearchResponse {
     country: string;
     iata?: string | null;
     icao?: string | null;
+    latitude: number;
+    longitude: number;
 }

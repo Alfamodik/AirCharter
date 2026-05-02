@@ -81,7 +81,9 @@ namespace AirCharter.API.Services
                     airport.City,
                     airport.Country,
                     airport.Iata,
-                    airport.Icao))
+                    airport.Icao,
+                    airport.Latitude,
+                    airport.Longitude))
                 .Take(ExactCandidatesLimit)
                 .ToListAsync(cancellationToken);
         }
@@ -104,7 +106,9 @@ namespace AirCharter.API.Services
                     airport.City,
                     airport.Country,
                     airport.Iata,
-                    airport.Icao))
+                    airport.Icao,
+                    airport.Latitude,
+                    airport.Longitude))
                 .ToListAsync(cancellationToken);
 
             return allAirports
@@ -142,7 +146,9 @@ namespace AirCharter.API.Services
                 City = airport.City,
                 Country = airport.Country,
                 Iata = airport.Iata,
-                Icao = airport.Icao
+                Icao = airport.Icao,
+                Latitude = airport.Latitude,
+                Longitude = airport.Longitude
             };
         }
 
@@ -272,7 +278,9 @@ namespace AirCharter.API.Services
             string? City,
             string Country,
             string? Iata,
-            string? Icao
+            string? Icao,
+            decimal Latitude,
+            decimal Longitude
         );
 
         private sealed record RankedAirportSearchCandidate(

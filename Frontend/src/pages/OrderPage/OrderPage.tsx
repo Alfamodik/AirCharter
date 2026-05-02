@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import InputField from "../../components/inputField/InputField";
 import AirportSearch, { type AirportSelection } from "../../components/airportSearch/AirportSearch";
@@ -102,6 +103,33 @@ function findAirportById(
     airportId: number
 ): AirportRouteResponse | undefined {
     return airports.find((airport) => airport.id === airportId);
+}
+
+function createCatalogRouteSearchParameters(orderFormData: {
+    takeOffAirportId: string;
+    takeOffAirportDisplayName: string;
+    landingAirportId: string;
+    landingAirportDisplayName: string;
+}): string {
+    const catalogSearchParameters = new URLSearchParams();
+
+    if (orderFormData.takeOffAirportId.trim() !== "") {
+        catalogSearchParameters.set("from", orderFormData.takeOffAirportId);
+    }
+
+    if (orderFormData.landingAirportId.trim() !== "") {
+        catalogSearchParameters.set("to", orderFormData.landingAirportId);
+    }
+
+    if (orderFormData.takeOffAirportDisplayName.trim() !== "") {
+        catalogSearchParameters.set("fromLabel", orderFormData.takeOffAirportDisplayName);
+    }
+
+    if (orderFormData.landingAirportDisplayName.trim() !== "") {
+        catalogSearchParameters.set("toLabel", orderFormData.landingAirportDisplayName);
+    }
+
+    return catalogSearchParameters.toString();
 }
 
 export default function OrderPage() {
@@ -231,7 +259,16 @@ export default function OrderPage() {
         });
     }
 
-    async function handleSubmitOrder(event: React.FormEvent) {
+    function handleCatalogNavigation() {
+        const catalogSearch = createCatalogRouteSearchParameters(orderFormData);
+
+        navigate({
+            pathname: catalogPagePath,
+            search: catalogSearch
+        });
+    }
+
+    async function handleSubmitOrder(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
 
         if (!planeId || !orderFormData.takeOffAirportId || !orderFormData.landingAirportId || !orderFormData.departureDate) {
@@ -274,7 +311,7 @@ export default function OrderPage() {
         return (
             <div className="catalog-wrapper">
                 <div className="catalog-message error">Самолёт не выбран</div>
-                <button onClick={() => navigate(catalogPagePath)}>Вернуться в каталог</button>
+                <button onClick={handleCatalogNavigation}>Вернуться в каталог</button>
             </div>
         );
     }
@@ -286,7 +323,7 @@ export default function OrderPage() {
                     <div className="order-plane-hero" style={{ backgroundImage: `url(${heroImageUrl})` }}>
                         <button
                             className="order-back-button"
-                            onClick={() => navigate(catalogPagePath)}
+                            onClick={handleCatalogNavigation}
                             type="button"
                         >
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="20" height="20">

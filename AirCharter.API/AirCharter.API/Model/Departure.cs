@@ -27,6 +27,8 @@ public partial class Departure
 
     public virtual User CharterRequester { get; set; } = null!;
 
+    public virtual ICollection<DepartureRouteLeg> DepartureRouteLegs { get; set; } = new List<DepartureRouteLeg>();
+
     public virtual ICollection<DepartureStatus> DepartureStatuses { get; set; } = new List<DepartureStatus>();
 
     public virtual Airport LandingAirport { get; set; } = null!;

@@ -7,6 +7,7 @@ import "./AirportSearch.css";
 export type AirportSelection = {
     id: string;
     displayName: string;
+    airport: AirportSearchResponse;
 };
 
 interface AirportSearchProps {
@@ -93,7 +94,8 @@ export default function AirportSearch({
 
         onSelect({
             id: airport.id.toString(),
-            displayName
+            displayName,
+            airport
         });
     }
 

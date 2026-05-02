@@ -22,6 +22,8 @@ public partial class AirCharterExtendedContext : DbContext
 
     public virtual DbSet<Departure> Departures { get; set; }
 
+    public virtual DbSet<DepartureRouteLeg> DepartureRouteLegs { get; set; }
+
     public virtual DbSet<DepartureStatus> DepartureStatuses { get; set; }
 
     public virtual DbSet<Person> Persons { get; set; }
@@ -229,6 +231,50 @@ public partial class AirCharterExtendedContext : DbContext
                         j.IndexerProperty<int>("DepartureId").HasColumnName("departure_id");
                         j.IndexerProperty<int>("PersonId").HasColumnName("person_id");
                     });
+        });
+
+        modelBuilder.Entity<DepartureRouteLeg>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("departure_route_legs");
+
+            entity.HasIndex(e => new { e.DepartureId, e.SequenceNumber }, "departure_id").IsUnique();
+
+            entity.HasIndex(e => e.FromAirportId, "from_airport_id");
+
+            entity.HasIndex(e => e.ToAirportId, "to_airport_id");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.DepartureId).HasColumnName("departure_id");
+            entity.Property(e => e.Distance).HasColumnName("distance");
+            entity.Property(e => e.FlightCost)
+                .HasPrecision(12, 2)
+                .HasColumnName("flight_cost");
+            entity.Property(e => e.FlightTime)
+                .HasColumnType("time")
+                .HasColumnName("flight_time");
+            entity.Property(e => e.FromAirportId).HasColumnName("from_airport_id");
+            entity.Property(e => e.GroundTimeAfterArrival)
+                .HasColumnType("time")
+                .HasColumnName("ground_time_after_arrival");
+            entity.Property(e => e.SequenceNumber).HasColumnName("sequence_number");
+            entity.Property(e => e.ToAirportId).HasColumnName("to_airport_id");
+
+            entity.HasOne(d => d.Departure).WithMany(p => p.DepartureRouteLegs)
+                .HasForeignKey(d => d.DepartureId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("departure_route_legs_ibfk_1");
+
+            entity.HasOne(d => d.FromAirport).WithMany(p => p.DepartureRouteLegFromAirports)
+                .HasForeignKey(d => d.FromAirportId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("departure_route_legs_ibfk_2");
+
+            entity.HasOne(d => d.ToAirport).WithMany(p => p.DepartureRouteLegToAirports)
+                .HasForeignKey(d => d.ToAirportId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("departure_route_legs_ibfk_3");
         });
 
         modelBuilder.Entity<DepartureStatus>(entity =>

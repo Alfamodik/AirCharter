@@ -11,6 +11,7 @@ import ProfilePage from "./pages/profilePage/ProfilePage";
 import OrderPage from "./pages/orderPage/OrderPage.tsx";
 import StaffRoute from "./components/StaffRoute";
 import ManagementPage from "./pages/management/ManagementPage";
+import ManagementOrderRoutePage from "./pages/management/ManagementOrderRoutePage";
 
 export default function App() {
     return (
@@ -26,7 +27,13 @@ export default function App() {
                 <Route path="/cabinet" element={<ProtectedRoute><CabinetPage/></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><ProfilePage/></ProtectedRoute>} />
                 <Route path="/create-order" element={<ProtectedRoute><OrderPage/></ProtectedRoute>} />
-                <Route element={<StaffRoute />}><Route path="/management" element={<ManagementPage />} /></Route>
+                <Route element={<StaffRoute />}>
+                    <Route path="/management" element={<ManagementPage />} />
+                    <Route path="/management/orders" element={<ManagementPage />} />
+                    <Route path="/management/orders/:departureId" element={<ManagementOrderRoutePage />} />
+                    <Route path="/management/flights" element={<ManagementPage />} />
+                    <Route path="/management/completed" element={<ManagementPage />} />
+                </Route>
             </Routes>
         </BrowserRouter>
     );

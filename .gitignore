@@ -43,3 +43,6 @@ Thumbs.db
 *.temp
 *.swp
 *.lock
+
+# Local reference projects
+AirCharterCourseWork/
