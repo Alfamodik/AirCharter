@@ -13,6 +13,10 @@ export async function login(request: LoginRequest): Promise<AccessTokenResponse>
     return await sendRequest<AccessTokenResponse>("/auth/login", "POST", request);
 }
 
+export async function logout(): Promise<void> {
+    await sendRequest<void>("/auth/logout", "POST");
+}
+
 export async function confirmEmail(request: ConfirmEmailRequest): Promise<AccessTokenResponse> {
     return await sendRequest<AccessTokenResponse>("/auth/confirm-email", "POST", request);
 }

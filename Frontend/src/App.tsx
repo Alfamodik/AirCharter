@@ -1,4 +1,6 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { useEffect } from "react";
+import { BrowserRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { unauthorizedResponseEventName } from "./api/sendRequest";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import LoginPage from "./pages/auth/LoginPage";
@@ -12,10 +14,12 @@ import OrderPage from "./pages/orderPage/OrderPage.tsx";
 import StaffRoute from "./components/StaffRoute";
 import ManagementPage from "./pages/management/ManagementPage";
 import ManagementOrderRoutePage from "./pages/management/ManagementOrderRoutePage";
+import { useUser } from "./context/UserContext";
 
 export default function App() {
     return (
         <BrowserRouter>
+            <UnauthorizedRedirect />
             <Routes>
                 <Route path="/" element={<CatalogPage />} />
                 <Route path="/catalog" element={<CatalogPage/>} />
@@ -37,4 +41,31 @@ export default function App() {
             </Routes>
         </BrowserRouter>
     );
+}
+
+function UnauthorizedRedirect() {
+    const navigate = useNavigate();
+    const location = useLocation();
+    const { logout } = useUser();
+
+    useEffect(() => {
+        function handleUnauthorizedResponse() {
+            logout();
+
+            if (location.pathname !== "/login") {
+                navigate("/login", {
+                    replace: true,
+                    state: { from: location }
+                });
+            }
+        }
+
+        window.addEventListener(unauthorizedResponseEventName, handleUnauthorizedResponse);
+
+        return () => {
+            window.removeEventListener(unauthorizedResponseEventName, handleUnauthorizedResponse);
+        };
+    }, [location, logout, navigate]);
+
+    return null;
 }

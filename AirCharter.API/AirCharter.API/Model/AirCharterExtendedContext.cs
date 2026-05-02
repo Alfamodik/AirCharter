@@ -30,6 +30,8 @@ public partial class AirCharterExtendedContext : DbContext
 
     public virtual DbSet<Plane> Planes { get; set; }
 
+    public virtual DbSet<RefreshToken> RefreshTokens { get; set; }
+
     public virtual DbSet<Role> Roles { get; set; }
 
     public virtual DbSet<Status> Statuses { get; set; }
@@ -360,6 +362,44 @@ public partial class AirCharterExtendedContext : DbContext
                 .HasForeignKey(d => d.AirlineId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("planes_ibfk_1");
+        });
+
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("refresh_tokens");
+
+            entity.HasIndex(e => e.ReplacedByTokenId, "replaced_by_token_id");
+
+            entity.HasIndex(e => e.TokenHash, "token_hash").IsUnique();
+
+            entity.HasIndex(e => e.UserId, "user_id");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CreatedAtUtc)
+                .HasColumnType("datetime")
+                .HasColumnName("created_at_utc");
+            entity.Property(e => e.ExpiresAtUtc)
+                .HasColumnType("datetime")
+                .HasColumnName("expires_at_utc");
+            entity.Property(e => e.ReplacedByTokenId).HasColumnName("replaced_by_token_id");
+            entity.Property(e => e.RevokedAtUtc)
+                .HasColumnType("datetime")
+                .HasColumnName("revoked_at_utc");
+            entity.Property(e => e.TokenHash)
+                .HasMaxLength(128)
+                .HasColumnName("token_hash");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+
+            entity.HasOne(d => d.ReplacedByToken).WithMany(p => p.ReplacedRefreshTokens)
+                .HasForeignKey(d => d.ReplacedByTokenId)
+                .HasConstraintName("refresh_tokens_ibfk_2");
+
+            entity.HasOne(d => d.User).WithMany(p => p.RefreshTokens)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("refresh_tokens_ibfk_1");
         });
 
         modelBuilder.Entity<Role>(entity =>

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { logout as logoutSession } from "../api/authService";
 import { getCurrentUser } from "../api/userService";
 import type { UserProfileResponse } from "../contracts/responses/users/userPersonResponse";
 
@@ -32,6 +33,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     }, []);
 
     const logout = () => {
+        void logoutSession().catch(() => undefined);
         localStorage.removeItem("accessToken");
         setUser(null);
     };

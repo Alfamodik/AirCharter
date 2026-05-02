@@ -2,8 +2,10 @@
 using AirCharter.API.Requests.Authentication;
 using AirCharter.API.Services;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Text;
 using System.Security.Cryptography;
 
 namespace AirCharter.API.Controllers;
@@ -13,6 +15,8 @@ namespace AirCharter.API.Controllers;
 public sealed class AuthController(AirCharterExtendedContext context, JwtService jwtService, EmailService emailService) : ControllerBase
 {
     private const int ClientRoleId = 1;
+    private const int RefreshTokenLifetimeDays = 30;
+    private const string RefreshTokenCookieName = "refreshToken";
 
     private readonly AirCharterExtendedContext _context = context;
     private readonly JwtService _jwtService = jwtService;
@@ -93,6 +97,8 @@ public sealed class AuthController(AirCharterExtendedContext context, JwtService
 
         await _context.SaveChangesAsync(cancellationToken);
 
+        await IssueRefreshTokenAsync(user, cancellationToken);
+
         string token = _jwtService.GenerateAccessToken(user.Id, user.Role.Name);
 
         return Ok(new AccessTokenResponse
@@ -154,12 +160,99 @@ public sealed class AuthController(AirCharterExtendedContext context, JwtService
         if (passwordVerificationResult == PasswordVerificationResult.Failed)
             return Unauthorized();
 
+        await IssueRefreshTokenAsync(user, cancellationToken);
+
         string token = _jwtService.GenerateAccessToken(user.Id, user.Role.Name);
 
         return Ok(new AccessTokenResponse
         {
             Token = token
         });
+    }
+
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh(CancellationToken cancellationToken)
+    {
+        string? refreshTokenValue = Request.Cookies[RefreshTokenCookieName];
+
+        if (string.IsNullOrWhiteSpace(refreshTokenValue))
+            return Unauthorized();
+
+        string refreshTokenHash = HashRefreshToken(refreshTokenValue);
+
+        RefreshToken? refreshToken = await _context.RefreshTokens
+            .Include(currentRefreshToken => currentRefreshToken.User)
+            .ThenInclude(user => user.Role)
+            .FirstOrDefaultAsync(currentRefreshToken => currentRefreshToken.TokenHash == refreshTokenHash, cancellationToken);
+
+        if (refreshToken == null)
+        {
+            ClearRefreshTokenCookie();
+            return Unauthorized();
+        }
+
+        if (refreshToken.RevokedAtUtc != null || refreshToken.ExpiresAtUtc <= DateTime.UtcNow)
+        {
+            ClearRefreshTokenCookie();
+            return Unauthorized();
+        }
+
+        if (!refreshToken.User.IsActive || !refreshToken.User.IsEmailConfirmed)
+        {
+            ClearRefreshTokenCookie();
+            return Unauthorized();
+        }
+
+        string nextRefreshTokenValue = GenerateRefreshTokenValue();
+        RefreshToken nextRefreshToken = CreateRefreshToken(refreshToken.UserId, nextRefreshTokenValue);
+
+        await using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction =
+            await _context.Database.BeginTransactionAsync(cancellationToken);
+
+        _context.RefreshTokens.Add(nextRefreshToken);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        refreshToken.RevokedAtUtc = DateTime.UtcNow;
+        refreshToken.ReplacedByTokenId = nextRefreshToken.Id;
+
+        await _context.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        SetRefreshTokenCookie(nextRefreshTokenValue, nextRefreshToken.ExpiresAtUtc);
+
+        string accessToken = _jwtService.GenerateAccessToken(refreshToken.User.Id, refreshToken.User.Role.Name);
+
+        return Ok(new AccessTokenResponse
+        {
+            Token = accessToken
+        });
+    }
+
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout(CancellationToken cancellationToken)
+    {
+        string? refreshTokenValue = Request.Cookies[RefreshTokenCookieName];
+
+        if (!string.IsNullOrWhiteSpace(refreshTokenValue))
+        {
+            string refreshTokenHash = HashRefreshToken(refreshTokenValue);
+
+            RefreshToken? refreshToken = await _context.RefreshTokens
+                .FirstOrDefaultAsync(currentRefreshToken =>
+                    currentRefreshToken.TokenHash == refreshTokenHash &&
+                    currentRefreshToken.RevokedAtUtc == null,
+                    cancellationToken);
+
+            if (refreshToken != null)
+            {
+                refreshToken.RevokedAtUtc = DateTime.UtcNow;
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+        }
+
+        ClearRefreshTokenCookie();
+
+        return NoContent();
     }
 
     private string SetEmailConfirmationCode(User user)
@@ -175,6 +268,64 @@ public sealed class AuthController(AirCharterExtendedContext context, JwtService
     private bool IsConfirmationCodeValid(User user, string confirmationCode) =>
         _passwordHasher.VerifyHashedPassword(user, user.EmailConfirmationCodeHash!, confirmationCode) 
         != PasswordVerificationResult.Failed;
+
+    private async Task IssueRefreshTokenAsync(User user, CancellationToken cancellationToken)
+    {
+        string refreshTokenValue = GenerateRefreshTokenValue();
+        RefreshToken refreshToken = CreateRefreshToken(user.Id, refreshTokenValue);
+
+        _context.RefreshTokens.Add(refreshToken);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        SetRefreshTokenCookie(refreshTokenValue, refreshToken.ExpiresAtUtc);
+    }
+
+    private static RefreshToken CreateRefreshToken(int userId, string refreshTokenValue)
+    {
+        return new RefreshToken
+        {
+            UserId = userId,
+            TokenHash = HashRefreshToken(refreshTokenValue),
+            CreatedAtUtc = DateTime.UtcNow,
+            ExpiresAtUtc = DateTime.UtcNow.AddDays(RefreshTokenLifetimeDays)
+        };
+    }
+
+    private void SetRefreshTokenCookie(string refreshTokenValue, DateTime expiresAtUtc)
+    {
+        Response.Cookies.Append(RefreshTokenCookieName, refreshTokenValue, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.None,
+            Expires = expiresAtUtc,
+            Path = "/auth"
+        });
+    }
+
+    private void ClearRefreshTokenCookie()
+    {
+        Response.Cookies.Delete(RefreshTokenCookieName, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.None,
+            Path = "/auth"
+        });
+    }
+
+    private static string GenerateRefreshTokenValue()
+    {
+        return WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(64));
+    }
+
+    private static string HashRefreshToken(string refreshTokenValue)
+    {
+        byte[] tokenBytes = Encoding.UTF8.GetBytes(refreshTokenValue);
+        byte[] tokenHash = SHA256.HashData(tokenBytes);
+
+        return Convert.ToBase64String(tokenHash);
+    }
 
     private static string GenerateEmailConfirmationCode() => RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
 }
