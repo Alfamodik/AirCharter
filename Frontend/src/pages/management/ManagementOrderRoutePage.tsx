@@ -6,13 +6,21 @@ import AirportSearch from "../../components/airportSearch/AirportSearch";
 import {
     approveManagementDepartureRoute,
     getManagementDeparture,
+    getManagementRouteCandidates,
     previewManagementDepartureRoute,
     rejectManagementDeparture,
+    saveManagementDepartureRoute,
+    type ManagementRouteCandidateResponse,
     type ManagementRoutePreviewLegResponse,
     type ManagementRoutePreviewResponse,
     type UpdateDepartureRouteRequest
 } from "../../api/managementService";
 import { hasManagementAccess } from "../../api/utils/roleAccess";
+import {
+    getUserDeparture,
+    previewUserDepartureRoute,
+    saveUserDepartureRoute
+} from "../../api/userService";
 import { useUser } from "../../context/UserContext";
 import type {
     ManagementDepartureResponse,
@@ -57,7 +65,13 @@ type MapRouteLeg = {
     canFly: boolean;
 };
 
-export default function ManagementOrderRoutePage() {
+type ManagementOrderRoutePageProps = {
+    mode?: "management" | "client";
+};
+
+export default function ManagementOrderRoutePage({
+    mode = "management"
+}: ManagementOrderRoutePageProps) {
     const navigate = useNavigate();
     const { departureId } = useParams();
     const { user, isLoading: isUserLoading } = useUser();
@@ -67,6 +81,8 @@ export default function ManagementOrderRoutePage() {
     const [routePoints, setRoutePoints] = useState<RoutePoint[]>([]);
     const [groundTimesMinutes, setGroundTimesMinutes] = useState<Array<number | null>>([]);
     const [routePreview, setRoutePreview] = useState<ManagementRoutePreviewResponse | null>(null);
+    const [routeCandidates, setRouteCandidates] = useState<ManagementRouteCandidateResponse[]>([]);
+    const [activeCandidatePointIndex, setActiveCandidatePointIndex] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isActionLoading, setIsActionLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
@@ -88,6 +104,10 @@ export default function ManagementOrderRoutePage() {
     const summaryFlightTime = routePreview?.flightTime ?? departure?.flightTime ?? "00:00:00";
     const summaryPrice = routePreview?.price ?? departure?.price ?? 0;
     const summaryTransfers = routePreview?.transfers ?? departure?.transfers ?? 0;
+    const normalizedActiveCandidatePointIndex = getActiveCandidatePointIndex(
+        routePoints,
+        activeCandidatePointIndex
+    );
     const mapAirports = useMemo(() => {
         return createMapAirportsFromRoutePoints(
             routePoints,
@@ -107,7 +127,7 @@ export default function ManagementOrderRoutePage() {
         if (
             isUserLoading ||
             user === null ||
-            !hasManagementAccess(user.role?.name) ||
+            (mode === "management" && !hasManagementAccess(user.role?.name)) ||
             Number.isNaN(parsedDepartureId)
         ) {
             return;
@@ -120,10 +140,9 @@ export default function ManagementOrderRoutePage() {
             setErrorMessage("");
 
             try {
-                const response = await getManagementDeparture(
-                    parsedDepartureId,
-                    abortController.signal
-                );
+                const response = mode === "management"
+                    ? await getManagementDeparture(parsedDepartureId, abortController.signal)
+                    : await getUserDeparture(parsedDepartureId, abortController.signal);
 
                 setDeparture(response);
                 setRoutePoints(createInitialRoutePoints(response));
@@ -142,7 +161,7 @@ export default function ManagementOrderRoutePage() {
         loadDeparture();
 
         return () => abortController.abort();
-    }, [isUserLoading, parsedDepartureId, user]);
+    }, [isUserLoading, mode, parsedDepartureId, user]);
 
     useEffect(() => {
         if (routeRequest === null || Number.isNaN(parsedDepartureId)) {
@@ -153,11 +172,17 @@ export default function ManagementOrderRoutePage() {
         const abortController = new AbortController();
         const timeoutId = window.setTimeout(async () => {
             try {
-                const response = await previewManagementDepartureRoute(
-                    parsedDepartureId,
-                    routeRequest,
-                    abortController.signal
-                );
+                const response = mode === "management"
+                    ? await previewManagementDepartureRoute(
+                        parsedDepartureId,
+                        routeRequest,
+                        abortController.signal
+                    )
+                    : await previewUserDepartureRoute(
+                        parsedDepartureId,
+                        routeRequest,
+                        abortController.signal
+                    );
 
                 setRoutePreview(response);
             } catch {
@@ -171,11 +196,53 @@ export default function ManagementOrderRoutePage() {
             abortController.abort();
             window.clearTimeout(timeoutId);
         };
-    }, [parsedDepartureId, routeRequest]);
+    }, [mode, parsedDepartureId, routeRequest]);
+
+    useEffect(() => {
+        if (
+            mode !== "management" ||
+            departure === null ||
+            normalizedActiveCandidatePointIndex === null ||
+            Number.isNaN(parsedDepartureId)
+        ) {
+            setRouteCandidates([]);
+            return;
+        }
+
+        const fromAirportId = routePoints[normalizedActiveCandidatePointIndex - 1]?.airportId;
+
+        if (fromAirportId === null || fromAirportId === undefined) {
+            setRouteCandidates([]);
+            return;
+        }
+
+        const currentFromAirportId = fromAirportId;
+        const abortController = new AbortController();
+
+        async function loadRouteCandidates() {
+            try {
+                const response = await getManagementRouteCandidates(
+                    parsedDepartureId,
+                    currentFromAirportId,
+                    abortController.signal
+                );
+
+                setRouteCandidates(response);
+            } catch {
+                if (!abortController.signal.aborted) {
+                    setRouteCandidates([]);
+                }
+            }
+        }
+
+        loadRouteCandidates();
+
+        return () => abortController.abort();
+    }, [departure, mode, normalizedActiveCandidatePointIndex, parsedDepartureId, routePoints]);
 
     const routeMapData = useMemo(() => {
-        return createRouteMapData(mapAirports, mapLegs);
-    }, [mapAirports, mapLegs]);
+        return createRouteMapData(mapAirports, mapLegs, routeCandidates);
+    }, [mapAirports, mapLegs, routeCandidates]);
 
     useEffect(() => {
         if (mapInstance === null || routeMapData.bounds === undefined) {
@@ -188,12 +255,15 @@ export default function ManagementOrderRoutePage() {
         });
     }, [mapInstance, routeMapData.bounds]);
 
-    if (!isUserLoading && (user === null || !hasManagementAccess(user.role?.name))) {
+    if (!isUserLoading && (
+        user === null ||
+        (mode === "management" && !hasManagementAccess(user.role?.name))
+    )) {
         return <Navigate to="/catalog" replace />;
     }
 
     if (Number.isNaN(parsedDepartureId)) {
-        return <Navigate to="/management/orders" replace />;
+        return <Navigate to={mode === "management" ? "/management/orders" : "/cabinet"} replace />;
     }
 
     function handleAirportSelect(
@@ -216,9 +286,25 @@ export default function ManagementOrderRoutePage() {
         );
     }
 
-    function handleAddPoint(afterPointIndex: number) {
+    function handleRouteCandidateSelect(candidate: ManagementRouteCandidateResponse) {
+        if (normalizedActiveCandidatePointIndex === null) {
+            return;
+        }
+
+        handleAirportSelect(
+            normalizedActiveCandidatePointIndex,
+            candidate.id.toString(),
+            getAirportDisplayName(candidate),
+            candidate
+        );
+    }
+
+    function handleInsertPointBefore(rightPointIndex: number) {
         setRoutePoints((currentRoutePoints) => {
-            const insertIndex = Math.min(afterPointIndex + 1, currentRoutePoints.length - 1);
+            const insertIndex = Math.min(
+                Math.max(rightPointIndex, 1),
+                currentRoutePoints.length - 1
+            );
             const nextRoutePoints = [...currentRoutePoints];
 
             nextRoutePoints.splice(insertIndex, 0, {
@@ -227,11 +313,16 @@ export default function ManagementOrderRoutePage() {
                 displayName: ""
             });
 
+            setActiveCandidatePointIndex(insertIndex);
+
             return nextRoutePoints;
         });
 
         setGroundTimesMinutes((currentGroundTimes) => {
-            const insertIndex = Math.min(afterPointIndex, currentGroundTimes.length - 1);
+            const insertIndex = Math.min(
+                Math.max(rightPointIndex - 1, 0),
+                currentGroundTimes.length
+            );
             const nextGroundTimes = [...currentGroundTimes];
 
             nextGroundTimes.splice(insertIndex, 0, 90);
@@ -244,6 +335,19 @@ export default function ManagementOrderRoutePage() {
         setRoutePoints((currentRoutePoints) =>
             currentRoutePoints.filter((_, index) => index !== routePointIndex)
         );
+        setActiveCandidatePointIndex((currentIndex) => {
+            if (currentIndex === null) {
+                return null;
+            }
+
+            if (currentIndex === routePointIndex) {
+                return null;
+            }
+
+            return currentIndex > routePointIndex
+                ? currentIndex - 1
+                : currentIndex;
+        });
 
         setGroundTimesMinutes((currentGroundTimes) => {
             const nextGroundTimes = [...currentGroundTimes];
@@ -311,6 +415,52 @@ export default function ManagementOrderRoutePage() {
         }
     }
 
+    async function handleSaveRoute() {
+        if (invalidSameAirportLegIndexes.size > 0) {
+            setErrorMessage("Соседние аэропорты в маршруте не должны совпадать.");
+            return;
+        }
+
+        if (routeRequest === null) {
+            setErrorMessage("Выберите аэропорт для каждого плеча маршрута.");
+            return;
+        }
+
+        if (routePreview === null) {
+            setErrorMessage("Дождитесь проверки маршрута.");
+            return;
+        }
+
+        if (!routePreview.canFly) {
+            setErrorMessage("В маршруте есть плечо, которое самолёт не может пройти с безопасным запасом.");
+            return;
+        }
+
+        setIsActionLoading(true);
+        setErrorMessage("");
+
+        try {
+            if (mode === "management") {
+                await saveManagementDepartureRoute(parsedDepartureId, routeRequest);
+            } else {
+                await saveUserDepartureRoute(parsedDepartureId, routeRequest);
+            }
+
+            const response = mode === "management"
+                ? await getManagementDeparture(parsedDepartureId)
+                : await getUserDeparture(parsedDepartureId);
+
+            setDeparture(response);
+            setRoutePoints(createInitialRoutePoints(response));
+            setGroundTimesMinutes(createInitialGroundTimes(response));
+            setRoutePreview(null);
+        } catch {
+            setErrorMessage("Не удалось сохранить маршрут.");
+        } finally {
+            setIsActionLoading(false);
+        }
+    }
+
     function handleResetRoute() {
         if (departure === null) {
             return;
@@ -351,7 +501,7 @@ export default function ManagementOrderRoutePage() {
             <Header showSearch={false}>
                 <button
                     className="header-icon-btn"
-                    onClick={() => navigate("/management/orders")}
+                    onClick={() => navigate(mode === "management" ? "/management/orders" : "/cabinet")}
                     title="Назад"
                 >
                     <svg viewBox="0 0 24 24">
@@ -360,6 +510,20 @@ export default function ManagementOrderRoutePage() {
                     </svg>
                 </button>
             </Header>
+
+            <div className={mode === "client" ? "catalog-layout" : "management-route-standalone"}>
+            {mode === "client" && (
+                <aside className="catalog-sidebar">
+                    <div className="user-brief-info">
+                        <span className="user-email-label">
+                            {isUserLoading ? "Загрузка..." : user?.email}
+                        </span>
+                        <a href="/profile" className="profile-redirect-btn">
+                            Профиль
+                        </a>
+                    </div>
+                </aside>
+            )}
 
             <main className="catalog-main management-route-page">
                 {isLoading ? (
@@ -440,11 +604,13 @@ export default function ManagementOrderRoutePage() {
                                                 legPreview={legPreview}
                                                 existingLeg={existingLeg}
                                                 hasSameAirportError={invalidSameAirportLegIndexes.has(index)}
+                                                isActive={normalizedActiveCandidatePointIndex === index + 1}
                                                 isLastLeg={isLastLeg}
                                                 groundTimeMinutes={groundTimesMinutes[index] ?? 90}
                                                 onAirportSelect={handleAirportSelect}
+                                                onActivatePoint={() => setActiveCandidatePointIndex(index + 1)}
                                                 onGroundTimeChange={(value) => handleGroundTimeChange(index, value)}
-                                                onAddPoint={() => handleAddPoint(index + 1)}
+                                                onAddPoint={() => handleInsertPointBefore(index + 1)}
                                                 onRemovePoint={handleRemovePoint}
                                                 onResetPoint={handleResetPoint}
                                             />
@@ -454,8 +620,10 @@ export default function ManagementOrderRoutePage() {
 
                                 <ManagementRouteMap
                                     airports={mapAirports}
+                                    candidates={routeCandidates}
                                     mapData={routeMapData}
                                     mapInstance={mapInstance}
+                                    onCandidateSelect={handleRouteCandidateSelect}
                                     onMapInstanceChange={setMapInstance}
                                 />
                             </div>
@@ -486,6 +654,7 @@ export default function ManagementOrderRoutePage() {
                         </section>
 
                         <div className="management-route-actions">
+                            {mode === "management" && (
                             <button
                                 type="button"
                                 className="management-danger-button"
@@ -494,7 +663,23 @@ export default function ManagementOrderRoutePage() {
                             >
                                 Отклонить
                             </button>
+                            )}
 
+                            <button
+                                type="button"
+                                className="management-secondary-button"
+                                onClick={handleSaveRoute}
+                                disabled={
+                                    isActionLoading ||
+                                    !departure.canEditRoute ||
+                                    routeRequest === null ||
+                                    routePreview?.canFly !== true
+                                }
+                            >
+                                Сохранить
+                            </button>
+
+                            {mode === "management" && (
                             <button
                                 type="button"
                                 className="management-primary-button"
@@ -508,10 +693,12 @@ export default function ManagementOrderRoutePage() {
                             >
                                 Одобрить
                             </button>
+                            )}
                         </div>
                     </>
                 )}
             </main>
+            </div>
         </div>
     );
 }
@@ -524,9 +711,11 @@ function RouteLegEditorRow({
     legPreview,
     existingLeg,
     hasSameAirportError,
+    isActive,
     isLastLeg,
     groundTimeMinutes,
     onAirportSelect,
+    onActivatePoint,
     onGroundTimeChange,
     onAddPoint,
     onRemovePoint,
@@ -539,6 +728,7 @@ function RouteLegEditorRow({
     legPreview?: ManagementRoutePreviewLegResponse;
     existingLeg?: ManagementRouteLegResponse;
     hasSameAirportError: boolean;
+    isActive: boolean;
     isLastLeg: boolean;
     groundTimeMinutes: number;
     onAirportSelect: (
@@ -547,6 +737,7 @@ function RouteLegEditorRow({
         displayName: string,
         airport: AirportSearchResponse
     ) => void;
+    onActivatePoint: () => void;
     onGroundTimeChange: (value: string) => void;
     onAddPoint: () => void;
     onRemovePoint: (routePointIndex: number) => void;
@@ -557,22 +748,35 @@ function RouteLegEditorRow({
 
     return (
         <div className="management-route-chain-item">
-            <div className="management-route-chain-row">
+            <div className={`management-route-chain-row ${isActive ? "active" : ""}`}>
                 <LockedAirportCard
                     point={leftPoint}
                 />
 
                 {isLastLeg ? (
-                    <LockedAirportCard
-                        point={rightPoint}
-                        invalid={isInvalid}
-                    />
+                    <div className="management-route-airport-locked-actions">
+                        <LockedAirportCard
+                            point={rightPoint}
+                            invalid={isInvalid}
+                        />
+
+                        <button
+                            type="button"
+                            className="management-route-icon-button"
+                            onClick={onAddPoint}
+                            title="Добавить аэропорт"
+                        >
+                            +
+                        </button>
+                    </div>
                 ) : (
                     <EditableAirportField
                         point={rightPoint}
                         pointIndex={rightIndex}
                         invalid={isInvalid}
                         onAirportSelect={onAirportSelect}
+                        onActivatePoint={onActivatePoint}
+                        onAddPoint={onAddPoint}
                         onRemovePoint={onRemovePoint}
                         onResetPoint={onResetPoint}
                     />
@@ -612,15 +816,6 @@ function RouteLegEditorRow({
                         />
                     </label>
                 )}
-
-                <button
-                    type="button"
-                    className="management-route-icon-button"
-                    onClick={onAddPoint}
-                    title="Добавить аэропорт"
-                >
-                    +
-                </button>
             </div>
         </div>
     );
@@ -645,6 +840,8 @@ function EditableAirportField({
     pointIndex,
     invalid,
     onAirportSelect,
+    onActivatePoint,
+    onAddPoint,
     onRemovePoint,
     onResetPoint
 }: {
@@ -657,11 +854,17 @@ function EditableAirportField({
         displayName: string,
         airport: AirportSearchResponse
     ) => void;
+    onActivatePoint: () => void;
+    onAddPoint: () => void;
     onRemovePoint: (routePointIndex: number) => void;
     onResetPoint: (routePointIndex: number) => void;
 }) {
     return (
-        <div className={`management-route-airport-editable ${invalid ? "invalid" : ""}`}>
+        <div
+            className={`management-route-airport-editable ${invalid ? "invalid" : ""}`}
+            onClick={onActivatePoint}
+            onFocusCapture={onActivatePoint}
+        >
             <AirportSearch
                 label=""
                 selectedAirportId={point.airportId?.toString() ?? ""}
@@ -682,6 +885,15 @@ function EditableAirportField({
 
             <button
                 type="button"
+                className="management-route-icon-button"
+                onClick={onAddPoint}
+                title="Добавить аэропорт"
+            >
+                +
+            </button>
+
+            <button
+                type="button"
                 className="management-route-remove-point"
                 onClick={() => onRemovePoint(pointIndex)}
                 title="Удалить аэропорт"
@@ -694,13 +906,17 @@ function EditableAirportField({
 
 function ManagementRouteMap({
     airports,
+    candidates,
     mapData,
     mapInstance,
+    onCandidateSelect,
     onMapInstanceChange
 }: {
     airports: Array<ManagementRouteAirportResponse | AirportSearchResponse>;
+    candidates: ManagementRouteCandidateResponse[];
     mapData: ReturnType<typeof createRouteMapData>;
     mapInstance: YandexMapInstance | null;
+    onCandidateSelect: (candidate: ManagementRouteCandidateResponse) => void;
     onMapInstanceChange: (mapInstance: YandexMapInstance | null) => void;
 }) {
     const yandexMapsApiKey = import.meta.env.VITE_YANDEX_MAPS_API_KEY as string | undefined;
@@ -774,6 +990,21 @@ function ManagementRouteMap({
                                 }}
                             />
                         ))}
+
+                        {candidates.map((candidate) => (
+                            <Placemark
+                                key={`candidate-${candidate.id}-${candidate.isBestSystemChoice ? "best" : "regular"}`}
+                                geometry={[candidate.latitude, candidate.longitude]}
+                                properties={{
+                                    hintContent: createCandidateHint(candidate),
+                                    balloonContent: createCandidateHint(candidate)
+                                }}
+                                options={{
+                                    preset: getCandidatePlacemarkPreset(candidate)
+                                }}
+                                onClick={() => onCandidateSelect(candidate)}
+                            />
+                        ))}
                     </Map>
                 </YMaps>
             )}
@@ -791,6 +1022,25 @@ function InfoCell({ label, value }: { label: string; value: string }) {
 }
 
 const defaultMapCenter: Coordinate = [55.751244, 37.618423];
+
+function getActiveCandidatePointIndex(
+    routePoints: RoutePoint[],
+    activeCandidatePointIndex: number | null
+): number | null {
+    if (routePoints.length < 3) {
+        return null;
+    }
+
+    if (
+        activeCandidatePointIndex !== null &&
+        activeCandidatePointIndex > 0 &&
+        activeCandidatePointIndex < routePoints.length - 1
+    ) {
+        return activeCandidatePointIndex;
+    }
+
+    return 1;
+}
 
 function createMapAirportsFromRoutePoints(
     routePoints: RoutePoint[],
@@ -872,7 +1122,8 @@ function createMapLegsFromRoutePoints(
 
 function createRouteMapData(
     airports: Array<ManagementRouteAirportResponse | AirportSearchResponse>,
-    legs: MapRouteLeg[]
+    legs: MapRouteLeg[],
+    candidates: ManagementRouteCandidateResponse[]
 ) {
     const airportById = new globalThis.Map(airports.map((airport) => [airport.id, airport]));
     const polylines = legs
@@ -906,12 +1157,16 @@ function createRouteMapData(
 
     const coordinates = [
         ...airports.map((airport): Coordinate => [airport.latitude, airport.longitude]),
+        ...candidates.map((candidate): Coordinate => [candidate.latitude, candidate.longitude]),
         ...polylines.flatMap((polyline) => polyline.geometry)
     ];
 
     return {
         key: [
             airports.map((airport) => airport.id).join("-"),
+            candidates.map((candidate) =>
+                `${candidate.id}-${candidate.isBestSystemChoice ? "best" : candidate.priorityScore}`
+            ).join("-"),
             legs.map((leg) =>
                 `${leg.fromAirportId}-${leg.toAirportId}-${leg.canFly ? "ok" : "bad"}`
             ).join("-")
@@ -921,8 +1176,40 @@ function createRouteMapData(
     };
 }
 
-function getAirportDisplayName(airport: ManagementRouteAirportResponse | AirportSearchResponse): string {
+function getAirportDisplayName(
+    airport: ManagementRouteAirportResponse | AirportSearchResponse | ManagementRouteCandidateResponse
+): string {
     return buildAirportLabel(airport.city, airport.name, airport.iata, airport.icao);
+}
+
+function getCandidatePlacemarkPreset(candidate: ManagementRouteCandidateResponse): string {
+    if (candidate.isBestSystemChoice) {
+        return "islands#yellowStarIcon";
+    }
+
+    if (candidate.isCapital) {
+        return "islands#violetCircleDotIcon";
+    }
+
+    if (candidate.isLargeCity || candidate.priorityScore > 0) {
+        return "islands#darkBlueCircleDotIcon";
+    }
+
+    return "islands#grayCircleDotIcon";
+}
+
+function createCandidateHint(candidate: ManagementRouteCandidateResponse): string {
+    const labels = [
+        candidate.isBestSystemChoice ? "лучший системный вариант" : "",
+        candidate.isCapital ? "столица" : "",
+        candidate.isLargeCity ? "крупный город" : ""
+    ].filter(Boolean);
+
+    const suffix = labels.length > 0
+        ? ` — ${labels.join(", ")}`
+        : "";
+
+    return `${getAirportDisplayName(candidate)}${suffix}. ${formatNumber(candidate.distanceFromCurrentKm)} км от текущего аэропорта`;
 }
 
 function getMapBounds(coordinates: Coordinate[]): MapBounds | undefined {

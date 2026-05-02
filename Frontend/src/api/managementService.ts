@@ -30,6 +30,15 @@ export interface ManagementRoutePreviewLegResponse {
     maximumLegDistanceKm: number;
 }
 
+export interface ManagementRouteCandidateResponse extends AirportSearchResponse {
+    distanceFromCurrentKm: number;
+    distanceToDestinationKm: number;
+    priorityScore: number;
+    isCapital: boolean;
+    isLargeCity: boolean;
+    isBestSystemChoice: boolean;
+}
+
 export async function getManagementDepartures(
     section: ManagementSection,
     signal?: AbortSignal
@@ -76,6 +85,17 @@ export async function approveManagementDepartureRoute(
     );
 }
 
+export async function saveManagementDepartureRoute(
+    departureId: number,
+    request: UpdateDepartureRouteRequest
+): Promise<void> {
+    await sendRequest<void>(
+        `/departures/management/${departureId}/route`,
+        "POST",
+        request
+    );
+}
+
 export async function previewManagementDepartureRoute(
     departureId: number,
     request: UpdateDepartureRouteRequest,
@@ -85,6 +105,24 @@ export async function previewManagementDepartureRoute(
         `/departures/management/${departureId}/route-preview`,
         "POST",
         request,
+        signal
+    );
+}
+
+export async function getManagementRouteCandidates(
+    departureId: number,
+    fromAirportId: number,
+    signal?: AbortSignal
+): Promise<ManagementRouteCandidateResponse[]> {
+    const searchParameters = new URLSearchParams({
+        fromAirportId: fromAirportId.toString(),
+        limit: "30"
+    });
+
+    return await sendRequest<ManagementRouteCandidateResponse[]>(
+        `/departures/management/${departureId}/route-candidates?${searchParameters.toString()}`,
+        "GET",
+        undefined,
         signal
     );
 }

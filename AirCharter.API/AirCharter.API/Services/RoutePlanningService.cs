@@ -79,6 +79,26 @@ public sealed class RoutePlanningService
         return CreateRouteLegResponses(routeSegments, plane, groundTimesAfterArrival);
     }
 
+    public int? FindBestNextAirportId(
+        AirportGraph airportGraph,
+        int departureAirportId,
+        int arrivalAirportId,
+        int maximumLegDistanceKilometers)
+    {
+        AirportRouteNode departureAirport = airportGraph.GetAirport(departureAirportId);
+        AirportRouteNode arrivalAirport = airportGraph.GetAirport(arrivalAirportId);
+
+        RoutePlan? routePlan = FindRoute(
+            airportGraph,
+            departureAirport,
+            arrivalAirport,
+            maximumLegDistanceKilometers);
+
+        RouteSegment? firstRouteSegment = routePlan?.RouteSegments.FirstOrDefault();
+
+        return firstRouteSegment?.ToAirportId;
+    }
+
     private static RoutePlan? FindRoute(
         AirportGraph airportGraph,
         AirportRouteNode departureAirport,

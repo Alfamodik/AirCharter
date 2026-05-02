@@ -9,6 +9,7 @@ import ConfirmEmailPage from "./pages/auth/ConfirmEmailPage";
 
 import CatalogPage from "./pages/catalog/CatalogPage";
 import CabinetPage from "./pages/cabinet/CabinetPage";
+import CabinetDeparturePage from "./pages/cabinet/CabinetDeparturePage";
 import ProfilePage from "./pages/profilePage/ProfilePage";
 import OrderPage from "./pages/orderPage/OrderPage.tsx";
 import StaffRoute from "./components/StaffRoute";
@@ -29,6 +30,7 @@ export default function App() {
                 <Route path="/confirm-email" element={<ConfirmEmailPage />} />
 
                 <Route path="/cabinet" element={<ProtectedRoute><CabinetPage/></ProtectedRoute>} />
+                <Route path="/cabinet/departures/:departureId" element={<ProtectedRoute><CabinetDeparturePage /></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><ProfilePage/></ProtectedRoute>} />
                 <Route path="/create-order" element={<ProtectedRoute><OrderPage/></ProtectedRoute>} />
                 <Route element={<StaffRoute />}>

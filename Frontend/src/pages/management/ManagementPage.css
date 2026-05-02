@@ -313,6 +313,10 @@
     gap: 14px;
 }
 
+.management-route-standalone {
+    display: contents;
+}
+
 .management-route-header {
     display: flex;
     justify-content: space-between;
@@ -413,6 +417,11 @@
     align-items: end;
 }
 
+.management-route-chain-row.active .management-route-airport-editable .input-field-input {
+    border-color: rgba(0, 123, 255, 0.65);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
 .management-route-airport-card {
     min-height: 46px;
     border: 1px solid var(--border-color);
@@ -452,7 +461,14 @@
 
 .management-route-airport-editable {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 34px 34px;
+    grid-template-columns: minmax(0, 1fr) 34px 34px 34px;
+    gap: 8px;
+    align-items: center;
+}
+
+.management-route-airport-locked-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 34px;
     gap: 8px;
     align-items: center;
 }
@@ -525,7 +541,7 @@
 
 .management-route-leg-footer {
     display: grid;
-    grid-template-columns: minmax(210px, 1fr) minmax(210px, 1fr) 34px;
+    grid-template-columns: minmax(210px, 1fr) minmax(210px, 1fr);
     align-items: center;
     gap: 10px;
     min-height: 34px;
@@ -535,10 +551,6 @@
 .management-route-leg-footer .management-route-leg-summary,
 .management-route-leg-footer .management-route-leg-summary-block {
     grid-column: 1;
-}
-
-.management-route-leg-footer .management-route-icon-button {
-    grid-column: 3;
 }
 
 .management-ground-time-inline {
@@ -632,7 +644,7 @@
     }
 
     .management-route-leg-footer {
-        grid-template-columns: 1fr 34px;
+        grid-template-columns: 1fr;
     }
 
     .management-ground-time-inline {
@@ -640,10 +652,6 @@
         justify-self: start;
     }
 
-    .management-route-leg-footer .management-route-icon-button {
-        grid-column: 2;
-        grid-row: 1 / span 2;
-    }
 }
 
 @media (max-width: 700px) {

@@ -1,6 +1,6 @@
 import type { ApiError } from "./utils/apiError";
 
-const apiBaseUrl = "https://localhost:7219";
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "https://localhost:7219";
 export const unauthorizedResponseEventName = "aircharter:unauthorized-response";
 
 type AccessTokenResponse = {

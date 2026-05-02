@@ -20,6 +20,8 @@ public partial class AirCharterExtendedContext : DbContext
 
     public virtual DbSet<Airport> Airports { get; set; }
 
+    public virtual DbSet<AirportRoutePriority> AirportRoutePriorities { get; set; }
+
     public virtual DbSet<Departure> Departures { get; set; }
 
     public virtual DbSet<DepartureRouteLeg> DepartureRouteLegs { get; set; }
@@ -137,6 +139,26 @@ public partial class AirCharterExtendedContext : DbContext
             entity.Property(e => e.Name)
                 .HasMaxLength(225)
                 .HasColumnName("name");
+        });
+
+        modelBuilder.Entity<AirportRoutePriority>(entity =>
+        {
+            entity.HasKey(e => e.AirportId).HasName("PRIMARY");
+
+            entity.ToTable("airport_route_priorities");
+
+            entity.Property(e => e.AirportId).HasColumnName("airport_id");
+            entity.Property(e => e.IsCapital).HasColumnName("is_capital");
+            entity.Property(e => e.IsLargeCity).HasColumnName("is_large_city");
+            entity.Property(e => e.Note)
+                .HasMaxLength(255)
+                .HasColumnName("note");
+            entity.Property(e => e.PriorityScore).HasColumnName("priority_score");
+
+            entity.HasOne(d => d.Airport).WithOne(p => p.AirportRoutePriority)
+                .HasForeignKey<AirportRoutePriority>(d => d.AirportId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("airport_route_priorities_ibfk_1");
         });
 
         modelBuilder.Entity<Departure>(entity =>

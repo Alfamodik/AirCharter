@@ -66,6 +66,7 @@ export default function CabinetPage() {
                                 <UserDepartureCard 
                                     key={order.id} 
                                     departure={order} 
+                                    onClick={() => navigate(`/cabinet/departures/${order.id}`)}
                                 />
                             ))
                         ) : (

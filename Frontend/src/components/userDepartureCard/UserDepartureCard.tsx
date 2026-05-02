@@ -3,9 +3,10 @@ import "./UserDepartureCard.css";
 
 interface UserDepartureCardProps {
     departure: MyDepartureResponse;
+    onClick?: () => void;
 }
 
-export default function UserDepartureCard({ departure }: UserDepartureCardProps) {
+export default function UserDepartureCard({ departure, onClick }: UserDepartureCardProps) {
     const getStatusClass = (status: string): string => {
         const s = status.toLowerCase();
         if (s.includes("ожидает") || s.includes("ожидание")) return "status-pending";
@@ -20,7 +21,7 @@ export default function UserDepartureCard({ departure }: UserDepartureCardProps)
     const statusClass = getStatusClass(departure.status);
 
     return (
-        <div className="departure-card">
+        <button type="button" className="departure-card departure-card-button" onClick={onClick}>
             <div className="departure-image-section">
                 <img 
                     src={departure.planeImage ? `data:image/png;base64,${departure.planeImage}` : "/placeholder-plane.png"} 
@@ -89,6 +90,6 @@ export default function UserDepartureCard({ departure }: UserDepartureCardProps)
                     </div>
                 </div>
             </div>
-        </div>
+        </button>
     );
 }
