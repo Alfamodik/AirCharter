@@ -235,14 +235,141 @@
 .management-passenger-row,
 .management-status-row {
     display: grid;
-    grid-template-columns: 1.2fr 1fr;
+    grid-template-columns: 1.2fr 1fr auto;
     gap: 12px;
+    align-items: center;
     color: var(--text-secondary);
     font-size: 13px;
 }
 
 .management-status-row {
     grid-template-columns: 1fr 1fr;
+}
+
+.management-passenger-remove-button {
+    width: 30px;
+    height: 30px;
+    justify-self: end;
+    font-size: 18px;
+}
+
+.management-passenger-add-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: end;
+    margin-top: 10px;
+}
+
+.management-passenger-search {
+    position: relative;
+    width: 100%;
+}
+
+.management-passenger-search .input-field-label {
+    display: none;
+}
+
+.management-passenger-search .input-field-input {
+    border-radius: 8px;
+}
+
+.management-passenger-dropdown {
+    position: absolute;
+    z-index: 40;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    margin: 0;
+    padding: 6px;
+    list-style: none;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.28);
+}
+
+.management-passenger-dropdown li {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.management-passenger-dropdown li:hover {
+    background: rgba(0, 123, 255, 0.12);
+}
+
+.management-passenger-dropdown li span:first-child {
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+.management-passenger-create-button {
+    min-height: 44px;
+    padding: 0 14px;
+    white-space: nowrap;
+}
+
+.management-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.62);
+}
+
+.management-passenger-modal {
+    width: min(720px, 100%);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-elevated);
+    padding: 20px;
+    box-shadow: 0 22px 70px rgba(0, 0, 0, 0.42);
+}
+
+.management-passenger-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.management-passenger-modal-header h3 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 18px;
+}
+
+.management-passenger-modal-header button {
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 22px;
+    cursor: pointer;
+}
+
+.management-passenger-modal-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.management-passenger-modal-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 18px;
 }
 
 .management-card-actions {
@@ -572,6 +699,80 @@
     padding: 0 10px;
 }
 
+.management-route-candidate-chooser {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.025);
+    padding: 12px;
+}
+
+.management-route-candidate-chooser.active {
+    border-color: rgba(0, 123, 255, 0.45);
+    background: rgba(0, 123, 255, 0.06);
+}
+
+.management-route-candidate-hint {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    margin-bottom: 10px;
+}
+
+.management-route-candidate-row {
+    display: grid;
+    grid-template-columns: 38px minmax(160px, 1fr) minmax(110px, auto) minmax(160px, 1fr) auto 38px;
+    gap: 8px;
+    align-items: center;
+}
+
+.management-route-candidate-row .input-field-label {
+    display: none;
+}
+
+.management-route-candidate-row .input-field-input {
+    height: 46px;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.management-route-candidate-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.management-route-candidate-actions .management-route-remove-point {
+    width: 38px;
+    height: 38px;
+}
+
+.management-route-segment-button {
+    width: 38px;
+    height: 38px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 22px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.management-route-segment-button:disabled {
+    cursor: default;
+    opacity: 0.35;
+}
+
+.management-route-segment-counter {
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+    white-space: nowrap;
+}
+
 .management-route-actions {
     padding-top: 4px;
 }
@@ -638,12 +839,26 @@
         grid-template-columns: 1fr;
     }
 
+    .management-passenger-add-row,
+    .management-passenger-dropdown li,
+    .management-passenger-modal-grid {
+        grid-template-columns: 1fr;
+    }
+
     .management-route-chain-row {
         grid-template-columns: 1fr;
         align-items: stretch;
     }
 
     .management-route-leg-footer {
+        grid-template-columns: 1fr;
+    }
+
+    .management-route-candidate-hint {
+        flex-direction: column;
+    }
+
+    .management-route-candidate-row {
         grid-template-columns: 1fr;
     }
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { YMaps, Map, Placemark, Polyline } from "@pbe/react-yandex-maps";
 import Header from "../../components/header/Header";
@@ -17,11 +17,21 @@ import {
 } from "../../api/managementService";
 import { hasManagementAccess } from "../../api/utils/roleAccess";
 import {
+    addUserDeparturePassenger,
     getUserDeparture,
+    getUserRouteCandidates,
     previewUserDepartureRoute,
+    removeUserDeparturePassenger,
     saveUserDepartureRoute
 } from "../../api/userService";
+import {
+    createPassenger,
+    searchPassengers,
+    type PassengerSearchResponse
+} from "../../api/personService";
 import { useUser } from "../../context/UserContext";
+import InputField from "../../components/inputField/InputField";
+import type { ProfileFormData } from "../../contracts/responses/persons/profileFormData";
 import type {
     ManagementDepartureResponse,
     ManagementRouteAirportResponse,
@@ -65,8 +75,28 @@ type MapRouteLeg = {
     canFly: boolean;
 };
 
+type ActiveRouteChoice = {
+    leftPoint: RoutePoint;
+    rightPoint: RoutePoint;
+    rightPointIndex: number;
+    segmentNumber: number;
+    segmentCount: number;
+    canEditRightPoint: boolean;
+    canRemoveRightPoint: boolean;
+};
+
 type ManagementOrderRoutePageProps = {
     mode?: "management" | "client";
+};
+
+const emptyPassengerForm: ProfileFormData = {
+    firstName: "",
+    lastName: "",
+    patronymic: "",
+    passportSeries: "",
+    passportNumber: "",
+    email: "",
+    birthDate: ""
 };
 
 export default function ManagementOrderRoutePage({
@@ -85,8 +115,12 @@ export default function ManagementOrderRoutePage({
     const [activeCandidatePointIndex, setActiveCandidatePointIndex] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isActionLoading, setIsActionLoading] = useState(false);
+    const [isPassengerActionLoading, setIsPassengerActionLoading] = useState(false);
+    const [isPassengerModalOpen, setIsPassengerModalOpen] = useState(false);
+    const [passengerForm, setPassengerForm] = useState<ProfileFormData>(emptyPassengerForm);
     const [errorMessage, setErrorMessage] = useState("");
     const [mapInstance, setMapInstance] = useState<YandexMapInstance | null>(null);
+    const [routeChooserElement, setRouteChooserElement] = useState<HTMLDivElement | null>(null);
 
     const invalidSameAirportLegIndexes = useMemo(() => {
         return createSameAirportLegIndexSet(routePoints);
@@ -200,9 +234,9 @@ export default function ManagementOrderRoutePage({
 
     useEffect(() => {
         if (
-            mode !== "management" ||
             departure === null ||
             normalizedActiveCandidatePointIndex === null ||
+            normalizedActiveCandidatePointIndex >= routePoints.length - 1 ||
             Number.isNaN(parsedDepartureId)
         ) {
             setRouteCandidates([]);
@@ -210,6 +244,9 @@ export default function ManagementOrderRoutePage({
         }
 
         const fromAirportId = routePoints[normalizedActiveCandidatePointIndex - 1]?.airportId;
+        const toAirportId = routePoints[normalizedActiveCandidatePointIndex]?.airportId ??
+            routePoints[normalizedActiveCandidatePointIndex + 1]?.airportId ??
+            null;
 
         if (fromAirportId === null || fromAirportId === undefined) {
             setRouteCandidates([]);
@@ -221,13 +258,29 @@ export default function ManagementOrderRoutePage({
 
         async function loadRouteCandidates() {
             try {
-                const response = await getManagementRouteCandidates(
-                    parsedDepartureId,
-                    currentFromAirportId,
-                    abortController.signal
+                const response = mode === "management"
+                    ? await getManagementRouteCandidates(
+                        parsedDepartureId,
+                        currentFromAirportId,
+                        toAirportId,
+                        abortController.signal
+                    )
+                    : await getUserRouteCandidates(
+                        parsedDepartureId,
+                        currentFromAirportId,
+                        toAirportId,
+                        abortController.signal
+                    );
+
+                const routeAirportIds = new Set(
+                    routePoints
+                        .map((routePoint) => routePoint.airportId)
+                        .filter((airportId): airportId is number => airportId !== null)
                 );
 
-                setRouteCandidates(response);
+                setRouteCandidates(
+                    response.filter((candidate) => !routeAirportIds.has(candidate.id))
+                );
             } catch {
                 if (!abortController.signal.aborted) {
                     setRouteCandidates([]);
@@ -254,6 +307,10 @@ export default function ManagementOrderRoutePage({
             zoomMargin: [55, 55, 55, 55]
         });
     }, [mapInstance, routeMapData.bounds]);
+
+    const activeRouteChoice = useMemo(() => {
+        return createActiveRouteChoice(routePoints, normalizedActiveCandidatePointIndex);
+    }, [normalizedActiveCandidatePointIndex, routePoints]);
 
     if (!isUserLoading && (
         user === null ||
@@ -287,7 +344,10 @@ export default function ManagementOrderRoutePage({
     }
 
     function handleRouteCandidateSelect(candidate: ManagementRouteCandidateResponse) {
-        if (normalizedActiveCandidatePointIndex === null) {
+        if (
+            normalizedActiveCandidatePointIndex === null ||
+            activeRouteChoice?.canEditRightPoint !== true
+        ) {
             return;
         }
 
@@ -297,6 +357,20 @@ export default function ManagementOrderRoutePage({
             getAirportDisplayName(candidate),
             candidate
         );
+    }
+
+    function handleCandidateSegmentChange(direction: -1 | 1) {
+        if (routePoints.length < 2) {
+            return;
+        }
+
+        const currentIndex = normalizedActiveCandidatePointIndex ?? 1;
+        const nextIndex = Math.min(
+            Math.max(currentIndex + direction, 1),
+            routePoints.length - 1
+        );
+
+        setActiveCandidatePointIndex(nextIndex);
     }
 
     function handleInsertPointBefore(rightPointIndex: number) {
@@ -314,6 +388,12 @@ export default function ManagementOrderRoutePage({
             });
 
             setActiveCandidatePointIndex(insertIndex);
+            window.setTimeout(() => {
+                routeChooserElement?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center"
+                });
+            }, 0);
 
             return nextRoutePoints;
         });
@@ -496,6 +576,93 @@ export default function ManagementOrderRoutePage({
         handleRemovePoint(routePointIndex);
     }
 
+    async function refreshDeparture() {
+        const response = mode === "management"
+            ? await getManagementDeparture(parsedDepartureId)
+            : await getUserDeparture(parsedDepartureId);
+
+        setDeparture(response);
+        setRoutePoints(createInitialRoutePoints(response));
+        setGroundTimesMinutes(createInitialGroundTimes(response));
+        setRoutePreview(null);
+    }
+
+    async function handleAddPassenger(passenger: PassengerSearchResponse) {
+        if (departure === null || mode !== "client" || !departure.canEditRoute) {
+            return;
+        }
+
+        setIsPassengerActionLoading(true);
+        setErrorMessage("");
+
+        try {
+            await addUserDeparturePassenger(parsedDepartureId, passenger.id);
+            await refreshDeparture();
+        } catch {
+            setErrorMessage("Не удалось добавить пассажира.");
+        } finally {
+            setIsPassengerActionLoading(false);
+        }
+    }
+
+    async function handleRemovePassenger(personId: number) {
+        if (departure === null || mode !== "client" || !departure.canEditRoute) {
+            return;
+        }
+
+        setIsPassengerActionLoading(true);
+        setErrorMessage("");
+
+        try {
+            await removeUserDeparturePassenger(parsedDepartureId, personId);
+            await refreshDeparture();
+        } catch {
+            setErrorMessage("Не удалось удалить пассажира.");
+        } finally {
+            setIsPassengerActionLoading(false);
+        }
+    }
+
+    function updatePassengerFormField(field: keyof ProfileFormData, value: string) {
+        setPassengerForm((currentForm) => ({
+            ...currentForm,
+            [field]: value
+        }));
+    }
+
+    async function handleCreatePassengerSubmit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+
+        if (departure === null || mode !== "client" || !departure.canEditRoute) {
+            return;
+        }
+
+        setIsPassengerActionLoading(true);
+        setErrorMessage("");
+
+        try {
+            const passenger = await createPassenger({
+                ...passengerForm,
+                patronymic: passengerForm.patronymic?.trim() || null,
+                email: passengerForm.email?.trim() || null,
+                birthDate: passengerForm.birthDate || null
+            });
+
+            await addUserDeparturePassenger(parsedDepartureId, passenger.id);
+            await refreshDeparture();
+            setPassengerForm(emptyPassengerForm);
+            setIsPassengerModalOpen(false);
+        } catch {
+            setErrorMessage("Не удалось зарегистрировать пассажира.");
+        } finally {
+            setIsPassengerActionLoading(false);
+        }
+    }
+
+    const canEditPassengers = mode === "client" && departure?.canEditRoute === true;
+    const hasFreePassengerSeat = departure !== null &&
+        departure.passengerCount < departure.planePassengerCapacity;
+
     return (
         <div className="catalog-wrapper">
             <Header showSearch={false}>
@@ -583,6 +750,25 @@ export default function ManagementOrderRoutePage({
                                     </div>
                                 </div>
 
+                                <RouteCandidateChooser
+                                    activeRouteChoice={activeRouteChoice}
+                                    candidatesCount={routeCandidates.length}
+                                    onAirportSelect={handleAirportSelect}
+                                    onAddIntermediatePoint={handleInsertPointBefore}
+                                    onRemoveIntermediatePoint={handleRemovePoint}
+                                    onSegmentChange={handleCandidateSegmentChange}
+                                    onElementChange={setRouteChooserElement}
+                                />
+
+                                <ManagementRouteMap
+                                    airports={mapAirports}
+                                    candidates={routeCandidates}
+                                    mapData={routeMapData}
+                                    mapInstance={mapInstance}
+                                    onCandidateSelect={handleRouteCandidateSelect}
+                                    onMapInstanceChange={setMapInstance}
+                                />
+
                                 <div className="management-route-chain">
                                     {routePoints.slice(0, -1).map((routePoint, index) => {
                                         const nextRoutePoint = routePoints[index + 1];
@@ -617,15 +803,6 @@ export default function ManagementOrderRoutePage({
                                         );
                                     })}
                                 </div>
-
-                                <ManagementRouteMap
-                                    airports={mapAirports}
-                                    candidates={routeCandidates}
-                                    mapData={routeMapData}
-                                    mapInstance={mapInstance}
-                                    onCandidateSelect={handleRouteCandidateSelect}
-                                    onMapInstanceChange={setMapInstance}
-                                />
                             </div>
                         </section>
 
@@ -646,9 +823,43 @@ export default function ManagementOrderRoutePage({
                                             <div key={passenger.id} className="management-passenger-row">
                                                 <span>{passenger.fullName}</span>
                                                 <span>{passenger.email || "Почта не указана"}</span>
+                                                {canEditPassengers && (
+                                                    <button
+                                                        type="button"
+                                                        className="management-route-remove-point management-passenger-remove-button"
+                                                        onClick={() => handleRemovePassenger(passenger.id)}
+                                                        disabled={isPassengerActionLoading}
+                                                        title="Удалить пассажира"
+                                                    >
+                                                        −
+                                                    </button>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
+                                )}
+
+                                {canEditPassengers && hasFreePassengerSeat && (
+                                    <div className="management-passenger-add-row">
+                                        <PassengerSearchInput
+                                            excludedPassengerIds={departure.passengers.map((passenger) => passenger.id)}
+                                            disabled={isPassengerActionLoading}
+                                            onSelect={handleAddPassenger}
+                                        />
+
+                                        <button
+                                            type="button"
+                                            className="management-secondary-button management-passenger-create-button"
+                                            onClick={() => setIsPassengerModalOpen(true)}
+                                            disabled={isPassengerActionLoading}
+                                        >
+                                            Новый пассажир
+                                        </button>
+                                    </div>
+                                )}
+
+                                {canEditPassengers && !hasFreePassengerSeat && (
+                                    <p className="management-muted-text">Свободных мест в самолёте нет.</p>
                                 )}
                             </div>
                         </section>
@@ -698,7 +909,203 @@ export default function ManagementOrderRoutePage({
                     </>
                 )}
             </main>
+
+            {isPassengerModalOpen && (
+                <PassengerRegistrationModal
+                    form={passengerForm}
+                    isLoading={isPassengerActionLoading}
+                    onChange={updatePassengerFormField}
+                    onClose={() => setIsPassengerModalOpen(false)}
+                    onSubmit={handleCreatePassengerSubmit}
+                />
+            )}
             </div>
+        </div>
+    );
+}
+
+function PassengerSearchInput({
+    excludedPassengerIds,
+    disabled,
+    onSelect
+}: {
+    excludedPassengerIds: number[];
+    disabled: boolean;
+    onSelect: (passenger: PassengerSearchResponse) => void;
+}) {
+    const [query, setQuery] = useState("");
+    const [results, setResults] = useState<PassengerSearchResponse[]>([]);
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const trimmedQuery = query.trim();
+
+        if (trimmedQuery.length < 2 || disabled) {
+            setResults([]);
+            setIsOpen(false);
+            return;
+        }
+
+        const excludedIds = new Set(excludedPassengerIds);
+        const abortController = new AbortController();
+        const timeoutId = window.setTimeout(async () => {
+            try {
+                const passengers = await searchPassengers(trimmedQuery, abortController.signal);
+                setResults(passengers.filter((passenger) => !excludedIds.has(passenger.id)));
+                setIsOpen(true);
+            } catch {
+                if (!abortController.signal.aborted) {
+                    setResults([]);
+                    setIsOpen(false);
+                }
+            }
+        }, 300);
+
+        return () => {
+            abortController.abort();
+            window.clearTimeout(timeoutId);
+        };
+    }, [disabled, excludedPassengerIds, query]);
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        }
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    function handleSelect(passenger: PassengerSearchResponse) {
+        setQuery("");
+        setResults([]);
+        setIsOpen(false);
+        onSelect(passenger);
+    }
+
+    return (
+        <div className="management-passenger-search" ref={dropdownRef}>
+            <InputField
+                label=""
+                placeholder="ФИО, почта или паспорт..."
+                value={query}
+                onChange={setQuery}
+                onFocus={() => {
+                    if (results.length > 0) {
+                        setIsOpen(true);
+                    }
+                }}
+                autoComplete="off"
+            />
+
+            {isOpen && results.length > 0 && (
+                <ul className="management-passenger-dropdown">
+                    {results.map((passenger) => (
+                        <li key={passenger.id} onClick={() => handleSelect(passenger)}>
+                            <span>{passenger.fullName}</span>
+                            <span>{passenger.email || "Почта не указана"}</span>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+}
+
+function PassengerRegistrationModal({
+    form,
+    isLoading,
+    onChange,
+    onClose,
+    onSubmit
+}: {
+    form: ProfileFormData;
+    isLoading: boolean;
+    onChange: (field: keyof ProfileFormData, value: string) => void;
+    onClose: () => void;
+    onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+    return (
+        <div className="management-modal-backdrop" role="presentation" onMouseDown={onClose}>
+            <form
+                className="management-passenger-modal"
+                onSubmit={onSubmit}
+                onMouseDown={(event) => event.stopPropagation()}
+            >
+                <div className="management-passenger-modal-header">
+                    <h3>Новый пассажир</h3>
+                    <button type="button" onClick={onClose} aria-label="Закрыть">
+                        ×
+                    </button>
+                </div>
+
+                <div className="management-passenger-modal-grid">
+                    <InputField
+                        label="Фамилия"
+                        value={form.lastName}
+                        onChange={(value) => onChange("lastName", value)}
+                        required
+                    />
+                    <InputField
+                        label="Имя"
+                        value={form.firstName}
+                        onChange={(value) => onChange("firstName", value)}
+                        required
+                    />
+                    <InputField
+                        label="Отчество"
+                        value={form.patronymic ?? ""}
+                        onChange={(value) => onChange("patronymic", value)}
+                    />
+                    <InputField
+                        label="Серия паспорта"
+                        value={form.passportSeries}
+                        onChange={(value) => onChange("passportSeries", value.replace(/\D/g, "").slice(0, 4))}
+                        maxLength={4}
+                        required
+                    />
+                    <InputField
+                        label="Номер паспорта"
+                        value={form.passportNumber}
+                        onChange={(value) => onChange("passportNumber", value.replace(/\D/g, "").slice(0, 6))}
+                        maxLength={6}
+                        required
+                    />
+                    <InputField
+                        label="Почта для уведомлений"
+                        value={form.email ?? ""}
+                        onChange={(value) => onChange("email", value)}
+                        type="email"
+                    />
+                    <InputField
+                        label="Дата рождения"
+                        value={form.birthDate ?? ""}
+                        onChange={(value) => onChange("birthDate", value)}
+                        type="date"
+                    />
+                </div>
+
+                <div className="management-passenger-modal-actions">
+                    <button
+                        type="button"
+                        className="management-secondary-button"
+                        onClick={onClose}
+                        disabled={isLoading}
+                    >
+                        Отмена
+                    </button>
+                    <button
+                        type="submit"
+                        className="management-primary-button"
+                        disabled={isLoading}
+                    >
+                        Добавить
+                    </button>
+                </div>
+            </form>
         </div>
     );
 }
@@ -880,7 +1287,7 @@ function EditableAirportField({
                 onClick={() => onResetPoint(pointIndex)}
                 title="Сбросить аэропорт"
             >
-                ↺
+                ↻
             </button>
 
             <button
@@ -1021,25 +1428,167 @@ function InfoCell({ label, value }: { label: string; value: string }) {
     );
 }
 
+function RouteCandidateChooser({
+    activeRouteChoice,
+    candidatesCount,
+    onAirportSelect,
+    onAddIntermediatePoint,
+    onRemoveIntermediatePoint,
+    onSegmentChange,
+    onElementChange
+}: {
+    activeRouteChoice: ActiveRouteChoice | null;
+    candidatesCount: number;
+    onAirportSelect: (
+        routePointIndex: number,
+        airportId: string,
+        displayName: string,
+        airport: AirportSearchResponse
+    ) => void;
+    onAddIntermediatePoint: (rightPointIndex: number) => void;
+    onRemoveIntermediatePoint: (rightPointIndex: number) => void;
+    onSegmentChange: (direction: -1 | 1) => void;
+    onElementChange: (element: HTMLDivElement | null) => void;
+}) {
+    if (activeRouteChoice === null) {
+        return (
+            <div className="management-route-candidate-chooser" ref={onElementChange}>
+                <span className="management-route-candidate-hint">
+                    Нажмите + рядом с аэропортом, чтобы выбрать участок для подбора вариантов.
+                </span>
+            </div>
+        );
+    }
+
+    const helperText = `Варианты на карте считаются для участка ${activeRouteChoice.leftPoint.displayName} -> ${activeRouteChoice.rightPoint.displayName}`;
+    const canGoBack = activeRouteChoice.segmentNumber > 1;
+    const canGoForward = activeRouteChoice.segmentNumber < activeRouteChoice.segmentCount;
+    const candidateText = activeRouteChoice.canEditRightPoint
+        ? candidatesCount > 0
+            ? `На карте: ${candidatesCount} вариантов`
+            : "Выберите предложенный аэропорт на карте"
+        : "Аэропорт прибытия зафиксирован";
+
+    return (
+        <div className="management-route-candidate-chooser active" ref={onElementChange}>
+            <div className="management-route-candidate-hint">
+                <span>{helperText}</span>
+                <span>{candidateText}</span>
+            </div>
+
+            <div className="management-route-candidate-row">
+                <button
+                    type="button"
+                    className="management-route-segment-button"
+                    onClick={() => onSegmentChange(-1)}
+                    disabled={!canGoBack}
+                    title="Предыдущий участок"
+                >
+                    {"<"}
+                </button>
+
+                <LockedAirportCard point={activeRouteChoice.leftPoint} />
+
+                <div className="management-route-segment-counter">
+                    Участок {activeRouteChoice.segmentNumber} из {activeRouteChoice.segmentCount}
+                </div>
+
+                {activeRouteChoice.canEditRightPoint ? (
+                    <AirportSearch
+                        label=""
+                        selectedAirportId={activeRouteChoice.rightPoint.airportId?.toString() ?? ""}
+                        selectedAirportDisplayName={activeRouteChoice.rightPoint.displayName}
+                        onSelect={(airport) =>
+                            onAirportSelect(
+                                activeRouteChoice.rightPointIndex,
+                                airport.id,
+                                airport.displayName,
+                                airport.airport
+                            )
+                        }
+                    />
+                ) : (
+                    <LockedAirportCard point={activeRouteChoice.rightPoint} />
+                )}
+
+                <div className="management-route-candidate-actions">
+                    <button
+                        type="button"
+                        className="management-route-segment-button"
+                        onClick={() => onAddIntermediatePoint(activeRouteChoice.rightPointIndex)}
+                        title="Добавить промежуточный аэропорт"
+                    >
+                        +
+                    </button>
+
+                    <button
+                        type="button"
+                        className="management-route-segment-button management-route-remove-point"
+                        onClick={() => onRemoveIntermediatePoint(activeRouteChoice.rightPointIndex)}
+                        disabled={!activeRouteChoice.canRemoveRightPoint}
+                        title="Удалить промежуточный аэропорт"
+                    >
+                        −
+                    </button>
+                </div>
+
+                <button
+                    type="button"
+                    className="management-route-segment-button"
+                    onClick={() => onSegmentChange(1)}
+                    disabled={!canGoForward}
+                    title="Следующий участок"
+                >
+                    {">"}
+                </button>
+            </div>
+
+        </div>
+    );
+}
+
 const defaultMapCenter: Coordinate = [55.751244, 37.618423];
 
 function getActiveCandidatePointIndex(
     routePoints: RoutePoint[],
     activeCandidatePointIndex: number | null
 ): number | null {
-    if (routePoints.length < 3) {
+    if (routePoints.length < 2) {
         return null;
     }
 
     if (
         activeCandidatePointIndex !== null &&
         activeCandidatePointIndex > 0 &&
-        activeCandidatePointIndex < routePoints.length - 1
+        activeCandidatePointIndex < routePoints.length
     ) {
         return activeCandidatePointIndex;
     }
 
     return 1;
+}
+
+function createActiveRouteChoice(
+    routePoints: RoutePoint[],
+    activeCandidatePointIndex: number | null
+): ActiveRouteChoice | null {
+    if (
+        activeCandidatePointIndex === null ||
+        activeCandidatePointIndex <= 0 ||
+        activeCandidatePointIndex >= routePoints.length
+    ) {
+        return null;
+    }
+
+    return {
+        leftPoint: routePoints[activeCandidatePointIndex - 1],
+        rightPoint: routePoints[activeCandidatePointIndex],
+        rightPointIndex: activeCandidatePointIndex,
+        segmentNumber: activeCandidatePointIndex,
+        segmentCount: routePoints.length - 1,
+        canEditRightPoint: activeCandidatePointIndex < routePoints.length - 1,
+        canRemoveRightPoint: activeCandidatePointIndex < routePoints.length - 1
+    };
 }
 
 function createMapAirportsFromRoutePoints(

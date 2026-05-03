@@ -15,7 +15,7 @@ if (Test-Path -LiteralPath $pidFile) {
 
         if ($process) {
             Write-Host "Stopping API process: $apiPid"
-            Stop-Process -Id $apiPid -Force
+            Stop-Process -Id $apiPid -Force -ErrorAction SilentlyContinue
             $stopped = $true
         }
     }
@@ -25,7 +25,7 @@ if (Test-Path -LiteralPath $pidFile) {
 
 Get-Process -Name "AirCharter.API" -ErrorAction SilentlyContinue | ForEach-Object {
     Write-Host "Stopping old AirCharter.API.exe process: $($_.Id)"
-    Stop-Process -Id $_.Id -Force
+    Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
     $script:stopped = $true
 }
 

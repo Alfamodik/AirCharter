@@ -112,12 +112,17 @@ export async function previewManagementDepartureRoute(
 export async function getManagementRouteCandidates(
     departureId: number,
     fromAirportId: number,
+    toAirportId: number | null,
     signal?: AbortSignal
 ): Promise<ManagementRouteCandidateResponse[]> {
     const searchParameters = new URLSearchParams({
         fromAirportId: fromAirportId.toString(),
         limit: "30"
     });
+
+    if (toAirportId !== null) {
+        searchParameters.set("toAirportId", toAirportId.toString());
+    }
 
     return await sendRequest<ManagementRouteCandidateResponse[]>(
         `/departures/management/${departureId}/route-candidates?${searchParameters.toString()}`,

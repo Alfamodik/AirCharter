@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 using AirCharter.API.Model;
 using AirCharter.API.Requests.Persons;
+using AirCharter.API.Responses.Persons;
 using AirCharter.API.Responses.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -103,22 +104,118 @@ namespace AirCharter.API.Controllers
             return Ok(person);
         }
 
-        private static string? ValidateRequest(UpdatePersonRequest request)
+        [Authorize]
+        [HttpGet("search")]
+        public async Task<ActionResult<IEnumerable<PassengerSearchResponse>>> SearchPassengers(
+            [FromQuery] string query,
+            [FromQuery] int limit = 8,
+            CancellationToken cancellationToken = default)
         {
-            if (string.IsNullOrWhiteSpace(request.FirstName))
-                return "First name is required.";
+            string normalizedQuery = query.Trim().ToLowerInvariant();
+            string digitQuery = new string(query.Where(char.IsDigit).ToArray());
 
-            if (string.IsNullOrWhiteSpace(request.LastName))
-                return "Last name is required.";
+            if (normalizedQuery.Length < 2 && digitQuery.Length < 2)
+                return Ok(Array.Empty<PassengerSearchResponse>());
 
-            if (string.IsNullOrWhiteSpace(request.PassportSeries))
-                return "Passport series is required.";
+            int searchLimit = Math.Clamp(limit, 1, 20);
 
-            if (string.IsNullOrWhiteSpace(request.PassportNumber))
-                return "Passport number is required.";
+            List<Person> people = await _context.Persons
+                .AsNoTracking()
+                .Where(person =>
+                    (person.LastName + " " + person.FirstName + " " + (person.Patronymic ?? ""))
+                        .ToLower()
+                        .Contains(normalizedQuery) ||
+                    (person.Email != null && person.Email.ToLower().Contains(normalizedQuery)) ||
+                    (digitQuery.Length >= 2 &&
+                        (person.PassportSeries + person.PassportNumber).Contains(digitQuery)))
+                .OrderBy(person => person.LastName)
+                .ThenBy(person => person.FirstName)
+                .Take(searchLimit)
+                .ToListAsync(cancellationToken);
+
+            return Ok(people.Select(CreatePassengerSearchResponse).ToArray());
+        }
+
+        [Authorize]
+        [HttpPost]
+        public async Task<ActionResult<PassengerSearchResponse>> CreatePerson(
+            [FromBody] CreatePersonRequest request,
+            CancellationToken cancellationToken)
+        {
+            string? validationError = ValidateRequest(request);
+
+            if (validationError != null)
+                return BadRequest(validationError);
 
             string passportSeries = request.PassportSeries.Trim();
             string passportNumber = request.PassportNumber.Trim();
+
+            bool isPassportAlreadyUsed = await _context.Persons
+                .AnyAsync(
+                    person => person.PassportSeries == passportSeries &&
+                              person.PassportNumber == passportNumber,
+                    cancellationToken);
+
+            if (isPassportAlreadyUsed)
+                return Conflict("A person with the same passport details already exists.");
+
+            Person person = new Person
+            {
+                FirstName = request.FirstName.Trim(),
+                LastName = request.LastName.Trim(),
+                Patronymic = string.IsNullOrWhiteSpace(request.Patronymic)
+                    ? null
+                    : request.Patronymic.Trim(),
+                PassportSeries = passportSeries,
+                PassportNumber = passportNumber,
+                Email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
+                BirthDate = request.BirthDate
+            };
+
+            _context.Persons.Add(person);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return Ok(CreatePassengerSearchResponse(person));
+        }
+
+        private static string? ValidateRequest(UpdatePersonRequest request)
+        {
+            return ValidatePersonFields(
+                request.FirstName,
+                request.LastName,
+                request.PassportSeries,
+                request.PassportNumber);
+        }
+
+        private static string? ValidateRequest(CreatePersonRequest request)
+        {
+            return ValidatePersonFields(
+                request.FirstName,
+                request.LastName,
+                request.PassportSeries,
+                request.PassportNumber);
+        }
+
+        private static string? ValidatePersonFields(
+            string? firstName,
+            string? lastName,
+            string? passportSeriesValue,
+            string? passportNumberValue)
+        {
+            if (string.IsNullOrWhiteSpace(firstName))
+                return "First name is required.";
+
+            if (string.IsNullOrWhiteSpace(lastName))
+                return "Last name is required.";
+
+            if (string.IsNullOrWhiteSpace(passportSeriesValue))
+                return "Passport series is required.";
+
+            if (string.IsNullOrWhiteSpace(passportNumberValue))
+                return "Passport number is required.";
+
+            string passportSeries = passportSeriesValue.Trim();
+            string passportNumber = passportNumberValue.Trim();
 
             if (!passportSeries.All(char.IsDigit))
                 return "Passport series must contain digits only.";
@@ -133,6 +230,28 @@ namespace AirCharter.API.Controllers
                 return "Passport number must contain 6 digits.";
 
             return null;
+        }
+
+        private static PassengerSearchResponse CreatePassengerSearchResponse(Person person)
+        {
+            return new PassengerSearchResponse
+            {
+                Id = person.Id,
+                FullName = BuildPersonFullName(person),
+                Email = person.Email
+            };
+        }
+
+        private static string BuildPersonFullName(Person person)
+        {
+            return string.Join(
+                " ",
+                new[]
+                {
+                    person.LastName,
+                    person.FirstName,
+                    person.Patronymic
+                }.Where(part => !string.IsNullOrWhiteSpace(part)));
         }
 
         private static Person GetOrCreatePerson(User user)

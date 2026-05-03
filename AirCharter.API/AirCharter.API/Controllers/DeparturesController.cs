@@ -266,6 +266,61 @@ namespace AirCharter.API.Controllers
             return Ok(CreateManagementDepartureResponse(departure, currentStatus));
         }
 
+        [HttpPost("my/{departureId:int}/passengers")]
+        public async Task<IActionResult> AddMyDeparturePassenger(
+            int departureId,
+            [FromBody] UpdateDeparturePassengerRequest request,
+            CancellationToken cancellationToken)
+        {
+            Departure? departure = await GetEditableRequesterDepartureAsync(
+                departureId,
+                cancellationToken);
+
+            if (departure is null)
+                return NotFound();
+
+            if (departure.People.Count >= departure.Plane.PassengerCapacity)
+                return BadRequest("В самолёте нет свободных мест.");
+
+            Person? person = await _context.Persons
+                .FirstOrDefaultAsync(person => person.Id == request.PersonId, cancellationToken);
+
+            if (person is null)
+                return NotFound("Пассажир не найден.");
+
+            if (departure.People.Any(existingPerson => existingPerson.Id == person.Id))
+                return NoContent();
+
+            departure.People.Add(person);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return NoContent();
+        }
+
+        [HttpDelete("my/{departureId:int}/passengers/{personId:int}")]
+        public async Task<IActionResult> RemoveMyDeparturePassenger(
+            int departureId,
+            int personId,
+            CancellationToken cancellationToken)
+        {
+            Departure? departure = await GetEditableRequesterDepartureAsync(
+                departureId,
+                cancellationToken);
+
+            if (departure is null)
+                return NotFound();
+
+            Person? person = departure.People.FirstOrDefault(person => person.Id == personId);
+
+            if (person is null)
+                return NoContent();
+
+            departure.People.Remove(person);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return NoContent();
+        }
+
         [HttpPost("management/{departureId:int}/approve")]
         [Authorize(Roles = "Owner,Manager,Admin,GeneralDirector,Employee")]
         public async Task<IActionResult> ApproveManagementDeparture(
@@ -487,6 +542,7 @@ namespace AirCharter.API.Controllers
         public async Task<ActionResult<IEnumerable<ManagementRouteCandidateResponse>>> GetManagementRouteCandidates(
             int departureId,
             [FromQuery] int fromAirportId,
+            [FromQuery] int? toAirportId,
             [FromQuery] int limit = 30,
             CancellationToken cancellationToken = default)
         {
@@ -497,22 +553,62 @@ namespace AirCharter.API.Controllers
             if (departure is null)
                 return NotFound();
 
+            return await GetRouteCandidatesAsync(
+                departure,
+                fromAirportId,
+                toAirportId,
+                limit,
+                cancellationToken);
+        }
+
+        [HttpGet("my/{departureId:int}/route-candidates")]
+        public async Task<ActionResult<IEnumerable<ManagementRouteCandidateResponse>>> GetMyRouteCandidates(
+            int departureId,
+            [FromQuery] int fromAirportId,
+            [FromQuery] int? toAirportId,
+            [FromQuery] int limit = 30,
+            CancellationToken cancellationToken = default)
+        {
+            Departure? departure = await GetEditableRequesterDepartureAsync(
+                departureId,
+                cancellationToken);
+
+            if (departure is null)
+                return NotFound();
+
+            return await GetRouteCandidatesAsync(
+                departure,
+                fromAirportId,
+                toAirportId,
+                limit,
+                cancellationToken);
+        }
+
+        private async Task<ActionResult<IEnumerable<ManagementRouteCandidateResponse>>> GetRouteCandidatesAsync(
+            Departure departure,
+            int fromAirportId,
+            int? toAirportId,
+            int limit,
+            CancellationToken cancellationToken)
+        {
             AirportGraph airportGraph = await _airportGraphCache.GetOrCreateAsync(_context, cancellationToken);
 
             if (!airportGraph.ContainsAirport(fromAirportId))
                 return BadRequest("Аэропорт вылета плеча не найден.");
 
-            if (!airportGraph.ContainsAirport(departure.LandingAirportId))
-                return BadRequest("Аэропорт прибытия маршрута не найден.");
+            int destinationAirportId = toAirportId ?? departure.LandingAirportId;
+
+            if (!airportGraph.ContainsAirport(destinationAirportId))
+                return BadRequest("Аэропорт прибытия участка не найден.");
 
             int maximumLegDistanceKilometers = RoutePlanningService.GetMaximumLegDistanceKilometers(
                 departure.Plane.MaxDistance);
             AirportRouteNode fromAirport = airportGraph.GetAirport(fromAirportId);
-            AirportRouteNode destinationAirport = airportGraph.GetAirport(departure.LandingAirportId);
+            AirportRouteNode destinationAirport = airportGraph.GetAirport(destinationAirportId);
             int? bestSystemAirportId = _routePlanningService.FindBestNextAirportId(
                 airportGraph,
                 fromAirportId,
-                departure.LandingAirportId,
+                destinationAirportId,
                 maximumLegDistanceKilometers);
 
             Dictionary<int, int> distanceFromCurrentByAirportId = airportGraph.SpatialIndex

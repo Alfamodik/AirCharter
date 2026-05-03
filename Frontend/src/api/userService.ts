@@ -3,6 +3,7 @@ import type { MyDepartureResponse } from "../contracts/responses/users/myDepartu
 import type { UserProfileResponse } from "../contracts/responses/users/userPersonResponse";
 import type { ManagementDepartureResponse } from "../contracts/responses/departures/managementDepartureResponse";
 import type {
+    ManagementRouteCandidateResponse,
     ManagementRoutePreviewResponse,
     UpdateDepartureRouteRequest
 } from "./managementService";
@@ -40,6 +41,29 @@ export async function previewUserDepartureRoute(
     );
 }
 
+export async function getUserRouteCandidates(
+    departureId: number,
+    fromAirportId: number,
+    toAirportId: number | null,
+    signal?: AbortSignal
+): Promise<ManagementRouteCandidateResponse[]> {
+    const searchParameters = new URLSearchParams({
+        fromAirportId: fromAirportId.toString(),
+        limit: "30"
+    });
+
+    if (toAirportId !== null) {
+        searchParameters.set("toAirportId", toAirportId.toString());
+    }
+
+    return await sendRequest<ManagementRouteCandidateResponse[]>(
+        `/departures/my/${departureId}/route-candidates?${searchParameters.toString()}`,
+        "GET",
+        undefined,
+        signal
+    );
+}
+
 export async function saveUserDepartureRoute(
     departureId: number,
     request: UpdateDepartureRouteRequest
@@ -48,5 +72,26 @@ export async function saveUserDepartureRoute(
         `/departures/my/${departureId}/route`,
         "POST",
         request
+    );
+}
+
+export async function addUserDeparturePassenger(
+    departureId: number,
+    personId: number
+): Promise<void> {
+    await sendRequest<void>(
+        `/departures/my/${departureId}/passengers`,
+        "POST",
+        { personId }
+    );
+}
+
+export async function removeUserDeparturePassenger(
+    departureId: number,
+    personId: number
+): Promise<void> {
+    await sendRequest<void>(
+        `/departures/my/${departureId}/passengers/${personId}`,
+        "DELETE"
     );
 }
