@@ -36,7 +36,8 @@ CREATE TABLE persons(
     passport_series CHAR(4) NOT NULL,
     passport_number CHAR(6) NOT NULL,
     email VARCHAR(255),
-    birth_date DATE
+    birth_date DATE,
+    UNIQUE KEY passport_unique (passport_series, passport_number)
 );
 
 CREATE TABLE users(

@@ -34,19 +34,7 @@ namespace AirCharter.API.Controllers
             if (user.Person == null)
                 return NotFound("Person data was not found for the current user.");
 
-            CurrentUserPersonResponse person = new()
-            {
-                Id = user.Person.Id,
-                FirstName = user.Person.FirstName,
-                LastName = user.Person.LastName,
-                Patronymic = user.Person.Patronymic,
-                PassportSeries = user.Person.PassportSeries,
-                PassportNumber = user.Person.PassportNumber,
-                Email = user.Person.Email,
-                BirthDate = user.Person.BirthDate
-            };
-
-            return Ok(person);
+            return Ok(CreateCurrentUserPersonResponse(user.Person));
         }
 
         [Authorize]
@@ -77,31 +65,34 @@ namespace AirCharter.API.Controllers
             string passportNumber = request.PassportNumber.Trim();
             string? email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim();
 
-            int currentPersonId = user.Person?.Id ?? 0;
-
-            bool isPassportAlreadyUsed = await _context.Persons
-                .AnyAsync(
-                    person => person.Id != currentPersonId
-                           && person.PassportSeries == passportSeries
-                           && person.PassportNumber == passportNumber,
+            Person? existingPerson = await _context.Persons
+                .Include(person => person.Users)
+                .FirstOrDefaultAsync(
+                    person => person.PassportSeries == passportSeries &&
+                              person.PassportNumber == passportNumber,
                     cancellationToken);
 
-            if (isPassportAlreadyUsed)
-                return Conflict("A person with the same passport details already exists.");
+            Person person = existingPerson ?? GetOrCreatePerson(user);
 
-            Person person = GetOrCreatePerson(user);
+            ApplyPersonFields(
+                person,
+                firstName,
+                lastName,
+                patronymic,
+                passportSeries,
+                passportNumber,
+                email,
+                request.BirthDate);
 
-            person.FirstName = firstName;
-            person.LastName = lastName;
-            person.Patronymic = patronymic;
-            person.PassportSeries = passportSeries;
-            person.PassportNumber = passportNumber;
-            person.Email = email;
-            person.BirthDate = request.BirthDate;
+            if (user.Person?.Id != person.Id)
+            {
+                user.Person = person;
+                user.PersonId = person.Id == 0 ? null : person.Id;
+            }
 
             await _context.SaveChangesAsync(cancellationToken);
 
-            return Ok(person);
+            return Ok(CreateCurrentUserPersonResponse(person));
         }
 
         [Authorize]
@@ -121,11 +112,13 @@ namespace AirCharter.API.Controllers
 
             List<Person> people = await _context.Persons
                 .AsNoTracking()
+                .Include(person => person.Users)
                 .Where(person =>
                     (person.LastName + " " + person.FirstName + " " + (person.Patronymic ?? ""))
                         .ToLower()
                         .Contains(normalizedQuery) ||
                     (person.Email != null && person.Email.ToLower().Contains(normalizedQuery)) ||
+                    person.Users.Any(user => user.Email.ToLower().Contains(normalizedQuery)) ||
                     (digitQuery.Length >= 2 &&
                         (person.PassportSeries + person.PassportNumber).Contains(digitQuery)))
                 .OrderBy(person => person.LastName)
@@ -150,29 +143,103 @@ namespace AirCharter.API.Controllers
             string passportSeries = request.PassportSeries.Trim();
             string passportNumber = request.PassportNumber.Trim();
 
-            bool isPassportAlreadyUsed = await _context.Persons
-                .AnyAsync(
+            Person? person = await _context.Persons
+                .Include(person => person.Users)
+                .FirstOrDefaultAsync(
                     person => person.PassportSeries == passportSeries &&
                               person.PassportNumber == passportNumber,
+                    cancellationToken);
+
+            if (person is null)
+            {
+                person = new Person();
+                _context.Persons.Add(person);
+            }
+
+            ApplyPersonFields(
+                person,
+                request.FirstName.Trim(),
+                request.LastName.Trim(),
+                string.IsNullOrWhiteSpace(request.Patronymic) ? null : request.Patronymic.Trim(),
+                passportSeries,
+                passportNumber,
+                string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
+                request.BirthDate);
+
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return Ok(CreatePassengerSearchResponse(person));
+        }
+
+        [Authorize]
+        [HttpPost("{personId:int}/edit-details")]
+        public async Task<ActionResult<PersonEditResponse>> GetPassengerEditDetails(
+            int personId,
+            [FromBody] PersonPassportRequest request,
+            CancellationToken cancellationToken)
+        {
+            string? validationError = ValidatePassportRequest(request);
+
+            if (validationError != null)
+                return BadRequest(validationError);
+
+            string passportSeries = request.PassportSeries.Trim();
+            string passportNumber = request.PassportNumber.Trim();
+
+            Person? person = await _context.Persons
+                .AsNoTracking()
+                .FirstOrDefaultAsync(person => person.Id == personId, cancellationToken);
+
+            if (person is null || !HasPassport(person, passportSeries, passportNumber))
+                return NotFound("Passenger with these passport details was not found.");
+
+            return Ok(CreatePersonEditResponse(person));
+        }
+
+        [Authorize]
+        [HttpPut("{personId:int}")]
+        public async Task<ActionResult<PassengerSearchResponse>> UpdatePassengerByPassport(
+            int personId,
+            [FromBody] UpdatePassengerByPassportRequest request,
+            CancellationToken cancellationToken)
+        {
+            string? validationError = ValidateRequest(request);
+
+            if (validationError != null)
+                return BadRequest(validationError);
+
+            string currentPassportSeries = request.CurrentPassportSeries.Trim();
+            string currentPassportNumber = request.CurrentPassportNumber.Trim();
+            string passportSeries = request.PassportSeries.Trim();
+            string passportNumber = request.PassportNumber.Trim();
+
+            Person? person = await _context.Persons
+                .Include(person => person.Users)
+                .FirstOrDefaultAsync(person => person.Id == personId, cancellationToken);
+
+            if (person is null || !HasPassport(person, currentPassportSeries, currentPassportNumber))
+                return NotFound("Passenger with these passport details was not found.");
+
+            bool isPassportAlreadyUsed = await _context.Persons
+                .AnyAsync(
+                    existingPerson => existingPerson.Id != person.Id &&
+                        existingPerson.PassportSeries == passportSeries &&
+                        existingPerson.PassportNumber == passportNumber,
                     cancellationToken);
 
             if (isPassportAlreadyUsed)
                 return Conflict("A person with the same passport details already exists.");
 
-            Person person = new Person
-            {
-                FirstName = request.FirstName.Trim(),
-                LastName = request.LastName.Trim(),
-                Patronymic = string.IsNullOrWhiteSpace(request.Patronymic)
-                    ? null
-                    : request.Patronymic.Trim(),
-                PassportSeries = passportSeries,
-                PassportNumber = passportNumber,
-                Email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
-                BirthDate = request.BirthDate
-            };
+            ApplyPersonFields(
+                person,
+                request.FirstName.Trim(),
+                request.LastName.Trim(),
+                string.IsNullOrWhiteSpace(request.Patronymic) ? null : request.Patronymic.Trim(),
+                passportSeries,
+                passportNumber,
+                string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
+                request.BirthDate);
 
-            _context.Persons.Add(person);
             await _context.SaveChangesAsync(cancellationToken);
 
             return Ok(CreatePassengerSearchResponse(person));
@@ -196,6 +263,27 @@ namespace AirCharter.API.Controllers
                 request.PassportNumber);
         }
 
+        private static string? ValidateRequest(UpdatePassengerByPassportRequest request)
+        {
+            string? currentPassportValidationError = ValidatePassportFields(
+                request.CurrentPassportSeries,
+                request.CurrentPassportNumber);
+
+            if (currentPassportValidationError != null)
+                return currentPassportValidationError;
+
+            return ValidatePersonFields(
+                request.FirstName,
+                request.LastName,
+                request.PassportSeries,
+                request.PassportNumber);
+        }
+
+        private static string? ValidatePassportRequest(PersonPassportRequest request)
+        {
+            return ValidatePassportFields(request.PassportSeries, request.PassportNumber);
+        }
+
         private static string? ValidatePersonFields(
             string? firstName,
             string? lastName,
@@ -208,6 +296,13 @@ namespace AirCharter.API.Controllers
             if (string.IsNullOrWhiteSpace(lastName))
                 return "Last name is required.";
 
+            return ValidatePassportFields(passportSeriesValue, passportNumberValue);
+        }
+
+        private static string? ValidatePassportFields(
+            string? passportSeriesValue,
+            string? passportNumberValue)
+        {
             if (string.IsNullOrWhiteSpace(passportSeriesValue))
                 return "Passport series is required.";
 
@@ -238,8 +333,68 @@ namespace AirCharter.API.Controllers
             {
                 Id = person.Id,
                 FullName = BuildPersonFullName(person),
-                Email = person.Email
+                Email = GetPassengerEmail(person)
             };
+        }
+
+        private static PersonEditResponse CreatePersonEditResponse(Person person)
+        {
+            return new PersonEditResponse
+            {
+                Id = person.Id,
+                FirstName = person.FirstName,
+                LastName = person.LastName,
+                Patronymic = person.Patronymic,
+                PassportSeries = person.PassportSeries,
+                PassportNumber = person.PassportNumber,
+                Email = person.Email,
+                BirthDate = person.BirthDate
+            };
+        }
+
+        private static CurrentUserPersonResponse CreateCurrentUserPersonResponse(Person person)
+        {
+            return new CurrentUserPersonResponse
+            {
+                Id = person.Id,
+                FirstName = person.FirstName,
+                LastName = person.LastName,
+                Patronymic = person.Patronymic,
+                PassportSeries = person.PassportSeries,
+                PassportNumber = person.PassportNumber,
+                Email = person.Email,
+                BirthDate = person.BirthDate
+            };
+        }
+
+        private static void ApplyPersonFields(
+            Person person,
+            string firstName,
+            string lastName,
+            string? patronymic,
+            string passportSeries,
+            string passportNumber,
+            string? email,
+            DateOnly? birthDate)
+        {
+            person.FirstName = firstName;
+            person.LastName = lastName;
+            person.Patronymic = patronymic;
+            person.PassportSeries = passportSeries;
+            person.PassportNumber = passportNumber;
+            person.Email = email;
+            person.BirthDate = birthDate;
+        }
+
+        private static string? GetPassengerEmail(Person person)
+        {
+            if (!string.IsNullOrWhiteSpace(person.Email))
+                return person.Email;
+
+            return person.Users
+                .OrderBy(user => user.Id)
+                .Select(user => user.Email)
+                .FirstOrDefault(email => !string.IsNullOrWhiteSpace(email));
         }
 
         private static string BuildPersonFullName(Person person)
@@ -252,6 +407,12 @@ namespace AirCharter.API.Controllers
                     person.FirstName,
                     person.Patronymic
                 }.Where(part => !string.IsNullOrWhiteSpace(part)));
+        }
+
+        private static bool HasPassport(Person person, string passportSeries, string passportNumber)
+        {
+            return person.PassportSeries == passportSeries &&
+                person.PassportNumber == passportNumber;
         }
 
         private static Person GetOrCreatePerson(User user)

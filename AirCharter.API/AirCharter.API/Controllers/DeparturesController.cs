@@ -18,6 +18,8 @@ namespace AirCharter.API.Controllers
     [Route("departures")]
     public class DeparturesController(AirCharterExtendedContext context, RoutePlanningService routePlanningService, AirportGraphCache airportGraphCache, DeparturePdfDataFactory departurePdfDataFactory, TicketPdfService ticketPdfService, EmailService emailService) : ControllerBase
     {
+        private const string ManagementViewerRoles = "Owner,Manager,Admin,GeneralDirector,Employee";
+        private const string ManagementEditorRoles = ManagementViewerRoles;
         private static readonly TimeSpan BaseOperationalDuration = TimeSpan.FromMinutes(30);
 
         private readonly AirCharterExtendedContext _context = context;
@@ -154,7 +156,7 @@ namespace AirCharter.API.Controllers
         }
 
         [HttpGet("management")]
-        [Authorize(Roles = "Owner,Manager,Admin,GeneralDirector,Employee")]
+        [Authorize(Roles = ManagementViewerRoles)]
         public async Task<ActionResult<IEnumerable<ManagementDepartureResponse>>> GetManagementDepartures(
             [FromQuery] string section = "orders",
             CancellationToken cancellationToken = default)
@@ -188,6 +190,7 @@ namespace AirCharter.API.Controllers
                 .Include(departure => departure.LandingAirport)
                 .Include(departure => departure.CharterRequester)
                 .Include(departure => departure.People)
+                    .ThenInclude(person => person.Users)
                 .Include(departure => departure.DepartureStatuses)
                     .ThenInclude(departureStatus => departureStatus.Status)
                 .Include(departure => departure.DepartureRouteLegs)
@@ -201,7 +204,8 @@ namespace AirCharter.API.Controllers
             List<ManagementDepartureResponse> responses = departures
                 .Select(departure => CreateManagementDepartureResponse(
                     departure,
-                    managementSection))
+                    managementSection,
+                    isManagementView: true))
                 .Where(response => response is not null)
                 .Select(response => response!)
                 .ToList();
@@ -210,7 +214,7 @@ namespace AirCharter.API.Controllers
         }
 
         [HttpGet("management/{departureId:int}")]
-        [Authorize(Roles = "Owner,Manager,Admin,GeneralDirector,Employee")]
+        [Authorize(Roles = ManagementViewerRoles)]
         public async Task<ActionResult<ManagementDepartureResponse>> GetManagementDeparture(
             int departureId,
             CancellationToken cancellationToken)
@@ -235,7 +239,10 @@ namespace AirCharter.API.Controllers
             if (currentStatus is null)
                 return NotFound();
 
-            return Ok(CreateManagementDepartureResponse(departure, currentStatus));
+            return Ok(CreateManagementDepartureResponse(
+                departure,
+                currentStatus,
+                isManagementView: true));
         }
 
         [HttpGet("my/{departureId:int}")]
@@ -322,7 +329,7 @@ namespace AirCharter.API.Controllers
         }
 
         [HttpPost("management/{departureId:int}/approve")]
-        [Authorize(Roles = "Owner,Manager,Admin,GeneralDirector,Employee")]
+        [Authorize(Roles = ManagementEditorRoles)]
         public async Task<IActionResult> ApproveManagementDeparture(
             int departureId,
             CancellationToken cancellationToken)
@@ -346,7 +353,7 @@ namespace AirCharter.API.Controllers
         }
 
         [HttpPost("management/{departureId:int}/approve-route")]
-        [Authorize(Roles = "Owner,Manager,Admin,GeneralDirector,Employee")]
+        [Authorize(Roles = ManagementEditorRoles)]
         public async Task<IActionResult> ApproveManagementDepartureRoute(
             int departureId,
             UpdateDepartureRouteRequest request,
@@ -392,7 +399,7 @@ namespace AirCharter.API.Controllers
         }
 
         [HttpPost("management/{departureId:int}/route")]
-        [Authorize(Roles = "Owner,Manager,Admin,GeneralDirector,Employee")]
+        [Authorize(Roles = ManagementEditorRoles)]
         public async Task<IActionResult> SaveManagementDepartureRoute(
             int departureId,
             UpdateDepartureRouteRequest request,
@@ -438,7 +445,7 @@ namespace AirCharter.API.Controllers
         }
 
         [HttpPost("management/{departureId:int}/route-preview")]
-        [Authorize(Roles = "Owner,Manager,Admin,GeneralDirector,Employee")]
+        [Authorize(Roles = ManagementEditorRoles)]
         public async Task<ActionResult<ManagementRoutePreviewResponse>> PreviewManagementDepartureRoute(
             int departureId,
             UpdateDepartureRouteRequest request,
@@ -538,7 +545,7 @@ namespace AirCharter.API.Controllers
         }
 
         [HttpGet("management/{departureId:int}/route-candidates")]
-        [Authorize(Roles = "Owner,Manager,Admin,GeneralDirector,Employee")]
+        [Authorize(Roles = ManagementEditorRoles)]
         public async Task<ActionResult<IEnumerable<ManagementRouteCandidateResponse>>> GetManagementRouteCandidates(
             int departureId,
             [FromQuery] int fromAirportId,
@@ -656,7 +663,7 @@ namespace AirCharter.API.Controllers
         }
 
         [HttpPost("management/{departureId:int}/reject")]
-        [Authorize(Roles = "Owner,Manager,Admin,GeneralDirector,Employee")]
+        [Authorize(Roles = ManagementEditorRoles)]
         public async Task<IActionResult> RejectManagementDeparture(
             int departureId,
             CancellationToken cancellationToken)
@@ -681,29 +688,33 @@ namespace AirCharter.API.Controllers
 
         private ManagementDepartureResponse? CreateManagementDepartureResponse(
             Departure departure,
-            ManagementDepartureSection section)
+            ManagementDepartureSection section,
+            bool isManagementView = false)
         {
             DepartureStatus? currentStatus = GetCurrentStatus(departure);
 
             if (currentStatus is null || !IsDepartureInManagementSection(currentStatus.StatusId, section))
                 return null;
 
-            return CreateManagementDepartureResponse(departure, currentStatus);
+            return CreateManagementDepartureResponse(departure, currentStatus, isManagementView);
         }
 
-        private ManagementDepartureResponse? CreateManagementDepartureResponse(Departure departure)
+        private ManagementDepartureResponse? CreateManagementDepartureResponse(
+            Departure departure,
+            bool isManagementView = false)
         {
             DepartureStatus? currentStatus = GetCurrentStatus(departure);
 
             if (currentStatus is null || currentStatus.StatusId == (int)FlightStatusId.InCreation)
                 return null;
 
-            return CreateManagementDepartureResponse(departure, currentStatus);
+            return CreateManagementDepartureResponse(departure, currentStatus, isManagementView);
         }
 
         private ManagementDepartureResponse CreateManagementDepartureResponse(
             Departure departure,
-            DepartureStatus currentStatus)
+            DepartureStatus currentStatus,
+            bool isManagementView = false)
         {
             IReadOnlyCollection<ManagementDepartureStatusResponse> statusHistory = departure.DepartureStatuses
                 .OrderBy(departureStatus => departureStatus.StatusSettingDateTime)
@@ -717,6 +728,10 @@ namespace AirCharter.API.Controllers
                 .ToArray();
 
             RouteTotals routeTotals = CreateRouteTotals(departure);
+            bool hasEditAccess = !isManagementView || CanCurrentUserEditManagementDepartures();
+            bool canEditByStatus =
+                currentStatus.StatusId == (int)FlightStatusId.InCreation ||
+                currentStatus.StatusId == (int)FlightStatusId.AwaitingApproval;
 
             return new ManagementDepartureResponse
             {
@@ -751,11 +766,9 @@ namespace AirCharter.API.Controllers
                 CurrentStatusSetAt = currentStatus.StatusSettingDateTime,
                 CharterRequesterEmail = departure.CharterRequester.Email,
                 PassengerCount = departure.People.Count,
-                CanEditRoute =
-                    currentStatus.StatusId == (int)FlightStatusId.InCreation ||
-                    currentStatus.StatusId == (int)FlightStatusId.AwaitingApproval,
-                CanApprove = currentStatus.StatusId == (int)FlightStatusId.AwaitingApproval,
-                CanChangeStatus = IsActiveFlightStatus(currentStatus.StatusId),
+                CanEditRoute = canEditByStatus && hasEditAccess,
+                CanApprove = currentStatus.StatusId == (int)FlightStatusId.AwaitingApproval && hasEditAccess,
+                CanChangeStatus = IsActiveFlightStatus(currentStatus.StatusId) && hasEditAccess,
 
                 Passengers = departure.People
                     .OrderBy(person => person.LastName)
@@ -764,13 +777,22 @@ namespace AirCharter.API.Controllers
                     {
                         Id = person.Id,
                         FullName = BuildPersonFullName(person),
-                        Email = person.Email
+                        Email = GetPassengerEmail(person)
                     })
                     .ToArray(),
                 StatusHistory = statusHistory,
                 RouteAirports = CreateRouteAirportResponses(departure),
                 RouteLegs = CreateRouteLegResponses(departure)
             };
+        }
+
+        private bool CanCurrentUserEditManagementDepartures()
+        {
+            return User.IsInRole("Owner") ||
+                User.IsInRole("Manager") ||
+                User.IsInRole("Admin") ||
+                User.IsInRole("GeneralDirector") ||
+                User.IsInRole("Employee");
         }
 
         private static IReadOnlyCollection<AirportSearchResponse> CreateRouteAirportResponses(Departure departure)
@@ -818,6 +840,7 @@ namespace AirCharter.API.Controllers
                 .Include(departure => departure.LandingAirport)
                 .Include(departure => departure.CharterRequester)
                 .Include(departure => departure.People)
+                    .ThenInclude(person => person.Users)
                 .Include(departure => departure.DepartureStatuses)
                     .ThenInclude(departureStatus => departureStatus.Status)
                 .Include(departure => departure.DepartureRouteLegs)
@@ -1227,6 +1250,17 @@ namespace AirCharter.API.Controllers
                     person.FirstName,
                     person.Patronymic
                 }.Where(namePart => !string.IsNullOrWhiteSpace(namePart)));
+        }
+
+        private static string? GetPassengerEmail(Person person)
+        {
+            if (!string.IsNullOrWhiteSpace(person.Email))
+                return person.Email;
+
+            return person.Users
+                .OrderBy(user => user.Id)
+                .Select(user => user.Email)
+                .FirstOrDefault(email => !string.IsNullOrWhiteSpace(email));
         }
 
         [HttpGet("{departureId:int}/ticket")]

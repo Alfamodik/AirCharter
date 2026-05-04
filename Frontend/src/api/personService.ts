@@ -8,6 +8,27 @@ export interface PassengerSearchResponse {
     email?: string | null;
 }
 
+export interface PersonEditResponse {
+    id: number;
+    firstName: string;
+    lastName: string;
+    patronymic?: string | null;
+    passportSeries: string;
+    passportNumber: string;
+    email?: string | null;
+    birthDate?: string | null;
+}
+
+export interface PersonPassportRequest {
+    passportSeries: string;
+    passportNumber: string;
+}
+
+export interface UpdatePassengerByPassportRequest extends ProfileFormData {
+    currentPassportSeries: string;
+    currentPassportNumber: string;
+}
+
 export async function getMyPerson(): Promise<UserPersonResponse> {
     return await sendRequest<UserPersonResponse>("/persons/me", "GET");
 }
@@ -35,4 +56,26 @@ export async function searchPassengers(
 
 export async function createPassenger(data: ProfileFormData): Promise<PassengerSearchResponse> {
     return await sendRequest<PassengerSearchResponse>("/persons", "POST", data);
+}
+
+export async function getPassengerEditDetails(
+    personId: number,
+    data: PersonPassportRequest
+): Promise<PersonEditResponse> {
+    return await sendRequest<PersonEditResponse>(
+        `/persons/${personId}/edit-details`,
+        "POST",
+        data
+    );
+}
+
+export async function updatePassengerByPassport(
+    personId: number,
+    data: UpdatePassengerByPassportRequest
+): Promise<PassengerSearchResponse> {
+    return await sendRequest<PassengerSearchResponse>(
+        `/persons/${personId}`,
+        "PUT",
+        data
+    );
 }

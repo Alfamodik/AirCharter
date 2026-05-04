@@ -253,6 +253,19 @@
     font-size: 18px;
 }
 
+.management-passenger-row-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    align-items: center;
+}
+
+.management-passenger-edit-button {
+    min-height: 30px;
+    padding: 0 10px;
+    font-size: 12px;
+}
+
 .management-passenger-add-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -317,19 +330,20 @@
 .management-modal-backdrop {
     position: fixed;
     inset: 0;
-    z-index: 100;
+    z-index: 2000;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 20px;
-    background: rgba(0, 0, 0, 0.62);
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
 }
 
 .management-passenger-modal {
-    width: min(720px, 100%);
+    width: min(920px, 100%);
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    background: var(--bg-elevated);
+    background: var(--bg-card);
     padding: 20px;
     box-shadow: 0 22px 70px rgba(0, 0, 0, 0.42);
 }
@@ -348,6 +362,13 @@
     font-size: 18px;
 }
 
+.management-passenger-modal-header span {
+    display: block;
+    margin-top: 4px;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
 .management-passenger-modal-header button {
     width: 34px;
     height: 34px;
@@ -361,8 +382,12 @@
 
 .management-passenger-modal-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 12px;
+}
+
+.management-passenger-modal-grid.compact {
+    grid-template-columns: repeat(2, minmax(0, 220px));
 }
 
 .management-passenger-modal-actions {
@@ -842,6 +867,10 @@
     .management-passenger-add-row,
     .management-passenger-dropdown li,
     .management-passenger-modal-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .management-passenger-modal-grid.compact {
         grid-template-columns: 1fr;
     }
 

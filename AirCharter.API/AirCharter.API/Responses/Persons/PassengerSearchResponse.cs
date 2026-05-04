@@ -8,4 +8,23 @@ namespace AirCharter.API.Responses.Persons
 
         public string? Email { get; set; }
     }
+
+    public sealed class PersonEditResponse
+    {
+        public int Id { get; set; }
+
+        public string FirstName { get; set; } = string.Empty;
+
+        public string LastName { get; set; } = string.Empty;
+
+        public string? Patronymic { get; set; }
+
+        public string PassportSeries { get; set; } = string.Empty;
+
+        public string PassportNumber { get; set; } = string.Empty;
+
+        public string? Email { get; set; }
+
+        public DateOnly? BirthDate { get; set; }
+    }
 }

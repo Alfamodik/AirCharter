@@ -26,7 +26,10 @@ import {
 } from "../../api/userService";
 import {
     createPassenger,
+    getPassengerEditDetails,
     searchPassengers,
+    updatePassengerByPassport,
+    type PersonEditResponse,
     type PassengerSearchResponse
 } from "../../api/personService";
 import { useUser } from "../../context/UserContext";
@@ -34,6 +37,7 @@ import InputField from "../../components/inputField/InputField";
 import type { ProfileFormData } from "../../contracts/responses/persons/profileFormData";
 import type {
     ManagementDepartureResponse,
+    ManagementPassengerResponse,
     ManagementRouteAirportResponse,
     ManagementRouteLegResponse
 } from "../../contracts/responses/departures/managementDepartureResponse";
@@ -117,6 +121,7 @@ export default function ManagementOrderRoutePage({
     const [isActionLoading, setIsActionLoading] = useState(false);
     const [isPassengerActionLoading, setIsPassengerActionLoading] = useState(false);
     const [isPassengerModalOpen, setIsPassengerModalOpen] = useState(false);
+    const [editingPassenger, setEditingPassenger] = useState<ManagementPassengerResponse | null>(null);
     const [passengerForm, setPassengerForm] = useState<ProfileFormData>(emptyPassengerForm);
     const [errorMessage, setErrorMessage] = useState("");
     const [mapInstance, setMapInstance] = useState<YandexMapInstance | null>(null);
@@ -659,6 +664,64 @@ export default function ManagementOrderRoutePage({
         }
     }
 
+    async function handleLoadPassengerForEdit(
+        passenger: ManagementPassengerResponse,
+        passportSeries: string,
+        passportNumber: string
+    ): Promise<PersonEditResponse> {
+        setIsPassengerActionLoading(true);
+        setErrorMessage("");
+
+        try {
+            return await getPassengerEditDetails(passenger.id, {
+                passportSeries,
+                passportNumber
+            });
+        } catch (error) {
+            throw new Error(getPassengerApiErrorMessage(
+                error,
+                "Не удалось открыть карточку пассажира. Проверьте паспортные данные."
+            ));
+        } finally {
+            setIsPassengerActionLoading(false);
+        }
+    }
+
+    async function handleUpdatePassenger(
+        passenger: ManagementPassengerResponse,
+        currentPassportSeries: string,
+        currentPassportNumber: string,
+        form: ProfileFormData
+    ) {
+        if (departure === null || mode !== "client" || !departure.canEditRoute) {
+            return;
+        }
+
+        setIsPassengerActionLoading(true);
+        setErrorMessage("");
+
+        try {
+            await updatePassengerByPassport(passenger.id, {
+                ...form,
+                currentPassportSeries,
+                currentPassportNumber,
+                patronymic: form.patronymic?.trim() || null,
+                email: form.email?.trim() || null,
+                birthDate: form.birthDate || null
+            });
+
+            await refreshDeparture();
+            setEditingPassenger(null);
+        } catch (error) {
+            throw new Error(getPassengerApiErrorMessage(
+                error,
+                "Не удалось сохранить данные пассажира. Проверьте паспортные данные."
+            ));
+        } finally {
+            setIsPassengerActionLoading(false);
+        }
+    }
+
     const canEditPassengers = mode === "client" && departure?.canEditRoute === true;
     const hasFreePassengerSeat = departure !== null &&
         departure.passengerCount < departure.planePassengerCapacity;
@@ -824,15 +887,25 @@ export default function ManagementOrderRoutePage({
                                                 <span>{passenger.fullName}</span>
                                                 <span>{passenger.email || "Почта не указана"}</span>
                                                 {canEditPassengers && (
-                                                    <button
-                                                        type="button"
-                                                        className="management-route-remove-point management-passenger-remove-button"
-                                                        onClick={() => handleRemovePassenger(passenger.id)}
-                                                        disabled={isPassengerActionLoading}
-                                                        title="Удалить пассажира"
-                                                    >
-                                                        −
-                                                    </button>
+                                                    <div className="management-passenger-row-actions">
+                                                        <button
+                                                            type="button"
+                                                            className="management-secondary-button management-passenger-edit-button"
+                                                            onClick={() => setEditingPassenger(passenger)}
+                                                            disabled={isPassengerActionLoading}
+                                                        >
+                                                            Изменить
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="management-route-remove-point management-passenger-remove-button"
+                                                            onClick={() => handleRemovePassenger(passenger.id)}
+                                                            disabled={isPassengerActionLoading}
+                                                            title="Удалить пассажира"
+                                                        >
+                                                            −
+                                                        </button>
+                                                    </div>
                                                 )}
                                             </div>
                                         ))}
@@ -919,9 +992,37 @@ export default function ManagementOrderRoutePage({
                     onSubmit={handleCreatePassengerSubmit}
                 />
             )}
+
+            {editingPassenger !== null && (
+                <PassengerEditModal
+                    passenger={editingPassenger}
+                    isLoading={isPassengerActionLoading}
+                    onClose={() => setEditingPassenger(null)}
+                    onLoad={handleLoadPassengerForEdit}
+                    onSubmit={handleUpdatePassenger}
+                />
+            )}
             </div>
         </div>
     );
+}
+
+function getPassengerApiErrorMessage(error: unknown, fallback: string): string {
+    if (typeof error !== "object" || error === null || !("status" in error)) {
+        return fallback;
+    }
+
+    const status = Number((error as { status?: number }).status);
+
+    if (status === 404) {
+        return "Текущие паспортные данные не совпадают с выбранным пассажиром.";
+    }
+
+    if (status === 409) {
+        return "Пассажир с такими паспортными данными уже есть. Найдите его через поиск и выберите существующую запись.";
+    }
+
+    return fallback;
 }
 
 function PassengerSearchInput({
@@ -1103,6 +1204,200 @@ function PassengerRegistrationModal({
                         disabled={isLoading}
                     >
                         Добавить
+                    </button>
+                </div>
+            </form>
+        </div>
+    );
+}
+
+function PassengerEditModal({
+    passenger,
+    isLoading,
+    onClose,
+    onLoad,
+    onSubmit
+}: {
+    passenger: ManagementPassengerResponse;
+    isLoading: boolean;
+    onClose: () => void;
+    onLoad: (
+        passenger: ManagementPassengerResponse,
+        passportSeries: string,
+        passportNumber: string
+    ) => Promise<PersonEditResponse>;
+    onSubmit: (
+        passenger: ManagementPassengerResponse,
+        currentPassportSeries: string,
+        currentPassportNumber: string,
+        form: ProfileFormData
+    ) => Promise<void>;
+}) {
+    const [passportSeries, setPassportSeries] = useState("");
+    const [passportNumber, setPassportNumber] = useState("");
+    const [form, setForm] = useState<ProfileFormData | null>(null);
+    const [localError, setLocalError] = useState("");
+
+    function updateField(field: keyof ProfileFormData, value: string) {
+        setForm((currentForm) => {
+            if (currentForm === null) {
+                return currentForm;
+            }
+
+            return {
+                ...currentForm,
+                [field]: value
+            };
+        });
+    }
+
+    async function handleUnlock(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        setLocalError("");
+
+        try {
+            const details = await onLoad(passenger, passportSeries, passportNumber);
+
+            setForm({
+                firstName: details.firstName,
+                lastName: details.lastName,
+                patronymic: details.patronymic ?? "",
+                passportSeries: details.passportSeries,
+                passportNumber: details.passportNumber,
+                email: details.email ?? "",
+                birthDate: details.birthDate ?? ""
+            });
+        } catch (error) {
+            setLocalError(error instanceof Error
+                ? error.message
+                : "Не удалось открыть карточку пассажира.");
+        }
+    }
+
+    async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+
+        if (form === null) {
+            return;
+        }
+
+        setLocalError("");
+
+        try {
+            await onSubmit(passenger, passportSeries, passportNumber, form);
+        } catch (error) {
+            setLocalError(error instanceof Error
+                ? error.message
+                : "Не удалось сохранить данные пассажира.");
+        }
+    }
+
+    return (
+        <div className="management-modal-backdrop" role="presentation" onMouseDown={onClose}>
+            <form
+                className="management-passenger-modal"
+                onSubmit={form === null ? handleUnlock : handleSubmit}
+                onMouseDown={(event) => event.stopPropagation()}
+            >
+                <div className="management-passenger-modal-header">
+                    <div>
+                        <h3>Редактирование пассажира</h3>
+                        <span>{passenger.fullName}</span>
+                    </div>
+                    <button type="button" onClick={onClose} aria-label="Закрыть">
+                        ×
+                    </button>
+                </div>
+
+                {localError !== "" && (
+                    <div className="management-inline-error">{localError}</div>
+                )}
+
+                {form === null ? (
+                    <>
+                        <p className="management-muted-text">
+                            Введите текущие паспортные данные пассажира, чтобы открыть форму редактирования.
+                        </p>
+                        <div className="management-passenger-modal-grid compact">
+                            <InputField
+                                label="Серия паспорта"
+                                value={passportSeries}
+                                onChange={(value) => setPassportSeries(value.replace(/\D/g, "").slice(0, 4))}
+                                maxLength={4}
+                                required
+                            />
+                            <InputField
+                                label="Номер паспорта"
+                                value={passportNumber}
+                                onChange={(value) => setPassportNumber(value.replace(/\D/g, "").slice(0, 6))}
+                                maxLength={6}
+                                required
+                            />
+                        </div>
+                    </>
+                ) : (
+                    <div className="management-passenger-modal-grid">
+                        <InputField
+                            label="Фамилия"
+                            value={form.lastName}
+                            onChange={(value) => updateField("lastName", value)}
+                            required
+                        />
+                        <InputField
+                            label="Имя"
+                            value={form.firstName}
+                            onChange={(value) => updateField("firstName", value)}
+                            required
+                        />
+                        <InputField
+                            label="Отчество"
+                            value={form.patronymic ?? ""}
+                            onChange={(value) => updateField("patronymic", value)}
+                        />
+                        <InputField
+                            label="Серия паспорта"
+                            value={form.passportSeries}
+                            onChange={(value) => updateField("passportSeries", value.replace(/\D/g, "").slice(0, 4))}
+                            maxLength={4}
+                            required
+                        />
+                        <InputField
+                            label="Номер паспорта"
+                            value={form.passportNumber}
+                            onChange={(value) => updateField("passportNumber", value.replace(/\D/g, "").slice(0, 6))}
+                            maxLength={6}
+                            required
+                        />
+                        <InputField
+                            label="Почта для уведомлений"
+                            value={form.email ?? ""}
+                            onChange={(value) => updateField("email", value)}
+                            type="email"
+                        />
+                        <InputField
+                            label="Дата рождения"
+                            value={form.birthDate ?? ""}
+                            onChange={(value) => updateField("birthDate", value)}
+                            type="date"
+                        />
+                    </div>
+                )}
+
+                <div className="management-passenger-modal-actions">
+                    <button
+                        type="button"
+                        className="management-secondary-button"
+                        onClick={onClose}
+                        disabled={isLoading}
+                    >
+                        Отмена
+                    </button>
+                    <button
+                        type="submit"
+                        className="management-primary-button"
+                        disabled={isLoading}
+                    >
+                        {form === null ? "Открыть карточку" : "Сохранить"}
                     </button>
                 </div>
             </form>

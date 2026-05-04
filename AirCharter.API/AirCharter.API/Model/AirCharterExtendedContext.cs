@@ -335,6 +335,8 @@ public partial class AirCharterExtendedContext : DbContext
 
             entity.ToTable("persons");
 
+            entity.HasIndex(e => new { e.PassportSeries, e.PassportNumber }, "passport_unique").IsUnique();
+
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.BirthDate).HasColumnName("birth_date");
             entity.Property(e => e.Email)
