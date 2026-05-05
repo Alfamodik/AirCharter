@@ -11,6 +11,12 @@ namespace AirCharter.API.Responses.Departures
 
         public int PlanePassengerCapacity { get; set; }
 
+        public string? PlaneImage { get; set; }
+
+        public string AirlineName { get; set; } = string.Empty;
+
+        public string? AirlineImage { get; set; }
+
         public int TakeOffAirportId { get; set; }
 
         public string TakeOffAirportName { get; set; } = string.Empty;
@@ -36,6 +42,8 @@ namespace AirCharter.API.Responses.Departures
         public DateTime ArrivalDateTime { get; set; }
 
         public DateTime? CreatedAt { get; set; }
+
+        public DateTime? SubmittedAt { get; set; }
 
         public decimal Price { get; set; }
 

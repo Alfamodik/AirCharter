@@ -53,6 +53,50 @@ export async function sendRequest<TResponse>(
     throw createApiError(response.status, responseText);
 }
 
+export async function sendBlobRequest(
+    path: string,
+    method: string,
+    body?: unknown,
+    signal?: AbortSignal
+): Promise<Blob> {
+    const accessToken = localStorage.getItem("accessToken");
+    const response = await sendFetchRequest(path, method, body, signal, accessToken);
+
+    if (response.ok) {
+        return await response.blob();
+    }
+
+    if (response.status === 401 && accessToken && !isAuthEndpoint(path)) {
+        const refreshedAccessToken = await refreshAccessToken();
+
+        if (refreshedAccessToken !== null) {
+            const retryResponse = await sendFetchRequest(
+                path,
+                method,
+                body,
+                signal,
+                refreshedAccessToken
+            );
+
+            if (retryResponse.ok) {
+                return await retryResponse.blob();
+            }
+
+            if (retryResponse.status === 401) {
+                handleUnauthorizedResponse();
+            }
+
+            const retryResponseText = await retryResponse.text();
+            throw createApiError(retryResponse.status, retryResponseText);
+        }
+
+        handleUnauthorizedResponse();
+    }
+
+    const responseText = await response.text();
+    throw createApiError(response.status, responseText);
+}
+
 async function sendFetchRequest(
     path: string,
     method: string,

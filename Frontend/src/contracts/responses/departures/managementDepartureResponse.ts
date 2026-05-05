@@ -2,6 +2,9 @@ export interface ManagementDepartureResponse {
     id: number;
     planeModelName: string;
     planePassengerCapacity: number;
+    planeImage?: string | null;
+    airlineName: string;
+    airlineImage?: string | null;
     takeOffAirportId: number;
     takeOffAirportName: string;
     takeOffAirportCity?: string | null;
@@ -15,6 +18,7 @@ export interface ManagementDepartureResponse {
     requestedTakeOffDateTime: string;
     arrivalDateTime: string;
     createdAt?: string | null;
+    submittedAt?: string | null;
     price: number;
     distance: number;
     flightTime: string;

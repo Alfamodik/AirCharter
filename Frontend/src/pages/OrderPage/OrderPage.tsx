@@ -334,7 +334,9 @@ export default function OrderPage() {
 
                         <div className="order-plane-info-overlay">
                             <h1 className="model-value-large">{routeTitle}</h1>
-                            <p className="order-plane-model-name">{modelName}</p>
+                            {routeTitle !== modelName && (
+                                <p className="order-plane-model-name">{modelName}</p>
+                            )}
                         </div>
                     </div>
 

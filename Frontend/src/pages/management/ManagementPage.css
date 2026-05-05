@@ -96,7 +96,7 @@
     color: var(--text-primary);
     padding: 16px 20px;
     display: grid;
-    grid-template-columns: 24px minmax(220px, 1.7fr) minmax(150px, 0.8fr) minmax(160px, 0.9fr) minmax(120px, 0.6fr);
+    grid-template-columns: 34px minmax(220px, 1.7fr) minmax(150px, 0.8fr) minmax(160px, 0.9fr) minmax(120px, 0.6fr);
     gap: 16px;
     align-items: center;
     text-align: left;
@@ -104,15 +104,34 @@
 }
 
 .management-card-chevron {
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.02);
     color: var(--text-secondary);
-    font-size: 18px;
-    line-height: 1;
-    transform: rotate(-90deg);
-    transition: transform 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.management-card-chevron::before {
+    content: "";
+    width: 10px;
+    height: 10px;
+    background: currentColor;
+    clip-path: polygon(25% 12%, 25% 88%, 82% 50%);
 }
 
 .management-card-chevron.expanded {
-    transform: rotate(0deg);
+    border-color: var(--accent-blue);
+    background: rgba(0, 123, 255, 0.1);
+    color: var(--accent-blue);
+}
+
+.management-card-chevron.expanded::before {
+    clip-path: polygon(12% 25%, 88% 25%, 50% 82%);
 }
 
 .management-card-main,
@@ -369,6 +388,13 @@
     font-size: 13px;
 }
 
+.management-passenger-modal-note {
+    margin: 0 0 14px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
 .management-passenger-modal-header button {
     width: 34px;
     height: 34px;
@@ -395,6 +421,10 @@
     justify-content: space-between;
     gap: 12px;
     margin-top: 18px;
+}
+
+.management-passenger-modal .management-inline-error {
+    margin-top: 14px;
 }
 
 .management-card-actions {
@@ -463,10 +493,15 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
+    min-height: 0;
 }
 
 .management-route-standalone {
-    display: contents;
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .management-route-header {
@@ -491,6 +526,201 @@
     overflow: visible;
 }
 
+.management-section-header-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+}
+
+.management-section-toggle.management-card-summary {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    min-height: 68px;
+}
+
+.management-section-toggle > span:nth-child(2) {
+    font-weight: 800;
+}
+
+.management-section-toggle-side {
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.management-section-header-actions {
+    padding-right: 20px;
+}
+
+.management-route-reset-summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.management-route-reset-summary span {
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.management-flight-overview {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+    position: relative;
+    z-index: 0;
+}
+
+.management-flight-image {
+    position: relative;
+    height: clamp(345px, 29vw, 485px);
+    flex: 0 0 clamp(345px, 29vw, 485px);
+    min-height: 345px;
+    overflow: hidden;
+    border-radius: 8px 8px 0 0;
+    background: var(--bg-surface);
+    z-index: 1;
+}
+
+.management-flight-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.management-flight-image::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(180deg, rgba(0, 0, 0, 0.08) 0%, rgba(18, 19, 22, 0.58) 62%, var(--bg-card) 100%),
+        linear-gradient(90deg, rgba(0, 0, 0, 0.58) 0%, rgba(0, 0, 0, 0.18) 45%, rgba(0, 0, 0, 0.52) 100%);
+    pointer-events: none;
+}
+
+[data-theme='light'] .management-flight-image::after {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.18) 58%, var(--bg-card) 100%),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.05) 45%, rgba(255, 255, 255, 0.26) 100%);
+}
+
+.management-flight-image-placeholder {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    font-size: 20px;
+    font-weight: 800;
+}
+
+.management-flight-airline-badge {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    width: 46px;
+    height: 46px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--bg-card);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+    z-index: 2;
+}
+
+.management-flight-airline-badge img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.management-flight-overview-body {
+    min-width: 0;
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    gap: 18px;
+    position: relative;
+    z-index: 2;
+    background: var(--bg-card);
+}
+
+.management-flight-hero-overlay {
+    position: absolute;
+    left: 30px;
+    right: 30px;
+    bottom: 26px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 24px;
+    z-index: 2;
+}
+
+.management-flight-hero-title {
+    min-width: 0;
+}
+
+.management-flight-overview-body h1 {
+    margin: 4px 0 8px;
+    color: var(--text-primary);
+    font-size: 28px;
+    line-height: 1.15;
+}
+
+.management-flight-overview-body p {
+    margin: 0;
+    color: var(--text-secondary);
+}
+
+.management-flight-hero-title h1 {
+    margin: 6px 0 8px;
+    color: var(--text-primary);
+    font-size: 34px;
+    line-height: 1.1;
+}
+
+.management-flight-hero-title p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 18px;
+}
+
+.management-flight-airline-name {
+    display: block;
+    margin-top: 8px;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.management-flight-overview-side {
+    min-width: 220px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.management-flight-overview-side strong {
+    color: var(--text-primary);
+    font-size: 22px;
+}
+
+.management-print-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
 .management-route-icon-button {
     width: 34px;
     height: 34px;
@@ -513,11 +743,12 @@
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
+    align-items: stretch;
 }
 
 .management-route-editor-header,
 .management-passenger-section-header,
-.management-route-actions {
+.management-section-heading {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -525,7 +756,8 @@
 }
 
 .management-route-editor-header h3,
-.management-passenger-section-header h3 {
+.management-passenger-section-header h3,
+.management-section-heading h3 {
     margin: 0;
     color: var(--text-primary);
     font-size: 16px;
@@ -799,7 +1031,16 @@
 }
 
 .management-route-actions {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 12px;
     padding-top: 4px;
+}
+
+.management-route-actions .management-danger-button {
+    margin-right: auto;
 }
 
 .management-route-map {
@@ -818,6 +1059,24 @@
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+.management-status-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.management-status-history-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+    font-size: 13px;
 }
 
 .status-badge {
@@ -844,8 +1103,31 @@
 }
 
 @media (max-width: 1100px) {
+    .management-flight-image {
+        height: clamp(265px, 40vw, 385px);
+        flex-basis: clamp(265px, 40vw, 385px);
+        min-height: 265px;
+    }
+
+    .management-flight-hero-overlay {
+        flex-direction: column;
+        align-items: flex-start;
+        left: 22px;
+        right: 22px;
+        bottom: 22px;
+    }
+
+    .management-flight-overview-side {
+        min-width: 0;
+        align-items: flex-start;
+    }
+
+    .management-print-actions {
+        justify-content: flex-start;
+    }
+
     .management-card-summary {
-        grid-template-columns: 24px 1fr;
+        grid-template-columns: 34px 1fr;
     }
 
     .management-card-date,
@@ -857,6 +1139,10 @@
 
     .management-detail-grid {
         grid-template-columns: 1fr 1fr;
+    }
+
+    .management-order-info-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .management-passenger-row,
@@ -899,6 +1185,21 @@
 }
 
 @media (max-width: 700px) {
+    .management-flight-image {
+        height: 265px;
+        flex-basis: 265px;
+        min-height: 265px;
+    }
+
+    .management-flight-hero-title h1 {
+        font-size: 24px;
+    }
+
+    .management-status-history-row {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
     .management-detail-grid {
         grid-template-columns: 1fr;
     }
@@ -917,7 +1218,30 @@
     }
 
     .management-route-editor-header,
-    .management-passenger-section-header,
+    .management-passenger-section-header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .management-section-header-row,
+    .management-section-toggle.management-card-summary {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .management-section-toggle.management-card-summary {
+        grid-template-columns: 34px minmax(0, 1fr);
+    }
+
+    .management-section-toggle-side {
+        grid-column: 2;
+        justify-self: start;
+    }
+
+    .management-route-reset-summary {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
     .management-route-actions {
         align-items: stretch;
         flex-direction: column;

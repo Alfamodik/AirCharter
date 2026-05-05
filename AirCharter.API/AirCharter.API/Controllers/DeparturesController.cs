@@ -328,6 +328,42 @@ namespace AirCharter.API.Controllers
             return NoContent();
         }
 
+        [HttpPost("my/{departureId:int}/submit")]
+        public async Task<IActionResult> SubmitMyDeparture(
+            int departureId,
+            CancellationToken cancellationToken)
+        {
+            int? userId = GetCurrentUserId();
+
+            if (userId is null)
+                return Unauthorized();
+
+            Departure? departure = await GetManagementDepartureQuery()
+                .FirstOrDefaultAsync(
+                    departure => departure.Id == departureId &&
+                        departure.CharterRequesterId == userId.Value,
+                    cancellationToken);
+
+            if (departure is null)
+                return NotFound();
+
+            DepartureStatus? currentStatus = GetCurrentStatus(departure);
+
+            if (currentStatus?.StatusId != (int)FlightStatusId.InCreation)
+                return BadRequest("Заявку можно отправить только из статуса создания.");
+
+            if (departure.People.Count == 0)
+                return BadRequest("Добавьте хотя бы одного пассажира.");
+
+            if (departure.DepartureRouteLegs.Count == 0)
+                return BadRequest("Маршрут заявки не рассчитан.");
+
+            AddDepartureStatus(departure, FlightStatusId.AwaitingApproval);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return NoContent();
+        }
+
         [HttpPost("management/{departureId:int}/approve")]
         [Authorize(Roles = ManagementEditorRoles)]
         public async Task<IActionResult> ApproveManagementDeparture(
@@ -738,6 +774,9 @@ namespace AirCharter.API.Controllers
                 Id = departure.Id,
                 PlaneModelName = departure.Plane.ModelName,
                 PlanePassengerCapacity = departure.Plane.PassengerCapacity,
+                PlaneImage = departure.Plane.Image == null ? null : Convert.ToBase64String(departure.Plane.Image),
+                AirlineName = departure.Plane.Airline.AirlineName,
+                AirlineImage = departure.Plane.Airline.Image == null ? null : Convert.ToBase64String(departure.Plane.Airline.Image),
 
                 TakeOffAirportId = departure.TakeOffAirportId,
                 TakeOffAirportName = departure.TakeOffAirport.Name,
@@ -755,6 +794,9 @@ namespace AirCharter.API.Controllers
                 ArrivalDateTime = departure.RequestedTakeOffDateTime.Add(routeTotals.FlightTime),
                 CreatedAt = statusHistory
                     .FirstOrDefault(status => status.Id == (int)FlightStatusId.InCreation)
+                    ?.SetAt,
+                SubmittedAt = statusHistory
+                    .FirstOrDefault(status => status.Id == (int)FlightStatusId.AwaitingApproval)
                     ?.SetAt,
                 Price = routeTotals.Price,
                 Distance = routeTotals.Distance,
@@ -1273,15 +1315,24 @@ namespace AirCharter.API.Controllers
 
             Departure? departure = await _context.Departures
                 .Include(departure => departure.Plane)
+                    .ThenInclude(plane => plane.Airline)
                 .Include(departure => departure.TakeOffAirport)
                 .Include(departure => departure.LandingAirport)
                 .Include(departure => departure.People)
                 .FirstOrDefaultAsync(
-                    departure => departure.Id == departureId && departure.CharterRequesterId == userId,
+                    departure => departure.Id == departureId,
                     cancellationToken);
 
             if (departure == null)
                 return NotFound();
+
+            int? userAirlineId = await GetCurrentUserAirlineIdAsync(cancellationToken);
+            bool isRequester = departure.CharterRequesterId == userId;
+            bool isAirlineEmployee = userAirlineId is not null &&
+                departure.Plane.AirlineId == userAirlineId.Value;
+
+            if (!isRequester && !isAirlineEmployee)
+                return Forbid();
 
             DeparturePdfData departurePdfData = _departurePdfDataFactory.Create(departure);
             byte[] pdfBytes = _ticketPdfService.Generate(departurePdfData);

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { NavLink, Navigate, useLocation, useNavigate } from "react-router-dom";
 import Header from "../../components/header/Header";
 import {
@@ -235,7 +235,6 @@ function ManagementDepartureCard({
         <article className={`management-card ${isExpanded ? "expanded" : ""}`}>
             <button type="button" className="management-card-summary" onClick={onToggle}>
                 <span className={`management-card-chevron ${isExpanded ? "expanded" : ""}`}>
-                    ▾
                 </span>
 
                 <span className="management-card-main">
@@ -308,10 +307,61 @@ export function ManagementDepartureDetails({
 }: {
     departure: ManagementDepartureResponse;
 }) {
+    const [expandedDetailSections, setExpandedDetailSections] = useState<Set<string>>(() => new Set());
+
+    function toggleDetailSection(sectionKey: string) {
+        setExpandedDetailSections((currentSections) => {
+            const nextSections = new Set(currentSections);
+
+            if (nextSections.has(sectionKey)) {
+                nextSections.delete(sectionKey);
+            } else {
+                nextSections.add(sectionKey);
+            }
+
+            return nextSections;
+        });
+    }
+
+    function renderDetailSection(
+        sectionKey: string,
+        title: string,
+        content: ReactNode,
+        sideContent?: ReactNode
+    ) {
+        const isSectionExpanded = expandedDetailSections.has(sectionKey);
+
+        return (
+            <section className={`management-card management-detail-section-card ${isSectionExpanded ? "expanded" : ""}`}>
+                <button
+                    type="button"
+                    className="management-card-summary management-section-toggle"
+                    onClick={() => toggleDetailSection(sectionKey)}
+                    aria-expanded={isSectionExpanded}
+                >
+                    <span className={`management-card-chevron ${isSectionExpanded ? "expanded" : ""}`}></span>
+                    <span>{title}</span>
+                    {sideContent && (
+                        <span className="management-section-toggle-side">{sideContent}</span>
+                    )}
+                </button>
+
+                {isSectionExpanded && (
+                    <div className="management-card-details">
+                        {content}
+                    </div>
+                )}
+            </section>
+        );
+    }
+
     return (
         <>
             <div className="management-detail-grid">
-                <InfoBlock label="Создано" value={formatOptionalDateTime(departure.createdAt)} />
+                <InfoBlock
+                    label="Дата подачи заявки"
+                    value={formatOptionalDateTime(departure.submittedAt ?? departure.createdAt)}
+                />
                 <InfoBlock label="Прибытие" value={formatDateTime(departure.arrivalDateTime)} />
                 <InfoBlock label="Расстояние" value={`${formatNumber(departure.distance)} км`} />
                 <InfoBlock label="Время в пути" value={formatDuration(departure.flightTime)} />
@@ -322,9 +372,10 @@ export function ManagementDepartureDetails({
                 />
             </div>
 
-            <section className="management-detail-section">
-                <h3>Маршрут</h3>
-                {departure.routeLegs.length === 0 ? (
+            {renderDetailSection(
+                "route",
+                "Маршрут",
+                departure.routeLegs.length === 0 ? (
                     <p className="management-muted-text">Детали маршрута недоступны.</p>
                 ) : (
                     <div className="management-route-leg-list">
@@ -336,12 +387,14 @@ export function ManagementDepartureDetails({
                             />
                         ))}
                     </div>
-                )}
-            </section>
+                ),
+                <span>{departure.transfers} пересадок</span>
+            )}
 
-            <section className="management-detail-section">
-                <h3>Пассажиры</h3>
-                {departure.passengers.length === 0 ? (
+            {renderDetailSection(
+                "passengers",
+                "Пассажиры",
+                departure.passengers.length === 0 ? (
                     <p className="management-muted-text">Пассажиры не указаны.</p>
                 ) : (
                     <div className="management-passenger-list">
@@ -352,20 +405,26 @@ export function ManagementDepartureDetails({
                             </div>
                         ))}
                     </div>
-                )}
-            </section>
+                ),
+                <span>{departure.passengerCount} из {departure.planePassengerCapacity}</span>
+            )}
 
-            <section className="management-detail-section">
-                <h3>История статусов</h3>
-                <div className="management-status-history">
-                    {departure.statusHistory.map((status) => (
-                        <div key={`${status.id}-${status.setAt}`} className="management-status-row">
-                            <span>{status.name}</span>
-                            <span>{formatDateTime(status.setAt)}</span>
-                        </div>
-                    ))}
-                </div>
-            </section>
+            {renderDetailSection(
+                "history",
+                "История статусов",
+                departure.statusHistory.length === 0 ? (
+                    <p className="management-muted-text">История статусов недоступна.</p>
+                ) : (
+                    <div className="management-status-history">
+                        {departure.statusHistory.map((status) => (
+                            <div key={`${status.id}-${status.setAt}`} className="management-status-row">
+                                <span>{status.name}</span>
+                                <span>{formatDateTime(status.setAt)}</span>
+                            </div>
+                        ))}
+                    </div>
+                )
+            )}
         </>
     );
 }

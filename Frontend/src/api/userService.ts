@@ -1,4 +1,4 @@
-import { sendRequest } from "./sendRequest";
+import { sendBlobRequest, sendRequest } from "./sendRequest";
 import type { MyDepartureResponse } from "../contracts/responses/users/myDepartureResponse";
 import type { UserProfileResponse } from "../contracts/responses/users/userPersonResponse";
 import type { ManagementDepartureResponse } from "../contracts/responses/departures/managementDepartureResponse";
@@ -72,6 +72,20 @@ export async function saveUserDepartureRoute(
         `/departures/my/${departureId}/route`,
         "POST",
         request
+    );
+}
+
+export async function submitUserDeparture(departureId: number): Promise<void> {
+    await sendRequest<void>(
+        `/departures/my/${departureId}/submit`,
+        "POST"
+    );
+}
+
+export async function downloadUserDepartureTicket(departureId: number): Promise<Blob> {
+    return await sendBlobRequest(
+        `/departures/${departureId}/ticket`,
+        "GET"
     );
 }
 

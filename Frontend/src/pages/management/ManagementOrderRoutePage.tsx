@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { YMaps, Map, Placemark, Polyline } from "@pbe/react-yandex-maps";
 import Header from "../../components/header/Header";
@@ -22,7 +22,9 @@ import {
     getUserRouteCandidates,
     previewUserDepartureRoute,
     removeUserDeparturePassenger,
-    saveUserDepartureRoute
+    saveUserDepartureRoute,
+    submitUserDeparture,
+    downloadUserDepartureTicket
 } from "../../api/userService";
 import {
     createPassenger,
@@ -93,6 +95,8 @@ type ManagementOrderRoutePageProps = {
     mode?: "management" | "client";
 };
 
+type DepartureSectionKey = "passengers" | "route" | "history";
+
 const emptyPassengerForm: ProfileFormData = {
     firstName: "",
     lastName: "",
@@ -126,6 +130,7 @@ export default function ManagementOrderRoutePage({
     const [errorMessage, setErrorMessage] = useState("");
     const [mapInstance, setMapInstance] = useState<YandexMapInstance | null>(null);
     const [routeChooserElement, setRouteChooserElement] = useState<HTMLDivElement | null>(null);
+    const [expandedSections, setExpandedSections] = useState<Set<DepartureSectionKey>>(() => new Set());
 
     const invalidSameAirportLegIndexes = useMemo(() => {
         return createSameAirportLegIndexSet(routePoints);
@@ -539,8 +544,71 @@ export default function ManagementOrderRoutePage({
             setRoutePoints(createInitialRoutePoints(response));
             setGroundTimesMinutes(createInitialGroundTimes(response));
             setRoutePreview(null);
+            navigate(mode === "management" ? "/management/orders" : "/cabinet");
         } catch {
             setErrorMessage("Не удалось сохранить маршрут.");
+        } finally {
+            setIsActionLoading(false);
+        }
+    }
+
+    async function handleSubmitApplication() {
+        if (departure === null) {
+            return;
+        }
+
+        if (invalidSameAirportLegIndexes.size > 0) {
+            setErrorMessage("Соседние аэропорты в маршруте не должны совпадать.");
+            return;
+        }
+
+        if (routeRequest === null) {
+            setErrorMessage("Выберите аэропорт для каждого плеча маршрута.");
+            return;
+        }
+
+        if (routePreview === null) {
+            setErrorMessage("Дождитесь проверки маршрута.");
+            return;
+        }
+
+        if (!routePreview.canFly) {
+            setErrorMessage("В маршруте есть плечо, которое самолёт не может пройти с безопасным запасом.");
+            return;
+        }
+
+        setIsActionLoading(true);
+        setErrorMessage("");
+
+        try {
+            await saveUserDepartureRoute(departure.id, routeRequest);
+            await submitUserDeparture(departure.id);
+
+            const response = await getUserDeparture(departure.id);
+            setDeparture(response);
+            setRoutePoints(createInitialRoutePoints(response));
+            setGroundTimesMinutes(createInitialGroundTimes(response));
+            setRoutePreview(null);
+        } catch {
+            setErrorMessage("Не удалось отправить заявку.");
+        } finally {
+            setIsActionLoading(false);
+        }
+    }
+
+    async function handleDownloadTicket() {
+        if (departure === null) {
+            return;
+        }
+
+        setIsActionLoading(true);
+        setErrorMessage("");
+
+        try {
+            const ticketBlob = await downloadUserDepartureTicket(departure.id);
+            downloadBlob(ticketBlob, `Маршрутная квитанция ${departure.id}.pdf`);
+        } catch {
+            setErrorMessage("Не удалось сохранить маршрутную квитанцию.");
         } finally {
             setIsActionLoading(false);
         }
@@ -725,263 +793,436 @@ export default function ManagementOrderRoutePage({
     const canEditPassengers = mode === "client" && departure?.canEditRoute === true;
     const hasFreePassengerSeat = departure !== null &&
         departure.passengerCount < departure.planePassengerCapacity;
+    const backTarget = mode === "management" ? "/management/orders" : "/cabinet";
+
+    function toggleSection(sectionKey: DepartureSectionKey) {
+        setExpandedSections((currentSections) => {
+            const nextSections = new Set(currentSections);
+
+            if (nextSections.has(sectionKey)) {
+                nextSections.delete(sectionKey);
+            } else {
+                nextSections.add(sectionKey);
+            }
+
+            return nextSections;
+        });
+    }
+
+    function renderSectionCard(
+        sectionKey: DepartureSectionKey,
+        title: string,
+        content: ReactNode,
+        sideContent?: ReactNode,
+        headerActions?: ReactNode,
+        showHeaderActionsWhenCollapsed = false
+    ) {
+        const isExpanded = expandedSections.has(sectionKey);
+
+        return (
+            <section className={`management-card management-route-section ${isExpanded ? "expanded" : ""}`}>
+                <div className="management-section-header-row">
+                    <button
+                        type="button"
+                        className="management-card-summary management-section-toggle"
+                        onClick={() => toggleSection(sectionKey)}
+                        aria-expanded={isExpanded}
+                    >
+                        <span className={`management-card-chevron ${isExpanded ? "expanded" : ""}`}></span>
+                        <span>{title}</span>
+                        {sideContent && (
+                            <span className="management-section-toggle-side">{sideContent}</span>
+                        )}
+                    </button>
+
+                    {headerActions && (isExpanded || showHeaderActionsWhenCollapsed) && (
+                        <div className="management-section-header-actions">
+                            {headerActions}
+                        </div>
+                    )}
+                </div>
+
+                {isExpanded && (
+                    <div className="management-card-details">
+                        {content}
+                    </div>
+                )}
+            </section>
+        );
+    }
+
+    function renderBackButton() {
+        return (
+            <button
+                type="button"
+                className="header-icon-btn"
+                onClick={() => navigate(backTarget)}
+                title="Назад"
+            >
+                <svg viewBox="0 0 24 24">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+            </button>
+        );
+    }
+
+    function getDepartureRouteTitle(currentDeparture: ManagementDepartureResponse): string {
+        return `${buildAirportLabel(
+            currentDeparture.takeOffAirportCity,
+            currentDeparture.takeOffAirportName,
+            currentDeparture.takeOffAirportIata,
+            currentDeparture.takeOffAirportIcao
+        )} → ${buildAirportLabel(
+            currentDeparture.landingAirportCity,
+            currentDeparture.landingAirportName,
+            currentDeparture.landingAirportIata,
+            currentDeparture.landingAirportIcao
+        )}`;
+    }
+
+    function getRequestDateLabel(currentDeparture: ManagementDepartureResponse): string {
+        return mode === "client" && currentDeparture.currentStatusId === 1
+            ? "Создано"
+            : "Дата подачи заявки";
+    }
+
+    function getRequestDateValue(currentDeparture: ManagementDepartureResponse): string | null | undefined {
+        if (mode === "client" && currentDeparture.currentStatusId === 1) {
+            return currentDeparture.createdAt;
+        }
+
+        return currentDeparture.submittedAt ?? currentDeparture.createdAt;
+    }
+
+    function renderFlightOverview(currentDeparture: ManagementDepartureResponse) {
+        return (
+            <section className="management-card management-flight-overview">
+                <div className="management-flight-image">
+                    {currentDeparture.planeImage ? (
+                        <img
+                            src={`data:image/png;base64,${currentDeparture.planeImage}`}
+                            alt={currentDeparture.planeModelName}
+                        />
+                    ) : (
+                        <img
+                            src="/placeholder-plane.png"
+                            alt={currentDeparture.planeModelName}
+                        />
+                    )}
+
+                    {currentDeparture.airlineImage && (
+                        <div className="management-flight-airline-badge">
+                            <img
+                                src={`data:image/png;base64,${currentDeparture.airlineImage}`}
+                                alt={currentDeparture.airlineName}
+                            />
+                        </div>
+                    )}
+
+                    <div className="management-flight-hero-overlay">
+                        <div className="management-flight-hero-title">
+                            {mode === "management" && (
+                                <span className="management-card-label">Заявка #{currentDeparture.id}</span>
+                            )}
+                            <h1>{currentDeparture.planeModelName}</h1>
+                            <p>{getDepartureRouteTitle(currentDeparture)}</p>
+                            <span className="management-flight-airline-name">{currentDeparture.airlineName}</span>
+                        </div>
+
+                        <div className="management-flight-overview-side">
+                            <span className={`status-badge ${getRouteStatusClassName(currentDeparture.currentStatusId)}`}>
+                                {currentDeparture.statusName}
+                            </span>
+                            <strong>{formatPrice(summaryPrice)}</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="management-flight-overview-body">
+                    <div className="management-order-info-grid">
+                        <InfoCell
+                            label={getRequestDateLabel(currentDeparture)}
+                            value={formatOptionalDateTime(getRequestDateValue(currentDeparture))}
+                        />
+                        <InfoCell label="Дата и время вылета" value={formatDateTime(currentDeparture.requestedTakeOffDateTime)} />
+                        <InfoCell label="Дата и время прибытия" value={formatDateTime(currentDeparture.arrivalDateTime)} />
+                        <InfoCell label="Время в пути" value={formatDuration(summaryFlightTime)} />
+                        <InfoCell label="Расстояние" value={`${formatNumber(summaryDistance)} км`} />
+                        <InfoCell label="Пересадки" value={summaryTransfers.toString()} />
+                    </div>
+                </div>
+            </section>
+        );
+    }
+
+    function renderRouteEditor(currentDeparture: ManagementDepartureResponse) {
+        return renderSectionCard(
+            "route",
+            "Редактирование маршрута",
+            <>
+                    <RouteCandidateChooser
+                        activeRouteChoice={activeRouteChoice}
+                        candidatesCount={routeCandidates.length}
+                        onAirportSelect={handleAirportSelect}
+                        onAddIntermediatePoint={handleInsertPointBefore}
+                        onRemoveIntermediatePoint={handleRemovePoint}
+                        onSegmentChange={handleCandidateSegmentChange}
+                        onElementChange={setRouteChooserElement}
+                    />
+
+                    <ManagementRouteMap
+                        airports={mapAirports}
+                        candidates={routeCandidates}
+                        mapData={routeMapData}
+                        mapInstance={mapInstance}
+                        onCandidateSelect={handleRouteCandidateSelect}
+                        onMapInstanceChange={setMapInstance}
+                    />
+
+                    <div className="management-route-chain">
+                        {routePoints.slice(0, -1).map((routePoint, index) => {
+                            const nextRoutePoint = routePoints[index + 1];
+                            const legPreview = routePreview?.routeLegs[index];
+                            const existingLeg = findExistingRouteLeg(
+                                currentDeparture.routeLegs,
+                                routePoint.airportId,
+                                nextRoutePoint.airportId
+                            );
+                            const isLastLeg = index === routePoints.length - 2;
+
+                            return (
+                                <RouteLegEditorRow
+                                    key={`${routePoint.key}-${nextRoutePoint.key}`}
+                                    leftPoint={routePoint}
+                                    rightPoint={nextRoutePoint}
+                                    rightIndex={index + 1}
+                                    legIndex={index}
+                                    legPreview={legPreview}
+                                    existingLeg={existingLeg}
+                                    hasSameAirportError={invalidSameAirportLegIndexes.has(index)}
+                                    isActive={normalizedActiveCandidatePointIndex === index + 1}
+                                    isLastLeg={isLastLeg}
+                                    groundTimeMinutes={groundTimesMinutes[index] ?? 90}
+                                    onAirportSelect={handleAirportSelect}
+                                    onActivatePoint={() => setActiveCandidatePointIndex(index + 1)}
+                                    onGroundTimeChange={(value) => handleGroundTimeChange(index, value)}
+                                    onAddPoint={() => handleInsertPointBefore(index + 1)}
+                                    onRemovePoint={handleRemovePoint}
+                                    onResetPoint={handleResetPoint}
+                                />
+                            );
+                        })}
+                    </div>
+            </>,
+            undefined,
+            <div className="management-route-reset-summary">
+                <span>{formatPrice(summaryPrice)}</span>
+                <button
+                    type="button"
+                    className="management-secondary-button management-compact-button"
+                    onClick={handleResetRoute}
+                >
+                    Сбросить маршрут
+                </button>
+            </div>
+        );
+    }
+
+    function renderPassengerSection(currentDeparture: ManagementDepartureResponse) {
+        return renderSectionCard(
+            "passengers",
+            "Пассажиры",
+            <>
+                    {currentDeparture.passengers.length === 0 ? (
+                        <p className="management-muted-text">Пассажиры не указаны.</p>
+                    ) : (
+                        <div className="management-passenger-list">
+                            {currentDeparture.passengers.map((passenger) => (
+                                <div key={passenger.id} className="management-passenger-row">
+                                    <span>{passenger.fullName}</span>
+                                    <span>{passenger.email || "Почта не указана"}</span>
+                                    {canEditPassengers && (
+                                        <div className="management-passenger-row-actions">
+                                            <button
+                                                type="button"
+                                                className="management-secondary-button management-passenger-edit-button"
+                                                onClick={() => setEditingPassenger(passenger)}
+                                                disabled={isPassengerActionLoading}
+                                            >
+                                                Изменить
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="management-route-remove-point management-passenger-remove-button"
+                                                onClick={() => handleRemovePassenger(passenger.id)}
+                                                disabled={isPassengerActionLoading}
+                                                title="Удалить пассажира"
+                                            >
+                                                −
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {canEditPassengers && hasFreePassengerSeat && (
+                        <div className="management-passenger-add-row">
+                            <PassengerSearchInput
+                                excludedPassengerIds={currentDeparture.passengers.map((passenger) => passenger.id)}
+                                disabled={isPassengerActionLoading}
+                                onSelect={handleAddPassenger}
+                            />
+
+                            <button
+                                type="button"
+                                className="management-secondary-button management-passenger-create-button"
+                                onClick={() => setIsPassengerModalOpen(true)}
+                                disabled={isPassengerActionLoading}
+                            >
+                                Новый пассажир
+                            </button>
+                        </div>
+                    )}
+
+                    {canEditPassengers && !hasFreePassengerSeat && (
+                        <p className="management-muted-text">Свободных мест в самолёте нет.</p>
+                    )}
+            </>,
+            <span>{currentDeparture.passengerCount} из {currentDeparture.planePassengerCapacity}</span>
+        );
+    }
+
+    function renderStatusHistory(currentDeparture: ManagementDepartureResponse) {
+        return renderSectionCard(
+            "history",
+            "История статусов",
+            <>
+                    {currentDeparture.statusHistory.length === 0 ? (
+                        <p className="management-muted-text">История статусов недоступна.</p>
+                    ) : (
+                        <div className="management-status-history-list">
+                            {currentDeparture.statusHistory.map((status, index) => (
+                                <div key={`${status.id}-${status.setAt}-${index}`} className="management-status-history-row">
+                                    <span className={`status-badge ${getRouteStatusClassName(status.id)}`}>
+                                        {status.name}
+                                    </span>
+                                    <span>{formatDateTime(status.setAt)}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+            </>
+        );
+    }
 
     return (
         <div className="catalog-wrapper">
             <Header showSearch={false}>
-                <button
-                    className="header-icon-btn"
-                    onClick={() => navigate(mode === "management" ? "/management/orders" : "/cabinet")}
-                    title="Назад"
-                >
-                    <svg viewBox="0 0 24 24">
-                        <line x1="19" y1="12" x2="5" y2="12"></line>
-                        <polyline points="12 19 5 12 12 5"></polyline>
-                    </svg>
-                </button>
+                {renderBackButton()}
             </Header>
 
-            <div className={mode === "client" ? "catalog-layout" : "management-route-standalone"}>
-            {mode === "client" && (
-                <aside className="catalog-sidebar">
-                    <div className="user-brief-info">
-                        <span className="user-email-label">
-                            {isUserLoading ? "Загрузка..." : user?.email}
-                        </span>
-                        <a href="/profile" className="profile-redirect-btn">
-                            Профиль
-                        </a>
-                    </div>
-                </aside>
-            )}
-
-            <main className="catalog-main management-route-page">
-                {isLoading ? (
-                    <div className="management-empty-state">Загрузка заявки...</div>
-                ) : departure === null ? (
-                    <div className="management-empty-state">
-                        {errorMessage || "Заявка не найдена."}
-                    </div>
-                ) : (
-                    <>
-                        <section className="management-route-header">
-                            <div>
-                                <span className="management-card-label">Заявка #{departure.id}</span>
-                                <h1>{departure.planeModelName}</h1>
-                                <p>
-                                    {buildAirportLabel(
-                                        departure.takeOffAirportCity,
-                                        departure.takeOffAirportName,
-                                        departure.takeOffAirportIata,
-                                        departure.takeOffAirportIcao
-                                    )} → {buildAirportLabel(
-                                        departure.landingAirportCity,
-                                        departure.landingAirportName,
-                                        departure.landingAirportIata,
-                                        departure.landingAirportIcao
-                                    )}
-                                </p>
-                            </div>
-                        </section>
-
-                        {errorMessage !== "" && (
-                            <div className="management-inline-error">{errorMessage}</div>
-                        )}
-
-                        <section className="management-card management-route-section">
-                            <div className="management-card-details">
-                                <div className="management-order-info-grid">
-                                    <InfoCell label="Дата подачи заявки" value={formatOptionalDateTime(departure.createdAt)} />
-                                    <InfoCell label="Дата и время вылета" value={formatDateTime(departure.requestedTakeOffDateTime)} />
-                                    <InfoCell label="Дата и время прибытия" value={formatDateTime(departure.arrivalDateTime)} />
-                                    <InfoCell label="Время в пути" value={formatDuration(summaryFlightTime)} />
-                                    <InfoCell label="Расстояние" value={`${formatNumber(summaryDistance)} км`} />
-                                    <InfoCell label="Пересадки" value={summaryTransfers.toString()} />
-                                </div>
-
-                                <div className="management-route-editor-header">
-                                    <h3>Редактирование маршрута</h3>
-                                    <div className="management-route-editor-header-actions">
-                                        <button
-                                            type="button"
-                                            className="management-secondary-button management-compact-button"
-                                            onClick={handleResetRoute}
-                                        >
-                                            Сбросить маршрут
-                                        </button>
-                                        <span>{formatPrice(summaryPrice)}</span>
-                                    </div>
-                                </div>
-
-                                <RouteCandidateChooser
-                                    activeRouteChoice={activeRouteChoice}
-                                    candidatesCount={routeCandidates.length}
-                                    onAirportSelect={handleAirportSelect}
-                                    onAddIntermediatePoint={handleInsertPointBefore}
-                                    onRemoveIntermediatePoint={handleRemovePoint}
-                                    onSegmentChange={handleCandidateSegmentChange}
-                                    onElementChange={setRouteChooserElement}
-                                />
-
-                                <ManagementRouteMap
-                                    airports={mapAirports}
-                                    candidates={routeCandidates}
-                                    mapData={routeMapData}
-                                    mapInstance={mapInstance}
-                                    onCandidateSelect={handleRouteCandidateSelect}
-                                    onMapInstanceChange={setMapInstance}
-                                />
-
-                                <div className="management-route-chain">
-                                    {routePoints.slice(0, -1).map((routePoint, index) => {
-                                        const nextRoutePoint = routePoints[index + 1];
-                                        const legPreview = routePreview?.routeLegs[index];
-                                        const existingLeg = findExistingRouteLeg(
-                                            departure.routeLegs,
-                                            routePoint.airportId,
-                                            nextRoutePoint.airportId
-                                        );
-                                        const isLastLeg = index === routePoints.length - 2;
-
-                                        return (
-                                            <RouteLegEditorRow
-                                                key={`${routePoint.key}-${nextRoutePoint.key}`}
-                                                leftPoint={routePoint}
-                                                rightPoint={nextRoutePoint}
-                                                rightIndex={index + 1}
-                                                legIndex={index}
-                                                legPreview={legPreview}
-                                                existingLeg={existingLeg}
-                                                hasSameAirportError={invalidSameAirportLegIndexes.has(index)}
-                                                isActive={normalizedActiveCandidatePointIndex === index + 1}
-                                                isLastLeg={isLastLeg}
-                                                groundTimeMinutes={groundTimesMinutes[index] ?? 90}
-                                                onAirportSelect={handleAirportSelect}
-                                                onActivatePoint={() => setActiveCandidatePointIndex(index + 1)}
-                                                onGroundTimeChange={(value) => handleGroundTimeChange(index, value)}
-                                                onAddPoint={() => handleInsertPointBefore(index + 1)}
-                                                onRemovePoint={handleRemovePoint}
-                                                onResetPoint={handleResetPoint}
-                                            />
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        </section>
-
-                        <section className="management-card management-route-section">
-                            <div className="management-card-details">
-                                <div className="management-passenger-section-header">
-                                    <h3>Пассажиры</h3>
-                                    <span>
-                                        {departure.passengerCount} из {departure.planePassengerCapacity}
-                                    </span>
-                                </div>
-
-                                {departure.passengers.length === 0 ? (
-                                    <p className="management-muted-text">Пассажиры не указаны.</p>
-                                ) : (
-                                    <div className="management-passenger-list">
-                                        {departure.passengers.map((passenger) => (
-                                            <div key={passenger.id} className="management-passenger-row">
-                                                <span>{passenger.fullName}</span>
-                                                <span>{passenger.email || "Почта не указана"}</span>
-                                                {canEditPassengers && (
-                                                    <div className="management-passenger-row-actions">
-                                                        <button
-                                                            type="button"
-                                                            className="management-secondary-button management-passenger-edit-button"
-                                                            onClick={() => setEditingPassenger(passenger)}
-                                                            disabled={isPassengerActionLoading}
-                                                        >
-                                                            Изменить
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className="management-route-remove-point management-passenger-remove-button"
-                                                            onClick={() => handleRemovePassenger(passenger.id)}
-                                                            disabled={isPassengerActionLoading}
-                                                            title="Удалить пассажира"
-                                                        >
-                                                            −
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {canEditPassengers && hasFreePassengerSeat && (
-                                    <div className="management-passenger-add-row">
-                                        <PassengerSearchInput
-                                            excludedPassengerIds={departure.passengers.map((passenger) => passenger.id)}
-                                            disabled={isPassengerActionLoading}
-                                            onSelect={handleAddPassenger}
-                                        />
-
-                                        <button
-                                            type="button"
-                                            className="management-secondary-button management-passenger-create-button"
-                                            onClick={() => setIsPassengerModalOpen(true)}
-                                            disabled={isPassengerActionLoading}
-                                        >
-                                            Новый пассажир
-                                        </button>
-                                    </div>
-                                )}
-
-                                {canEditPassengers && !hasFreePassengerSeat && (
-                                    <p className="management-muted-text">Свободных мест в самолёте нет.</p>
-                                )}
-                            </div>
-                        </section>
-
-                        <div className="management-route-actions">
-                            {mode === "management" && (
-                            <button
-                                type="button"
-                                className="management-danger-button"
-                                onClick={handleReject}
-                                disabled={isActionLoading || !departure.canApprove}
-                            >
-                                Отклонить
-                            </button>
-                            )}
-
-                            <button
-                                type="button"
-                                className="management-secondary-button"
-                                onClick={handleSaveRoute}
-                                disabled={
-                                    isActionLoading ||
-                                    !departure.canEditRoute ||
-                                    routeRequest === null ||
-                                    routePreview?.canFly !== true
-                                }
-                            >
-                                Сохранить
-                            </button>
-
-                            {mode === "management" && (
-                            <button
-                                type="button"
-                                className="management-primary-button"
-                                onClick={handleApprove}
-                                disabled={
-                                    isActionLoading ||
-                                    !departure.canApprove ||
-                                    routeRequest === null ||
-                                    routePreview?.canFly !== true
-                                }
-                            >
-                                Одобрить
-                            </button>
-                            )}
+            <div className="management-route-standalone">
+                <main className="catalog-main management-route-page">
+                    {isLoading ? (
+                        <div className="management-empty-state">Загрузка заявки...</div>
+                    ) : departure === null ? (
+                        <div className="management-empty-state">
+                            {errorMessage || "Заявка не найдена."}
                         </div>
-                    </>
-                )}
-            </main>
+                    ) : (
+                        <>
+                            {renderFlightOverview(departure)}
+
+                            {errorMessage !== "" && (
+                                <div className="management-inline-error">{errorMessage}</div>
+                            )}
+
+                            {mode === "client" && renderPassengerSection(departure)}
+                            {renderRouteEditor(departure)}
+                            {renderStatusHistory(departure)}
+                            {mode === "management" && renderPassengerSection(departure)}
+
+                            <div className="management-route-actions">
+                                {mode === "management" && (
+                                    <button
+                                        type="button"
+                                        className="management-danger-button"
+                                        onClick={handleReject}
+                                        disabled={isActionLoading || !departure.canApprove}
+                                    >
+                                        Отклонить
+                                    </button>
+                                )}
+
+                                {mode === "client" && (
+                                    <button
+                                        type="button"
+                                        className="management-secondary-button"
+                                        disabled={isActionLoading}
+                                        onClick={handleDownloadTicket}
+                                    >
+                                        Сохранить маршрутную квитанцию
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    className="management-secondary-button"
+                                    disabled
+                                >
+                                    Сохранить шаблон договора
+                                </button>
+                                <button
+                                    type="button"
+                                    className="management-secondary-button"
+                                    onClick={handleSaveRoute}
+                                    disabled={
+                                        isActionLoading ||
+                                        !departure.canEditRoute ||
+                                        routeRequest === null ||
+                                        routePreview?.canFly !== true
+                                    }
+                                >
+                                    Сохранить
+                                </button>
+
+                                {mode === "client" && departure.currentStatusId === 1 && (
+                                    <button
+                                        type="button"
+                                        className="management-primary-button"
+                                        onClick={handleSubmitApplication}
+                                        disabled={
+                                            isActionLoading ||
+                                            !departure.canEditRoute ||
+                                            routeRequest === null ||
+                                            routePreview?.canFly !== true
+                                        }
+                                    >
+                                        Отправить заявку
+                                    </button>
+                                )}
+
+                                {mode === "management" && (
+                                    <button
+                                        type="button"
+                                        className="management-primary-button"
+                                        onClick={handleApprove}
+                                        disabled={
+                                            isActionLoading ||
+                                            !departure.canApprove ||
+                                            routeRequest === null ||
+                                            routePreview?.canFly !== true
+                                        }
+                                    >
+                                        Одобрить
+                                    </button>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </main>
 
             {isPassengerModalOpen && (
                 <PassengerRegistrationModal
@@ -1023,6 +1264,34 @@ function getPassengerApiErrorMessage(error: unknown, fallback: string): string {
     }
 
     return fallback;
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = objectUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
+}
+
+function getRouteStatusClassName(statusId: number): string {
+    if (statusId === 17 || statusId === 18) {
+        return "rejected";
+    }
+
+    if (statusId === 2) {
+        return "pending";
+    }
+
+    if (statusId === 14) {
+        return "confirmed";
+    }
+
+    return "active";
 }
 
 function PassengerSearchInput({
@@ -1309,14 +1578,10 @@ function PassengerEditModal({
                     </button>
                 </div>
 
-                {localError !== "" && (
-                    <div className="management-inline-error">{localError}</div>
-                )}
-
                 {form === null ? (
                     <>
-                        <p className="management-muted-text">
-                            Введите текущие паспортные данные пассажира, чтобы открыть форму редактирования.
+                        <p className="management-passenger-modal-note">
+                            Подтвердите текущий паспорт. После этого откроется форма изменения данных.
                         </p>
                         <div className="management-passenger-modal-grid compact">
                             <InputField
@@ -1381,6 +1646,10 @@ function PassengerEditModal({
                             type="date"
                         />
                     </div>
+                )}
+
+                {localError !== "" && (
+                    <div className="management-inline-error">{localError}</div>
                 )}
 
                 <div className="management-passenger-modal-actions">
