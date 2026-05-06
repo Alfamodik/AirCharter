@@ -5,6 +5,7 @@ import Header from "../../components/header/Header";
 import AirportSearch from "../../components/airportSearch/AirportSearch";
 import {
     approveManagementDepartureRoute,
+    confirmManagementDepartureContractDocument,
     getManagementDeparture,
     getManagementRouteCandidates,
     previewManagementDepartureRoute,
@@ -180,6 +181,21 @@ export default function ManagementOrderRoutePage({
             departure?.routeLegs ?? []
         );
     }, [departure?.routeLegs, routePoints, routePreview]);
+    const hasRouteChanges = departure !== null &&
+        hasUnsavedRouteChanges(departure, routePoints, groundTimesMinutes);
+    const hasTakeOffDateTimeChanges = departure !== null &&
+        requestedTakeOffInput.trim() !== "" &&
+        requestedTakeOffInput !== formatDateTimeLocalInput(departure.requestedTakeOffDateTime);
+    const canSaveRouteOrTakeOffDateTime = departure !== null &&
+        departure.canEditRoute &&
+        (
+            hasTakeOffDateTimeChanges ||
+            (
+                hasRouteChanges &&
+                routeRequest !== null &&
+                routePreview?.canFly === true
+            )
+        );
 
     useEffect(() => {
         if (
@@ -521,22 +537,26 @@ export default function ManagementOrderRoutePage({
     }
 
     async function handleSaveRoute() {
-        if (invalidSameAirportLegIndexes.size > 0) {
+        if (!hasRouteChanges && !hasTakeOffDateTimeChanges) {
+            return;
+        }
+
+        if (hasRouteChanges && invalidSameAirportLegIndexes.size > 0) {
             setErrorMessage("Соседние аэропорты в маршруте не должны совпадать.");
             return;
         }
 
-        if (routeRequest === null) {
+        if (hasRouteChanges && routeRequest === null) {
             setErrorMessage("Выберите аэропорт для каждого плеча маршрута.");
             return;
         }
 
-        if (routePreview === null) {
+        if (hasRouteChanges && routePreview === null) {
             setErrorMessage("Дождитесь проверки маршрута.");
             return;
         }
 
-        if (!routePreview.canFly) {
+        if (hasRouteChanges && !routePreview?.canFly) {
             setErrorMessage("В маршруте есть плечо, которое самолёт не может пройти с безопасным запасом.");
             return;
         }
@@ -545,10 +565,16 @@ export default function ManagementOrderRoutePage({
         setErrorMessage("");
 
         try {
-            if (mode === "management") {
-                await saveManagementDepartureRoute(parsedDepartureId, routeRequest);
-            } else {
-                await saveUserDepartureRoute(parsedDepartureId, routeRequest);
+            if (hasRouteChanges && routeRequest !== null) {
+                if (mode === "management") {
+                    await saveManagementDepartureRoute(parsedDepartureId, routeRequest);
+                } else {
+                    await saveUserDepartureRoute(parsedDepartureId, routeRequest);
+                }
+            }
+
+            if (mode === "client" && hasTakeOffDateTimeChanges) {
+                await updateUserDepartureTakeOffDateTime(parsedDepartureId, `${requestedTakeOffInput}:00`);
             }
 
             const response = mode === "management"
@@ -560,9 +586,11 @@ export default function ManagementOrderRoutePage({
             setRoutePoints(createInitialRoutePoints(response));
             setGroundTimesMinutes(createInitialGroundTimes(response));
             setRoutePreview(null);
-            navigate(mode === "management" ? "/management/orders" : "/cabinet");
+            if (hasRouteChanges) {
+                navigate(mode === "management" ? "/management/orders" : "/cabinet");
+            }
         } catch {
-            setErrorMessage("Не удалось сохранить маршрут.");
+            setErrorMessage("Не удалось сохранить изменения заявки.");
         } finally {
             setIsActionLoading(false);
         }
@@ -672,6 +700,24 @@ export default function ManagementOrderRoutePage({
         }
     }
 
+    async function handleConfirmContractDocument() {
+        if (departure === null) {
+            return;
+        }
+
+        setIsActionLoading(true);
+        setErrorMessage("");
+
+        try {
+            await confirmManagementDepartureContractDocument(departure.id);
+            await refreshDeparture();
+        } catch (error: unknown) {
+            setErrorMessage(getApiErrorMessage(error, "Не удалось подтвердить договор."));
+        } finally {
+            setIsActionLoading(false);
+        }
+    }
+
     async function handleContractDocumentChange(event: ChangeEvent<HTMLInputElement>) {
         if (departure === null) {
             return;
@@ -692,24 +738,6 @@ export default function ManagementOrderRoutePage({
             await refreshDeparture();
         } catch (error: unknown) {
             setErrorMessage(getApiErrorMessage(error, "Не удалось загрузить договор."));
-        } finally {
-            setIsActionLoading(false);
-        }
-    }
-
-    async function handleSaveTakeOffDateTime() {
-        if (departure === null || requestedTakeOffInput.trim() === "") {
-            return;
-        }
-
-        setIsActionLoading(true);
-        setErrorMessage("");
-
-        try {
-            await updateUserDepartureTakeOffDateTime(departure.id, `${requestedTakeOffInput}:00`);
-            await refreshDeparture();
-        } catch (error: unknown) {
-            setErrorMessage(getApiErrorMessage(error, "Не удалось изменить дату и время вылета."));
         } finally {
             setIsActionLoading(false);
         }
@@ -998,7 +1026,6 @@ export default function ManagementOrderRoutePage({
     }
 
     function renderFlightOverview(currentDeparture: ManagementDepartureResponse) {
-        const isFlightPlanned = ![1, 2, 18, 19].includes(currentDeparture.currentStatusId);
         const canEditTakeOffDateTime = mode === "client" && currentDeparture.canEditRoute;
 
         return (
@@ -1050,48 +1077,33 @@ export default function ManagementOrderRoutePage({
                             label={getRequestDateLabel(currentDeparture)}
                             value={formatOptionalDateTime(getRequestDateValue(currentDeparture))}
                         />
-                        {isFlightPlanned && (
-                            <>
-                                <InfoCell label="Дата и время вылета" value={formatDateTime(currentDeparture.requestedTakeOffDateTime)} />
-                                <InfoCell label="Дата и время прибытия" value={formatDateTime(currentDeparture.arrivalDateTime)} />
-                            </>
+                        {canEditTakeOffDateTime ? (
+                            <EditableInfoCell
+                                label="Дата и время вылета"
+                                value={requestedTakeOffInput}
+                                onChange={setRequestedTakeOffInput}
+                            />
+                        ) : (
+                            <InfoCell label="Дата и время вылета" value={formatDateTime(currentDeparture.requestedTakeOffDateTime)} />
                         )}
+                        <InfoCell label="Дата и время прибытия" value={formatDateTime(currentDeparture.arrivalDateTime)} />
                         <InfoCell label="Время в пути" value={formatDuration(summaryFlightTime)} />
                         <InfoCell label="Расстояние" value={`${formatNumber(summaryDistance)} км`} />
                         <InfoCell label="Пересадки" value={summaryTransfers.toString()} />
                     </div>
-
-                    {canEditTakeOffDateTime && (
-                        <div className="management-takeoff-editor">
-                            <InputField
-                                label="Дата и время вылета"
-                                type="datetime-local"
-                                value={requestedTakeOffInput}
-                                onChange={setRequestedTakeOffInput}
-                            />
-                            <button
-                                type="button"
-                                className="management-secondary-button"
-                                onClick={handleSaveTakeOffDateTime}
-                                disabled={
-                                    isActionLoading ||
-                                    requestedTakeOffInput === formatDateTimeLocalInput(currentDeparture.requestedTakeOffDateTime)
-                                }
-                            >
-                                Сохранить дату вылета
-                            </button>
-                        </div>
-                    )}
                 </div>
             </section>
         );
     }
 
     function renderRouteEditor(currentDeparture: ManagementDepartureResponse) {
+        const canEditRoute = currentDeparture.canEditRoute;
+
         return renderSectionCard(
             "route",
-            "Редактирование маршрута",
+            canEditRoute ? "Редактирование маршрута" : "Маршрут",
             <>
+                    {canEditRoute && (
                     <RouteCandidateChooser
                         activeRouteChoice={activeRouteChoice}
                         candidatesCount={routeCandidates.length}
@@ -1101,6 +1113,7 @@ export default function ManagementOrderRoutePage({
                         onSegmentChange={handleCandidateSegmentChange}
                         onElementChange={setRouteChooserElement}
                     />
+                    )}
 
                     <ManagementRouteMap
                         airports={mapAirports}
@@ -1134,6 +1147,7 @@ export default function ManagementOrderRoutePage({
                                     hasSameAirportError={invalidSameAirportLegIndexes.has(index)}
                                     isActive={normalizedActiveCandidatePointIndex === index + 1}
                                     isLastLeg={isLastLeg}
+                                    canEdit={canEditRoute}
                                     groundTimeMinutes={groundTimesMinutes[index] ?? 90}
                                     onAirportSelect={handleAirportSelect}
                                     onActivatePoint={() => setActiveCandidatePointIndex(index + 1)}
@@ -1149,6 +1163,7 @@ export default function ManagementOrderRoutePage({
             undefined,
             <div className="management-route-reset-summary">
                 <span>{formatPrice(summaryPrice)}</span>
+                {canEditRoute && (
                 <button
                     type="button"
                     className="management-secondary-button management-compact-button"
@@ -1156,6 +1171,7 @@ export default function ManagementOrderRoutePage({
                 >
                     Сбросить маршрут
                 </button>
+                )}
             </div>
         );
     }
@@ -1277,7 +1293,7 @@ export default function ManagementOrderRoutePage({
                             )}
 
                             <div className="management-route-actions">
-                                {mode === "management" && (
+                                {mode === "management" && departure.canEditRoute && (
                                     <button
                                         type="button"
                                         className="management-danger-button"
@@ -1298,29 +1314,35 @@ export default function ManagementOrderRoutePage({
                                         Сохранить маршрутную квитанцию
                                     </button>
                                 )}
-                                <button
+                                {departure.canEditRoute && (
+                                    <button
                                     type="button"
                                     className="management-secondary-button"
                                     onClick={handleDownloadContract}
                                     disabled={isActionLoading}
                                 >
                                     Сохранить шаблон договора
-                                </button>
-                                <input
-                                    ref={contractFileInputRef}
-                                    type="file"
-                                    className="management-hidden-file-input"
-                                    accept=".pdf,.doc,.docx,image/*"
-                                    onChange={handleContractDocumentChange}
-                                />
-                                <button
-                                    type="button"
-                                    className="management-secondary-button"
-                                    onClick={() => contractFileInputRef.current?.click()}
-                                    disabled={isActionLoading}
-                                >
-                                    Загрузить договор
-                                </button>
+                                    </button>
+                                )}
+                                {mode === "client" && departure.currentStatusId === 19 && (
+                                    <>
+                                        <input
+                                            ref={contractFileInputRef}
+                                            type="file"
+                                            className="management-hidden-file-input"
+                                            accept=".pdf,.doc,.docx,image/*"
+                                            onChange={handleContractDocumentChange}
+                                        />
+                                        <button
+                                            type="button"
+                                            className="management-secondary-button"
+                                            onClick={() => contractFileInputRef.current?.click()}
+                                            disabled={isActionLoading}
+                                        >
+                                            Загрузить подписанный договор
+                                        </button>
+                                    </>
+                                )}
                                 {departure.hasContractDocument && (
                                     <button
                                         type="button"
@@ -1328,22 +1350,32 @@ export default function ManagementOrderRoutePage({
                                         onClick={handleDownloadContractDocument}
                                         disabled={isActionLoading}
                                     >
-                                        Открыть загруженный договор
+                                        Скачать подписанный договор
                                     </button>
                                 )}
+                                {mode === "management" && departure.currentStatusId === 19 && departure.hasContractDocument && (
+                                    <button
+                                        type="button"
+                                        className="management-primary-button"
+                                        onClick={handleConfirmContractDocument}
+                                        disabled={isActionLoading}
+                                    >
+                                        Подтвердить договор
+                                    </button>
+                                )}
+                                {departure.canEditRoute && (
                                 <button
                                     type="button"
                                     className="management-secondary-button"
                                     onClick={handleSaveRoute}
                                     disabled={
                                         isActionLoading ||
-                                        !departure.canEditRoute ||
-                                        routeRequest === null ||
-                                        routePreview?.canFly !== true
+                                        !canSaveRouteOrTakeOffDateTime
                                     }
                                 >
                                     Сохранить
                                 </button>
+                                )}
 
                                 {mode === "client" && departure.currentStatusId === 1 && (
                                     <button
@@ -1361,7 +1393,7 @@ export default function ManagementOrderRoutePage({
                                     </button>
                                 )}
 
-                                {mode === "management" && (
+                                {mode === "management" && departure.canEditRoute && (
                                     <button
                                         type="button"
                                         className="management-primary-button"
@@ -1903,6 +1935,7 @@ function RouteLegEditorRow({
     hasSameAirportError,
     isActive,
     isLastLeg,
+    canEdit,
     groundTimeMinutes,
     onAirportSelect,
     onActivatePoint,
@@ -1920,6 +1953,7 @@ function RouteLegEditorRow({
     hasSameAirportError: boolean;
     isActive: boolean;
     isLastLeg: boolean;
+    canEdit: boolean;
     groundTimeMinutes: number;
     onAirportSelect: (
         routePointIndex: number,
@@ -1943,7 +1977,12 @@ function RouteLegEditorRow({
                     point={leftPoint}
                 />
 
-                {isLastLeg ? (
+                {!canEdit ? (
+                    <LockedAirportCard
+                        point={rightPoint}
+                        invalid={isInvalid}
+                    />
+                ) : isLastLeg ? (
                     <div className="management-route-airport-locked-actions">
                         <LockedAirportCard
                             point={rightPoint}
@@ -1994,7 +2033,7 @@ function RouteLegEditorRow({
                     <span className="management-route-leg-summary muted">Перелёт {legIndex + 1}</span>
                 )}
 
-                {!isLastLeg && (
+                {canEdit && !isLastLeg && (
                     <label className="management-ground-time-inline">
                         <span>Стоянка, мин</span>
                         <input
@@ -2208,6 +2247,27 @@ function InfoCell({ label, value }: { label: string; value: string }) {
             <span>{label}</span>
             <strong>{value}</strong>
         </div>
+    );
+}
+
+function EditableInfoCell({
+    label,
+    value,
+    onChange
+}: {
+    label: string;
+    value: string;
+    onChange: (value: string) => void;
+}) {
+    return (
+        <label className="management-info-block management-info-block-editable">
+            <span>{label}</span>
+            <input
+                type="datetime-local"
+                value={value}
+                onChange={(event) => onChange(event.target.value)}
+            />
+        </label>
     );
 }
 

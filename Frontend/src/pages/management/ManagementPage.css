@@ -439,9 +439,10 @@
 }
 
 .management-card-actions {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
+    justify-content: space-between;
     gap: 10px;
     padding-top: 2px;
 }
@@ -757,20 +758,31 @@
     align-items: stretch;
 }
 
-.management-takeoff-editor {
-    display: grid;
-    grid-template-columns: minmax(240px, 320px) auto;
-    gap: 10px;
-    align-items: end;
-}
-
-.management-takeoff-editor .management-secondary-button {
-    justify-self: start;
-    min-height: 44px;
-}
-
 .management-hidden-file-input {
     display: none;
+}
+
+.management-info-block-editable {
+    cursor: default;
+}
+
+.management-info-block-editable input {
+    width: 100%;
+    min-width: 0;
+    height: 28px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 800;
+    padding: 0;
+}
+
+.management-info-block-editable input:focus {
+    outline: 2px solid rgba(0, 123, 255, 0.5);
+    outline-offset: 3px;
 }
 
 .management-route-editor-header,
@@ -1059,11 +1071,20 @@
 
 .management-route-actions {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: flex-end;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     padding-top: 4px;
+}
+
+.management-route-actions .management-primary-button,
+.management-route-actions .management-secondary-button,
+.management-route-actions .management-danger-button {
+    min-height: 34px;
+    padding: 0 12px;
+    font-size: 14px;
+    white-space: nowrap;
 }
 
 .management-route-actions .management-danger-button {
@@ -1272,10 +1293,6 @@
     .management-route-actions {
         align-items: stretch;
         flex-direction: column;
-    }
-
-    .management-takeoff-editor {
-        grid-template-columns: 1fr;
     }
 
     .management-route-editor-header-actions {

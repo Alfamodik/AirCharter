@@ -3,10 +3,12 @@ import { NavLink, Navigate, useLocation, useNavigate } from "react-router-dom";
 import Header from "../../components/header/Header";
 import {
     approveManagementDeparture,
+    confirmManagementDepartureContractDocument,
     getManagementDepartures,
     rejectManagementDeparture,
     type ManagementSection
 } from "../../api/managementService";
+import { downloadDepartureContractDocument } from "../../api/userService";
 import { useUser } from "../../context/UserContext";
 import { hasAirlineProfileAccess, hasManagementAccess } from "../../api/utils/roleAccess";
 import type {
@@ -108,6 +110,37 @@ export default function ManagementPage() {
         }
     }
 
+    async function handleDownloadContractDocument(departure: ManagementDepartureResponse) {
+        setActionDepartureId(departure.id);
+        setErrorMessage("");
+
+        try {
+            const contractBlob = await downloadDepartureContractDocument(departure.id);
+            downloadBlob(
+                contractBlob,
+                departure.contractDocumentFileName || `Подписанный договор ${departure.id}.pdf`
+            );
+        } catch {
+            setErrorMessage("Не удалось скачать подписанный договор.");
+        } finally {
+            setActionDepartureId(null);
+        }
+    }
+
+    async function handleConfirmContractDocument(departureId: number) {
+        setActionDepartureId(departureId);
+        setErrorMessage("");
+
+        try {
+            await confirmManagementDepartureContractDocument(departureId);
+            await loadDepartures();
+        } catch {
+            setErrorMessage("Не удалось подтвердить подписанный договор.");
+        } finally {
+            setActionDepartureId(null);
+        }
+    }
+
     if (!isUserLoading && (user === null || !hasManagementAccess(user.role?.name))) {
         return <Navigate to="/catalog" replace />;
     }
@@ -195,6 +228,8 @@ export default function ManagementPage() {
                                         onEditRoute={() => navigate(`/management/orders/${departure.id}`)}
                                         onApprove={() => handleApprove(departure.id)}
                                         onReject={() => handleReject(departure.id)}
+                                        onDownloadContractDocument={() => handleDownloadContractDocument(departure)}
+                                        onConfirmContractDocument={() => handleConfirmContractDocument(departure.id)}
                                     />
                                 ))}
                             </div>
@@ -214,7 +249,9 @@ function ManagementDepartureCard({
     onToggle,
     onEditRoute,
     onApprove,
-    onReject
+    onReject,
+    onDownloadContractDocument,
+    onConfirmContractDocument
 }: {
     departure: ManagementDepartureResponse;
     section: ManagementSection;
@@ -224,6 +261,8 @@ function ManagementDepartureCard({
     onEditRoute: () => void;
     onApprove: () => void;
     onReject: () => void;
+    onDownloadContractDocument: () => void;
+    onConfirmContractDocument: () => void;
 }) {
     const routeTitle = `${buildAirportLabel(
         departure.takeOffAirportCity,
@@ -287,25 +326,59 @@ function ManagementDepartureCard({
                                 type="button"
                                 className="management-secondary-button"
                                 onClick={onEditRoute}
-                                disabled={isActionLoading || !departure.canEditRoute}
+                                disabled={isActionLoading}
                             >
-                                Редактировать маршрут
+                                Открыть заявку
                             </button>
 
-                            <button
-                                type="button"
-                                className="management-primary-button"
-                                onClick={onApprove}
-                                disabled={isActionLoading || !departure.canApprove}
-                            >
-                                Одобрить
-                            </button>
+                            {departure.hasContractDocument && (
+                                <button
+                                    type="button"
+                                    className="management-secondary-button"
+                                    onClick={onDownloadContractDocument}
+                                    disabled={isActionLoading}
+                                >
+                                    Скачать договор
+                                </button>
+                            )}
+
+                            {departure.currentStatusId === 19 && departure.hasContractDocument ? (
+                                <button
+                                    type="button"
+                                    className="management-primary-button"
+                                    onClick={onConfirmContractDocument}
+                                    disabled={isActionLoading}
+                                >
+                                    Подтвердить договор
+                                </button>
+                            ) : (
+                                <button
+                                    type="button"
+                                    className="management-primary-button"
+                                    onClick={onApprove}
+                                    disabled={isActionLoading || !departure.canApprove}
+                                >
+                                    Одобрить
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
             )}
         </article>
     );
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = objectUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
 }
 
 export function ManagementDepartureDetails({

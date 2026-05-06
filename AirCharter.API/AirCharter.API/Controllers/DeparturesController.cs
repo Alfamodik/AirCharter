@@ -444,6 +444,33 @@ namespace AirCharter.API.Controllers
             return NoContent();
         }
 
+        [HttpPost("management/{departureId:int}/confirm-contract-document")]
+        [Authorize(Roles = ManagementEditorRoles)]
+        public async Task<IActionResult> ConfirmManagementDepartureContractDocument(
+            int departureId,
+            CancellationToken cancellationToken)
+        {
+            Departure? departure = await GetEditableManagementDepartureAsync(
+                departureId,
+                cancellationToken);
+
+            if (departure is null)
+                return NotFound();
+
+            DepartureStatus? currentStatus = GetCurrentStatus(departure);
+
+            if (currentStatus?.StatusId != (int)FlightStatusId.AwaitingContractSigning)
+                return BadRequest("Договор можно подтвердить только в статусе ожидания подписания договора.");
+
+            if (departure.ContractDocument is null || departure.ContractDocument.Length == 0)
+                return BadRequest("Подписанный договор ещё не загружен.");
+
+            AddDepartureStatus(departure, FlightStatusId.Scheduled);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return NoContent();
+        }
+
         [HttpPost("management/{departureId:int}/route")]
         [Authorize(Roles = ManagementEditorRoles)]
         public async Task<IActionResult> SaveManagementDepartureRoute(
@@ -1486,6 +1513,11 @@ namespace AirCharter.API.Controllers
             if (!isRequester && !isAirlineEmployee)
                 return Forbid();
 
+            DepartureStatus? currentStatus = GetCurrentStatus(departure);
+
+            if (isRequester && currentStatus?.StatusId != (int)FlightStatusId.AwaitingContractSigning)
+                return BadRequest("Договор можно загрузить только после одобрения заявки менеджером.");
+
             if (file.Length == 0)
                 return BadRequest("Файл договора пустой.");
 
@@ -1501,10 +1533,6 @@ namespace AirCharter.API.Controllers
             departure.ContractDocumentContentType = contentType;
             departure.ContractDocumentUploadedAt = DateTime.UtcNow;
             departure.ContractDocumentUploadedByUserId = userId.Value;
-
-            DepartureStatus? currentStatus = GetCurrentStatus(departure);
-            if (currentStatus?.StatusId == (int)FlightStatusId.AwaitingContractSigning)
-                AddDepartureStatus(departure, FlightStatusId.Scheduled);
 
             await _context.SaveChangesAsync(cancellationToken);
 

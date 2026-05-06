@@ -85,6 +85,13 @@ export async function approveManagementDepartureRoute(
     );
 }
 
+export async function confirmManagementDepartureContractDocument(departureId: number): Promise<void> {
+    await sendRequest<void>(
+        `/departures/management/${departureId}/confirm-contract-document`,
+        "POST"
+    );
+}
+
 export async function saveManagementDepartureRoute(
     departureId: number,
     request: UpdateDepartureRouteRequest
