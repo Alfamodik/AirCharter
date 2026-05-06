@@ -6,6 +6,27 @@ interface UserDepartureCardProps {
     onClick?: () => void;
 }
 
+function formatFlightDurationClock(value: string): string {
+    const match = value.match(/^(?:(\d+)\.)?(\d+):(\d{2})(?::(\d{2}))?/);
+
+    if (!match) {
+        return value;
+    }
+
+    const days = match[1] ? Number(match[1]) : 0;
+    const hours = Number(match[2]) + days * 24;
+    const minutes = match[3] ?? "00";
+    const seconds = match[4] ?? "00";
+
+    return `${hours}:${minutes}:${seconds}`;
+}
+
+function isDeparturePlanned(statusId?: number | null): boolean {
+    return statusId !== undefined &&
+        statusId !== null &&
+        ![1, 2, 18, 19].includes(statusId);
+}
+
 export default function UserDepartureCard({ departure, onClick }: UserDepartureCardProps) {
     const getStatusClass = (status: string): string => {
         const s = status.toLowerCase();
@@ -19,6 +40,9 @@ export default function UserDepartureCard({ departure, onClick }: UserDepartureC
     };
 
     const statusClass = getStatusClass(departure.status);
+    const showTakeOffDate = isDeparturePlanned(departure.currentStatusId);
+    const dateLabel = showTakeOffDate ? "Дата вылета" : "Дата создания";
+    const dateValue = showTakeOffDate ? departure.takeOffDateTime : departure.createdAt;
 
     return (
         <button type="button" className="departure-card departure-card-button" onClick={onClick}>
@@ -63,17 +87,19 @@ export default function UserDepartureCard({ departure, onClick }: UserDepartureC
                 </div>
 
                 <div className="departure-details-grid">
-                    <div className="info-item">
-                        <span className="info-label">Дата вылета</span>
-                        <span className="info-value">
-                            {new Date(departure.takeOffDateTime).toLocaleString('ru-RU', { 
-                                day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' 
-                            })}
-                        </span>
-                    </div>
+                    {dateValue && (
+                        <div className="info-item">
+                            <span className="info-label">{dateLabel}</span>
+                            <span className="info-value">
+                                {new Date(dateValue).toLocaleString('ru-RU', {
+                                    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                                })}
+                            </span>
+                        </div>
+                    )}
                     <div className="info-item">
                         <span className="info-label">В пути</span>
-                        <span className="info-value">{departure.flightTime}</span>
+                        <span className="info-value">{formatFlightDurationClock(departure.flightTime)}</span>
                     </div>
                     <div className="info-item">
                         <span className="info-label">Дистанция</span>

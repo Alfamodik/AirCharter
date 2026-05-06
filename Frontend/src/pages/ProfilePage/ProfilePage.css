@@ -19,8 +19,33 @@
     padding: 32px;
     border-radius: 16px;
     width: 100%;
-    max-width: 500px;
+    max-width: 640px;
     border: 1px solid var(--border-color);
+}
+
+.profile-airline-contract-form {
+    margin-top: 32px;
+    padding-top: 28px;
+    border-top: 1px solid var(--border-color);
+}
+
+.profile-section-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 18px;
+}
+
+.profile-section-heading h2 {
+    margin: 0;
+    font-size: 22px;
+    line-height: 1.2;
+    color: var(--text-primary);
+}
+
+.profile-section-heading span {
+    color: var(--text-secondary);
+    font-size: 16px;
 }
 
 .form-message {

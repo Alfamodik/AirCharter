@@ -472,7 +472,7 @@ export default function OrderPage() {
                             className="auth-submit-button"
                             disabled={isSubmitting || isCalculatingFlight}
                         >
-                            {isSubmitting ? "Создание..." : "Подтвердить заказ"}
+                            {isSubmitting ? "Создание..." : "Создать заявку"}
                         </button>
                     </form>
                 </div>

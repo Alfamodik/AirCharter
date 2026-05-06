@@ -7,6 +7,14 @@ export interface UserPersonResponse {
     passportNumber: string;
     birthDate?: string | null;
     email?: string | null;
+    registrationAddress?: string | null;
+    actualAddress?: string | null;
+    phoneNumber?: string | null;
+    taxpayerId?: string | null;
+    bankName?: string | null;
+    currentAccountNumber?: string | null;
+    correspondentAccountNumber?: string | null;
+    bankIdentifierCode?: string | null;
 }
 
 export interface UserRoleResponse {

@@ -19,6 +19,17 @@
     font-weight: 600;
 }
 
+.profile-redirect-btn {
+    color: var(--accent-blue);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 15px;
+}
+
+.profile-redirect-btn:hover {
+    text-decoration: underline;
+}
+
 .management-nav {
     display: flex;
     flex-direction: column;
@@ -746,6 +757,22 @@
     align-items: stretch;
 }
 
+.management-takeoff-editor {
+    display: grid;
+    grid-template-columns: minmax(240px, 320px) auto;
+    gap: 10px;
+    align-items: end;
+}
+
+.management-takeoff-editor .management-secondary-button {
+    justify-self: start;
+    min-height: 44px;
+}
+
+.management-hidden-file-input {
+    display: none;
+}
+
 .management-route-editor-header,
 .management-passenger-section-header,
 .management-section-heading {
@@ -1032,7 +1059,7 @@
 
 .management-route-actions {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     justify-content: flex-end;
     align-items: center;
     gap: 12px;
@@ -1245,6 +1272,10 @@
     .management-route-actions {
         align-items: stretch;
         flex-direction: column;
+    }
+
+    .management-takeoff-editor {
+        grid-template-columns: 1fr;
     }
 
     .management-route-editor-header-actions {

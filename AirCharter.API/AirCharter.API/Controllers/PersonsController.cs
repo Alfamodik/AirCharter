@@ -82,7 +82,15 @@ namespace AirCharter.API.Controllers
                 passportSeries,
                 passportNumber,
                 email,
-                request.BirthDate);
+                request.BirthDate,
+                request.RegistrationAddress,
+                request.ActualAddress,
+                request.PhoneNumber,
+                request.TaxpayerId,
+                request.BankName,
+                request.CurrentAccountNumber,
+                request.CorrespondentAccountNumber,
+                request.BankIdentifierCode);
 
             if (user.Person?.Id != person.Id)
             {
@@ -164,7 +172,15 @@ namespace AirCharter.API.Controllers
                 passportSeries,
                 passportNumber,
                 string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
-                request.BirthDate);
+                request.BirthDate,
+                request.RegistrationAddress,
+                request.ActualAddress,
+                request.PhoneNumber,
+                request.TaxpayerId,
+                request.BankName,
+                request.CurrentAccountNumber,
+                request.CorrespondentAccountNumber,
+                request.BankIdentifierCode);
 
             await _context.SaveChangesAsync(cancellationToken);
 
@@ -238,7 +254,15 @@ namespace AirCharter.API.Controllers
                 passportSeries,
                 passportNumber,
                 string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
-                request.BirthDate);
+                request.BirthDate,
+                request.RegistrationAddress,
+                request.ActualAddress,
+                request.PhoneNumber,
+                request.TaxpayerId,
+                request.BankName,
+                request.CurrentAccountNumber,
+                request.CorrespondentAccountNumber,
+                request.BankIdentifierCode);
 
             await _context.SaveChangesAsync(cancellationToken);
 
@@ -348,7 +372,15 @@ namespace AirCharter.API.Controllers
                 PassportSeries = person.PassportSeries,
                 PassportNumber = person.PassportNumber,
                 Email = person.Email,
-                BirthDate = person.BirthDate
+                BirthDate = person.BirthDate,
+                RegistrationAddress = person.RegistrationAddress,
+                ActualAddress = person.ActualAddress,
+                PhoneNumber = person.PhoneNumber,
+                TaxpayerId = person.TaxpayerId,
+                BankName = person.BankName,
+                CurrentAccountNumber = person.CurrentAccountNumber,
+                CorrespondentAccountNumber = person.CorrespondentAccountNumber,
+                BankIdentifierCode = person.BankIdentifierCode
             };
         }
 
@@ -363,7 +395,15 @@ namespace AirCharter.API.Controllers
                 PassportSeries = person.PassportSeries,
                 PassportNumber = person.PassportNumber,
                 Email = person.Email,
-                BirthDate = person.BirthDate
+                BirthDate = person.BirthDate,
+                RegistrationAddress = person.RegistrationAddress,
+                ActualAddress = person.ActualAddress,
+                PhoneNumber = person.PhoneNumber,
+                TaxpayerId = person.TaxpayerId,
+                BankName = person.BankName,
+                CurrentAccountNumber = person.CurrentAccountNumber,
+                CorrespondentAccountNumber = person.CorrespondentAccountNumber,
+                BankIdentifierCode = person.BankIdentifierCode
             };
         }
 
@@ -375,7 +415,15 @@ namespace AirCharter.API.Controllers
             string passportSeries,
             string passportNumber,
             string? email,
-            DateOnly? birthDate)
+            DateOnly? birthDate,
+            string? registrationAddress,
+            string? actualAddress,
+            string? phoneNumber,
+            string? taxpayerId,
+            string? bankName,
+            string? currentAccountNumber,
+            string? correspondentAccountNumber,
+            string? bankIdentifierCode)
         {
             person.FirstName = firstName;
             person.LastName = lastName;
@@ -384,6 +432,19 @@ namespace AirCharter.API.Controllers
             person.PassportNumber = passportNumber;
             person.Email = email;
             person.BirthDate = birthDate;
+            person.RegistrationAddress = NormalizeOptionalString(registrationAddress);
+            person.ActualAddress = NormalizeOptionalString(actualAddress);
+            person.PhoneNumber = NormalizeOptionalString(phoneNumber);
+            person.TaxpayerId = NormalizeOptionalString(taxpayerId);
+            person.BankName = NormalizeOptionalString(bankName);
+            person.CurrentAccountNumber = NormalizeOptionalString(currentAccountNumber);
+            person.CorrespondentAccountNumber = NormalizeOptionalString(correspondentAccountNumber);
+            person.BankIdentifierCode = NormalizeOptionalString(bankIdentifierCode);
+        }
+
+        private static string? NormalizeOptionalString(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
         }
 
         private static string? GetPassengerEmail(Person person)

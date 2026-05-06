@@ -15,6 +15,7 @@ namespace AirCharter.API.Controllers
         public async Task<IActionResult> GetPlanes(CancellationToken cancellationToken)
         {
             List<PlaneCatalogResponse> planeCatalogResponses = await _context.Planes
+                .Include(plane => plane.Airline)
                 .AsNoTracking()
                 .Select(plane => new PlaneCatalogResponse
                 {
@@ -26,7 +27,10 @@ namespace AirCharter.API.Controllers
                     FlightTime = TimeSpan.Zero,
                     FlightCost = 0,
                     NumberOfTransfers = 0,
-                    ImageBase64 = plane.Image == null ? null : Convert.ToBase64String(plane.Image)
+                    ImageBase64 = plane.Image == null ? null : Convert.ToBase64String(plane.Image),
+                    AirlineImageBase64 = plane.Airline.Image == null
+                        ? null
+                        : Convert.ToBase64String(plane.Airline.Image)
                 })
                 .ToListAsync(cancellationToken);
 

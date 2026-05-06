@@ -25,6 +25,16 @@ public partial class Departure
 
     public DateTime RequestedTakeOffDateTime { get; set; }
 
+    public byte[]? ContractDocument { get; set; }
+
+    public string? ContractDocumentFileName { get; set; }
+
+    public string? ContractDocumentContentType { get; set; }
+
+    public DateTime? ContractDocumentUploadedAt { get; set; }
+
+    public int? ContractDocumentUploadedByUserId { get; set; }
+
     public virtual User CharterRequester { get; set; } = null!;
 
     public virtual ICollection<DepartureRouteLeg> DepartureRouteLegs { get; set; } = new List<DepartureRouteLeg>();

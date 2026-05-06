@@ -97,6 +97,23 @@ export async function sendBlobRequest(
     throw createApiError(response.status, responseText);
 }
 
+export async function sendFormDataRequest<TResponse>(
+    path: string,
+    method: string,
+    body: FormData,
+    signal?: AbortSignal
+): Promise<TResponse> {
+    const accessToken = localStorage.getItem("accessToken");
+    const response = await sendFetchFormDataRequest(path, method, body, signal, accessToken);
+
+    if (response.ok) {
+        return await parseResponse<TResponse>(response);
+    }
+
+    const responseText = await response.text();
+    throw createApiError(response.status, responseText);
+}
+
 async function sendFetchRequest(
     path: string,
     method: string,
@@ -116,6 +133,28 @@ async function sendFetchRequest(
         method: method,
         headers: headers,
         body: body === undefined ? undefined : JSON.stringify(body),
+        signal: signal,
+        credentials: "include"
+    });
+}
+
+async function sendFetchFormDataRequest(
+    path: string,
+    method: string,
+    body: FormData,
+    signal: AbortSignal | undefined,
+    accessToken: string | null
+): Promise<Response> {
+    const headers: Record<string, string> = {};
+
+    if (accessToken && !isAuthEndpoint(path)) {
+        headers["Authorization"] = `Bearer ${accessToken}`;
+    }
+
+    return await fetch(`${apiBaseUrl}${path}`, {
+        method: method,
+        headers: headers,
+        body: body,
         signal: signal,
         credentials: "include"
     });

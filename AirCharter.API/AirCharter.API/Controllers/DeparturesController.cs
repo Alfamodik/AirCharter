@@ -16,7 +16,15 @@ namespace AirCharter.API.Controllers
     [Authorize]
     [ApiController]
     [Route("departures")]
-    public class DeparturesController(AirCharterExtendedContext context, RoutePlanningService routePlanningService, AirportGraphCache airportGraphCache, DeparturePdfDataFactory departurePdfDataFactory, TicketPdfService ticketPdfService, EmailService emailService) : ControllerBase
+    public class DeparturesController(
+        AirCharterExtendedContext context,
+        RoutePlanningService routePlanningService,
+        AirportGraphCache airportGraphCache,
+        DeparturePdfDataFactory departurePdfDataFactory,
+        TicketPdfService ticketPdfService,
+        ContractPdfDataFactory contractPdfDataFactory,
+        ContractPdfService contractPdfService,
+        EmailService emailService) : ControllerBase
     {
         private const string ManagementViewerRoles = "Owner,Manager,Admin,GeneralDirector,Employee";
         private const string ManagementEditorRoles = ManagementViewerRoles;
@@ -28,6 +36,8 @@ namespace AirCharter.API.Controllers
 
         private readonly TicketPdfService _ticketPdfService = ticketPdfService;
         private readonly DeparturePdfDataFactory _departurePdfDataFactory = departurePdfDataFactory;
+        private readonly ContractPdfDataFactory _contractPdfDataFactory = contractPdfDataFactory;
+        private readonly ContractPdfService _contractPdfService = contractPdfService;
         private readonly EmailService _emailService = emailService;
 
         [HttpPost("create-order")]
@@ -382,7 +392,7 @@ namespace AirCharter.API.Controllers
             if (currentStatus?.StatusId != (int)FlightStatusId.AwaitingApproval)
                 return BadRequest("Заявку можно одобрить только в статусе ожидания одобрения.");
 
-            AddDepartureStatus(departure, FlightStatusId.Scheduled);
+            AddDepartureStatus(departure, FlightStatusId.AwaitingContractSigning);
             await _context.SaveChangesAsync(cancellationToken);
 
             return NoContent();
@@ -428,7 +438,7 @@ namespace AirCharter.API.Controllers
             AddRouteLegs(departure, calculation.RouteLegs);
             ApplyRouteTotals(departure);
 
-            AddDepartureStatus(departure, FlightStatusId.Scheduled);
+            AddDepartureStatus(departure, FlightStatusId.AwaitingContractSigning);
             await _context.SaveChangesAsync(cancellationToken);
 
             return NoContent();
@@ -574,6 +584,26 @@ namespace AirCharter.API.Controllers
 
             AddRouteLegs(departure, calculation.RouteLegs);
             ApplyRouteTotals(departure);
+
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return NoContent();
+        }
+
+        [HttpPost("my/{departureId:int}/take-off-date-time")]
+        public async Task<IActionResult> UpdateMyDepartureTakeOffDateTime(
+            int departureId,
+            UpdateDepartureTakeOffDateTimeRequest request,
+            CancellationToken cancellationToken)
+        {
+            Departure? departure = await GetEditableRequesterDepartureAsync(
+                departureId,
+                cancellationToken);
+
+            if (departure is null)
+                return NotFound();
+
+            departure.RequestedTakeOffDateTime = request.RequestedTakeOffDateTime;
 
             await _context.SaveChangesAsync(cancellationToken);
 
@@ -811,6 +841,9 @@ namespace AirCharter.API.Controllers
                 CanEditRoute = canEditByStatus && hasEditAccess,
                 CanApprove = currentStatus.StatusId == (int)FlightStatusId.AwaitingApproval && hasEditAccess,
                 CanChangeStatus = IsActiveFlightStatus(currentStatus.StatusId) && hasEditAccess,
+                HasContractDocument = departure.ContractDocument != null && departure.ContractDocument.Length > 0,
+                ContractDocumentFileName = departure.ContractDocumentFileName,
+                ContractDocumentUploadedAt = departure.ContractDocumentUploadedAt,
 
                 Passengers = departure.People
                     .OrderBy(person => person.LastName)
@@ -1228,6 +1261,15 @@ namespace AirCharter.API.Controllers
                 .FirstOrDefault();
         }
 
+        private static string CreateContractMissingDataMessage(IReadOnlyCollection<string> missingFields)
+        {
+            if (missingFields.Any(field => field.Contains("профиль заказчика", StringComparison.OrdinalIgnoreCase)))
+                return "Для формирования договора заполните данные в профиле.";
+
+            return "Для формирования договора заполните недостающие данные: " +
+                string.Join(", ", missingFields) + ".";
+        }
+
         private static bool TryParseManagementSection(
             string section,
             out ManagementDepartureSection managementSection)
@@ -1260,7 +1302,8 @@ namespace AirCharter.API.Controllers
             return section switch
             {
                 ManagementDepartureSection.Orders =>
-                    currentStatusId == (int)FlightStatusId.AwaitingApproval,
+                    currentStatusId == (int)FlightStatusId.AwaitingApproval ||
+                    currentStatusId == (int)FlightStatusId.AwaitingContractSigning,
 
                 ManagementDepartureSection.Flights =>
                     IsActiveFlightStatus(currentStatusId),
@@ -1292,6 +1335,13 @@ namespace AirCharter.API.Controllers
                     person.FirstName,
                     person.Patronymic
                 }.Where(namePart => !string.IsNullOrWhiteSpace(namePart)));
+        }
+
+        private static bool HasPersonFullName(Person? person)
+        {
+            return person != null &&
+                !string.IsNullOrWhiteSpace(person.LastName) &&
+                !string.IsNullOrWhiteSpace(person.FirstName);
         }
 
         private static string? GetPassengerEmail(Person person)
@@ -1340,6 +1390,160 @@ namespace AirCharter.API.Controllers
             return File(pdfBytes, "application/pdf", $"ticket-{departureId}.pdf");
         }
 
+        [HttpGet("{departureId:int}/contract")]
+        public async Task<IActionResult> DownloadContract(int departureId, CancellationToken cancellationToken)
+        {
+            int? userId = GetCurrentUserId();
+
+            if (userId is null)
+                return Unauthorized();
+
+            Departure? departure = await _context.Departures
+                .Include(departure => departure.CharterRequester)
+                    .ThenInclude(user => user.Person)
+                .Include(departure => departure.Plane)
+                    .ThenInclude(plane => plane.Airline)
+                        .ThenInclude(airline => airline.Users)
+                            .ThenInclude(user => user.Role)
+                .Include(departure => departure.Plane)
+                    .ThenInclude(plane => plane.Airline)
+                        .ThenInclude(airline => airline.Users)
+                            .ThenInclude(user => user.Person)
+                .Include(departure => departure.TakeOffAirport)
+                .Include(departure => departure.LandingAirport)
+                .Include(departure => departure.People)
+                .Include(departure => departure.DepartureStatuses)
+                .Include(departure => departure.DepartureRouteLegs)
+                    .ThenInclude(routeLeg => routeLeg.FromAirport)
+                .Include(departure => departure.DepartureRouteLegs)
+                    .ThenInclude(routeLeg => routeLeg.ToAirport)
+                .FirstOrDefaultAsync(
+                    departure => departure.Id == departureId,
+                    cancellationToken);
+
+            if (departure == null)
+                return NotFound();
+
+            int? userAirlineId = await GetCurrentUserAirlineIdAsync(cancellationToken);
+            bool isRequester = departure.CharterRequesterId == userId.Value;
+            bool isAirlineEmployee = userAirlineId is not null &&
+                departure.Plane.AirlineId == userAirlineId.Value;
+
+            if (!isRequester && !isAirlineEmployee)
+                return Forbid();
+
+            User? signingUser = departure.Plane.Airline.Users
+                .FirstOrDefault(user =>
+                    user.Role.Name == "GeneralDirector" &&
+                    HasPersonFullName(user.Person))
+                ?? departure.Plane.Airline.Users
+                    .FirstOrDefault(user =>
+                        user.Role.Name == "Owner" &&
+                        HasPersonFullName(user.Person));
+
+            if (signingUser == null)
+                return BadRequest("Для формирования договора укажите генерального директора или владельца авиакомпании.");
+
+            ContractPdfDataResult contractPdfDataResult = _contractPdfDataFactory.Create(
+                departure,
+                signingUser);
+
+            if (contractPdfDataResult.MissingFields.Count > 0 || contractPdfDataResult.Data == null)
+            {
+                return BadRequest(CreateContractMissingDataMessage(contractPdfDataResult.MissingFields));
+            }
+
+            byte[] pdfBytes = _contractPdfService.Generate(contractPdfDataResult.Data);
+
+            return File(pdfBytes, "application/pdf", $"contract-{departureId}.pdf");
+        }
+
+        [HttpPost("{departureId:int}/contract-document")]
+        [RequestSizeLimit(20_000_000)]
+        public async Task<IActionResult> UploadContractDocument(
+            int departureId,
+            IFormFile file,
+            CancellationToken cancellationToken)
+        {
+            int? userId = GetCurrentUserId();
+
+            if (userId is null)
+                return Unauthorized();
+
+            Departure? departure = await _context.Departures
+                .Include(departure => departure.Plane)
+                .Include(departure => departure.DepartureStatuses)
+                .FirstOrDefaultAsync(departure => departure.Id == departureId, cancellationToken);
+
+            if (departure is null)
+                return NotFound();
+
+            int? userAirlineId = await GetCurrentUserAirlineIdAsync(cancellationToken);
+            bool isRequester = departure.CharterRequesterId == userId.Value;
+            bool isAirlineEmployee = userAirlineId is not null &&
+                departure.Plane.AirlineId == userAirlineId.Value;
+
+            if (!isRequester && !isAirlineEmployee)
+                return Forbid();
+
+            if (file.Length == 0)
+                return BadRequest("Файл договора пустой.");
+
+            string contentType = string.IsNullOrWhiteSpace(file.ContentType)
+                ? "application/octet-stream"
+                : file.ContentType;
+
+            await using MemoryStream memoryStream = new();
+            await file.CopyToAsync(memoryStream, cancellationToken);
+
+            departure.ContractDocument = memoryStream.ToArray();
+            departure.ContractDocumentFileName = Path.GetFileName(file.FileName);
+            departure.ContractDocumentContentType = contentType;
+            departure.ContractDocumentUploadedAt = DateTime.UtcNow;
+            departure.ContractDocumentUploadedByUserId = userId.Value;
+
+            DepartureStatus? currentStatus = GetCurrentStatus(departure);
+            if (currentStatus?.StatusId == (int)FlightStatusId.AwaitingContractSigning)
+                AddDepartureStatus(departure, FlightStatusId.Scheduled);
+
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return NoContent();
+        }
+
+        [HttpGet("{departureId:int}/contract-document")]
+        public async Task<IActionResult> DownloadContractDocument(int departureId, CancellationToken cancellationToken)
+        {
+            int? userId = GetCurrentUserId();
+
+            if (userId is null)
+                return Unauthorized();
+
+            Departure? departure = await _context.Departures
+                .AsNoTracking()
+                .Include(departure => departure.Plane)
+                .FirstOrDefaultAsync(departure => departure.Id == departureId, cancellationToken);
+
+            if (departure is null)
+                return NotFound();
+
+            int? userAirlineId = await GetCurrentUserAirlineIdAsync(cancellationToken);
+            bool isRequester = departure.CharterRequesterId == userId.Value;
+            bool isAirlineEmployee = userAirlineId is not null &&
+                departure.Plane.AirlineId == userAirlineId.Value;
+
+            if (!isRequester && !isAirlineEmployee)
+                return Forbid();
+
+            if (departure.ContractDocument is null || departure.ContractDocument.Length == 0)
+                return NotFound("Договор ещё не загружен.");
+
+            return File(
+                departure.ContractDocument,
+                departure.ContractDocumentContentType ?? "application/octet-stream",
+                departure.ContractDocumentFileName ?? $"contract-document-{departureId}.pdf");
+        }
+
         private enum ManagementDepartureSection
         {
             Orders,
@@ -1366,7 +1570,8 @@ namespace AirCharter.API.Controllers
             Delayed = 15,
             Redirected = 16,
             Cancelled = 17,
-            Denied = 18
+            Denied = 18,
+            AwaitingContractSigning = 19
         }
 
         private sealed class RouteTotals

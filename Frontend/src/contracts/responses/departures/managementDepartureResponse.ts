@@ -31,6 +31,9 @@ export interface ManagementDepartureResponse {
     canEditRoute: boolean;
     canApprove: boolean;
     canChangeStatus: boolean;
+    hasContractDocument: boolean;
+    contractDocumentFileName?: string | null;
+    contractDocumentUploadedAt?: string | null;
     passengers: ManagementPassengerResponse[];
     statusHistory: ManagementDepartureStatusResponse[];
     routeAirports: ManagementRouteAirportResponse[];

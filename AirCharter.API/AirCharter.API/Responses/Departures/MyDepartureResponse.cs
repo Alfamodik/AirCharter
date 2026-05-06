@@ -7,6 +7,8 @@
         public string TakeOffAirport { get; set; } = string.Empty;
         public string LandingAirport { get; set; } = string.Empty;
         public DateTime TakeOffDateTime { get; set; }
+        public DateTime? CreatedAt { get; set; }
+        public int? CurrentStatusId { get; set; }
         public string Status { get; set; } = string.Empty;
         public decimal Price { get; set; }
         public TimeSpan FlightTime { get; set; }

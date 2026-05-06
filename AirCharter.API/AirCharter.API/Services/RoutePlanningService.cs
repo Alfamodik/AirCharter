@@ -351,7 +351,8 @@ public sealed class RoutePlanningService
             NumberOfTransfers = numberOfTransfers,
             RouteAirports = routePlan.RouteAirports,
             RouteLegs = routeLegs,
-            ImageBase64 = ConvertImageToBase64(plane.Image)
+            ImageBase64 = ConvertImageToBase64(plane.Image),
+            AirlineImageBase64 = ConvertImageToBase64(plane.Airline?.Image)
         };
     }
 
@@ -419,7 +420,8 @@ public sealed class RoutePlanningService
             NumberOfTransfers = 0,
             RouteAirports = Array.Empty<AirportSearchResponse>(),
             RouteLegs = Array.Empty<RouteLegResponse>(),
-            ImageBase64 = ConvertImageToBase64(plane.Image)
+            ImageBase64 = ConvertImageToBase64(plane.Image),
+            AirlineImageBase64 = ConvertImageToBase64(plane.Airline?.Image)
         };
     }
 

@@ -306,6 +306,7 @@ export default function CatalogPage() {
                                     passengerCapacity={plane.passengerCapacity}
                                     maxDistance={plane.maxDistance}
                                     imageBase64={plane.imageBase64}
+                                    airlineImageBase64={plane.airlineImageBase64}
                                     flightCost={isRouteActive ? plane.flightCost : undefined}
                                     flightTime={isRouteActive ? formatFlightTime(plane.flightTime) : ""}
                                     numberOfTransfers={

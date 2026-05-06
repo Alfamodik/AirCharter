@@ -29,6 +29,7 @@ type CatalogPlaneCardProps = {
     flightTime: string;
     numberOfTransfers: string;
     imageBase64?: string;
+    airlineImageBase64?: string | null;
     routeAirports?: Airport[];
     routeLegs?: RouteLeg[];
     onOrderClick: () => void;
@@ -43,6 +44,7 @@ export default function CatalogPlaneCard({
     flightTime,
     numberOfTransfers,
     imageBase64,
+    airlineImageBase64,
     routeAirports,
     onOrderClick,
     onRouteClick
@@ -60,6 +62,15 @@ export default function CatalogPlaneCard({
                     />
                 ) : (
                     <div className="plane-img-placeholder">✈️</div>
+                )}
+
+                {airlineImageBase64 && (
+                    <div className="plane-card-airline-badge">
+                        <img
+                            src={`data:image/png;base64,${airlineImageBase64}`}
+                            alt="Airline"
+                        />
+                    </div>
                 )}
 
                 {flightTime && <div className="plane-card-badge">{flightTime}</div>}

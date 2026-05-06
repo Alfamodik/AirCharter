@@ -11,6 +11,7 @@ export interface PlaneCatalogResponse {
     routeAirports: AirportResponse[];
     routeLegs: RouteLegResponse[];
     imageBase64: string;
+    airlineImageBase64?: string | null;
 }
 
 export interface AirportResponse {

@@ -23,40 +23,39 @@ public sealed class UsersController(AirCharterExtendedContext context) : Control
         if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
             return Unauthorized();
 
-        User? user = await _context.Users
-            .Include(u => u.Role)
-            .Include(u => u.Person)
-            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        CurrentUserResponse? currentUserResponse = await _context.Users
+            .AsNoTracking()
+            .Where(user => user.Id == userId)
+            .Select(user => new CurrentUserResponse
+            {
+                Id = user.Id,
+                Email = user.Email,
+                IsEmailConfirmed = user.IsEmailConfirmed,
+                AirlineId = user.AirlineId,
+                IsActive = user.IsActive,
+                Role = new CurrentUserRoleResponse
+                {
+                    Id = user.Role.Id,
+                    Name = user.Role.Name
+                },
+                Person = user.Person == null
+                    ? null
+                    : new CurrentUserPersonResponse
+                    {
+                        Id = user.Person.Id,
+                        FirstName = user.Person.FirstName,
+                        LastName = user.Person.LastName,
+                        Patronymic = user.Person.Patronymic,
+                        PassportSeries = user.Person.PassportSeries,
+                        PassportNumber = user.Person.PassportNumber,
+                        BirthDate = user.Person.BirthDate,
+                        Email = user.Person.Email
+                    }
+            })
+            .FirstOrDefaultAsync(cancellationToken);
 
-        if (user == null)
+        if (currentUserResponse == null)
             return NotFound();
-
-        CurrentUserResponse currentUserResponse = new()
-        {
-            Id = user.Id,
-            Email = user.Email,
-            IsEmailConfirmed = user.IsEmailConfirmed,
-            AirlineId = user.AirlineId,
-            IsActive = user.IsActive,
-            Role = new CurrentUserRoleResponse
-            {
-                Id = user.Role.Id,
-                Name = user.Role.Name
-            }
-        };
-
-        if (user.Person != null)
-        {
-            currentUserResponse.Person = new CurrentUserPersonResponse
-            {
-                Id = user.Person.Id,
-                FirstName = user.Person.FirstName,
-                LastName = user.Person.LastName,
-                Patronymic = user.Person.Patronymic,
-                BirthDate = user.Person.BirthDate,
-                Email = user.Person.Email
-            };
-        }
 
         return Ok(currentUserResponse);
     }
@@ -80,6 +79,15 @@ public sealed class UsersController(AirCharterExtendedContext context) : Control
                 TakeOffAirport = departure.TakeOffAirport.Iata ?? departure.TakeOffAirport.Icao ?? departure.TakeOffAirport.Name,
                 LandingAirport = departure.LandingAirport.Iata ?? departure.LandingAirport.Icao ?? departure.LandingAirport.Name,
                 TakeOffDateTime = departure.RequestedTakeOffDateTime,
+                CreatedAt = departure.DepartureStatuses
+                    .Where(departureStatus => departureStatus.StatusId == 1)
+                    .OrderBy(departureStatus => departureStatus.StatusSettingDateTime)
+                    .Select(departureStatus => (DateTime?)departureStatus.StatusSettingDateTime)
+                    .FirstOrDefault(),
+                CurrentStatusId = departure.DepartureStatuses
+                    .OrderByDescending(departureStatus => departureStatus.StatusSettingDateTime)
+                    .Select(departureStatus => (int?)departureStatus.StatusId)
+                    .FirstOrDefault(),
                 Status = departure.DepartureStatuses
                     .OrderByDescending(departureStatus => departureStatus.StatusSettingDateTime)
                     .Select(departureStatus => departureStatus.Status.Status1)

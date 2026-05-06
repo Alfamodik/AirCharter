@@ -73,7 +73,7 @@ internal class Program
                 Scheme = "Bearer",
                 BearerFormat = "JWT",
                 In = ParameterLocation.Header,
-                Description = "Введите JWT токен"
+                Description = "Р’РІРµРґРёС‚Рµ JWT С‚РѕРєРµРЅ"
             });
 
             c.AddSecurityRequirement(securityRequirement: new OpenApiSecurityRequirement
@@ -121,8 +121,19 @@ internal class Program
 
         builder.Services.AddScoped<DeparturePdfDataFactory>();
         builder.Services.AddScoped<TicketPdfService>();
+        builder.Services.AddScoped<ContractPdfDataFactory>();
+        builder.Services.AddScoped<ContractPdfService>();
+        builder.Services.AddScoped<DatabaseCompatibilityService>();
 
         WebApplication app = builder.Build();
+
+        using (IServiceScope serviceScope = app.Services.CreateScope())
+        {
+            DatabaseCompatibilityService databaseCompatibilityService =
+                serviceScope.ServiceProvider.GetRequiredService<DatabaseCompatibilityService>();
+
+            databaseCompatibilityService.EnsureAsync().GetAwaiter().GetResult();
+        }
 
         if (app.Environment.IsDevelopment())
         {

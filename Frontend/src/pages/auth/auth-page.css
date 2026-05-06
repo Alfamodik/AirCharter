@@ -26,6 +26,10 @@
   min-height: 430px;
 }
 
+.auth-card-confirm {
+  min-height: 0;
+}
+
 .auth-title {
   margin: 0 0 28px 0;
   text-align: center;

@@ -51,8 +51,8 @@ export default function ConfirmEmailPage() {
                 code: trimmedCode
             });
 
-            localStorage.setItem("accessToken", response.token);
-            navigate("/");
+            void response;
+            navigate("/login");
         } catch (error) {
             setErrorMessage(getConfirmEmailErrorMessage(error));
         } finally {
@@ -92,7 +92,7 @@ export default function ConfirmEmailPage() {
 
     return (
         <div className="auth-page">
-            <section className="auth-card auth-card-register">
+            <section className="auth-card auth-card-confirm">
                 <h1 className="auth-title">Подтверждение почты</h1>
 
                 <form className="auth-form" onSubmit={handleSubmit}>

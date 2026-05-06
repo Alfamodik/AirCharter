@@ -29,4 +29,6 @@ public sealed class PlaneCatalogResponse
         Array.Empty<RouteLegResponse>();
 
     public string? ImageBase64 { get; set; }
+
+    public string? AirlineImageBase64 { get; set; }
 }

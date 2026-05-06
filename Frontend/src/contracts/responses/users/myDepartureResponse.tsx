@@ -4,6 +4,8 @@ export interface MyDepartureResponse {
     takeOffAirport: string;
     landingAirport: string;
     takeOffDateTime: string;
+    createdAt?: string | null;
+    currentStatusId?: number | null;
     status: string;
     price: number;
     flightTime: string;

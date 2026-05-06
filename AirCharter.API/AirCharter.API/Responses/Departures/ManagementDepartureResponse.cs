@@ -69,6 +69,12 @@ namespace AirCharter.API.Responses.Departures
 
         public bool CanChangeStatus { get; set; }
 
+        public bool HasContractDocument { get; set; }
+
+        public string? ContractDocumentFileName { get; set; }
+
+        public DateTime? ContractDocumentUploadedAt { get; set; }
+
         public IReadOnlyCollection<ManagementPassengerResponse> Passengers { get; set; } =
             Array.Empty<ManagementPassengerResponse>();
 

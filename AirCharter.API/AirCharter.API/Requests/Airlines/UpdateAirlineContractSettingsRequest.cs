@@ -1,15 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+namespace AirCharter.API.Requests.Airlines;
 
-namespace AirCharter.API.Model;
-
-public partial class Airline
+public sealed class UpdateAirlineContractSettingsRequest
 {
-    public int Id { get; set; }
-
     public string AirlineName { get; set; } = null!;
-
-    public DateOnly CreationDate { get; set; }
 
     public string OrganizationFullName { get; set; } = null!;
 
@@ -22,10 +15,6 @@ public partial class Airline
     public string PhoneNumber { get; set; } = null!;
 
     public string Email { get; set; } = null!;
-
-    public decimal ServiceBaseCost { get; set; }
-
-    public decimal TransferBaseCost { get; set; }
 
     public string BankName { get; set; } = null!;
 
@@ -41,8 +30,6 @@ public partial class Airline
 
     public string BankIdentifierCode { get; set; } = null!;
 
-    public byte[]? Image { get; set; }
-
     public string? ContractCity { get; set; }
 
     public int? ContractValidityDays { get; set; }
@@ -52,8 +39,4 @@ public partial class Airline
     public string? CateringClass { get; set; }
 
     public int? PassengerArrivalMinutesBeforeFlight { get; set; }
-
-    public virtual ICollection<Plane> Planes { get; set; } = new List<Plane>();
-
-    public virtual ICollection<User> Users { get; set; } = new List<User>();
 }

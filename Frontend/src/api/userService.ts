@@ -1,4 +1,4 @@
-import { sendBlobRequest, sendRequest } from "./sendRequest";
+import { sendBlobRequest, sendFormDataRequest, sendRequest } from "./sendRequest";
 import type { MyDepartureResponse } from "../contracts/responses/users/myDepartureResponse";
 import type { UserProfileResponse } from "../contracts/responses/users/userPersonResponse";
 import type { ManagementDepartureResponse } from "../contracts/responses/departures/managementDepartureResponse";
@@ -75,6 +75,17 @@ export async function saveUserDepartureRoute(
     );
 }
 
+export async function updateUserDepartureTakeOffDateTime(
+    departureId: number,
+    requestedTakeOffDateTime: string
+): Promise<void> {
+    await sendRequest<void>(
+        `/departures/my/${departureId}/take-off-date-time`,
+        "POST",
+        { requestedTakeOffDateTime }
+    );
+}
+
 export async function submitUserDeparture(departureId: number): Promise<void> {
     await sendRequest<void>(
         `/departures/my/${departureId}/submit`,
@@ -85,6 +96,34 @@ export async function submitUserDeparture(departureId: number): Promise<void> {
 export async function downloadUserDepartureTicket(departureId: number): Promise<Blob> {
     return await sendBlobRequest(
         `/departures/${departureId}/ticket`,
+        "GET"
+    );
+}
+
+export async function downloadDepartureContract(departureId: number): Promise<Blob> {
+    return await sendBlobRequest(
+        `/departures/${departureId}/contract`,
+        "GET"
+    );
+}
+
+export async function uploadDepartureContractDocument(
+    departureId: number,
+    file: File
+): Promise<void> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    await sendFormDataRequest<void>(
+        `/departures/${departureId}/contract-document`,
+        "POST",
+        formData
+    );
+}
+
+export async function downloadDepartureContractDocument(departureId: number): Promise<Blob> {
+    return await sendBlobRequest(
+        `/departures/${departureId}/contract-document`,
         "GET"
     );
 }

@@ -8,7 +8,7 @@ import {
     type ManagementSection
 } from "../../api/managementService";
 import { useUser } from "../../context/UserContext";
-import { hasManagementAccess } from "../../api/utils/roleAccess";
+import { hasAirlineProfileAccess, hasManagementAccess } from "../../api/utils/roleAccess";
 import type {
     ManagementDepartureResponse,
     ManagementRouteAirportResponse,
@@ -139,6 +139,12 @@ export default function ManagementPage() {
                         <span className="user-role-label">
                             {isUserLoading ? "" : getRoleText(user?.role?.name)}
                         </span>
+
+                        {!isUserLoading && hasAirlineProfileAccess(user?.role?.name) && (
+                            <NavLink to="/airline-profile" className="profile-redirect-btn">
+                                Профиль авиакомпании
+                            </NavLink>
+                        )}
                     </div>
 
                     <nav className="management-nav" aria-label="Разделы управления">
@@ -359,7 +365,7 @@ export function ManagementDepartureDetails({
         <>
             <div className="management-detail-grid">
                 <InfoBlock
-                    label="Дата подачи заявки"
+                    label={departure.currentStatusId === 1 ? "Дата создания заявки" : "Дата подачи заявки"}
                     value={formatOptionalDateTime(departure.submittedAt ?? departure.createdAt)}
                 />
                 <InfoBlock label="Прибытие" value={formatDateTime(departure.arrivalDateTime)} />
@@ -568,7 +574,7 @@ function getStatusClassName(statusId: number): string {
         return "rejected";
     }
 
-    if (statusId === 2) {
+    if (statusId === 2 || statusId === 19) {
         return "pending";
     }
 

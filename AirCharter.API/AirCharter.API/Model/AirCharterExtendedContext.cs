@@ -68,9 +68,17 @@ public partial class AirCharterExtendedContext : DbContext
             entity.Property(e => e.BankName)
                 .HasMaxLength(45)
                 .HasColumnName("bank_name");
+            entity.Property(e => e.CateringClass)
+                .HasMaxLength(100)
+                .HasColumnName("catering_class");
             entity.Property(e => e.CorrespondentAccountNumber)
                 .HasMaxLength(20)
                 .HasColumnName("correspondent_account_number");
+            entity.Property(e => e.ContractCity)
+                .HasMaxLength(100)
+                .HasColumnName("contract_city");
+            entity.Property(e => e.ContractValidityDays)
+                .HasColumnName("contract_validity_days");
             entity.Property(e => e.CreationDate).HasColumnName("creation_date");
             entity.Property(e => e.CurrentAccountNumber)
                 .HasMaxLength(20)
@@ -91,6 +99,10 @@ public partial class AirCharterExtendedContext : DbContext
             entity.Property(e => e.PhoneNumber)
                 .HasMaxLength(20)
                 .HasColumnName("phone_number");
+            entity.Property(e => e.PassengerArrivalMinutesBeforeFlight)
+                .HasColumnName("passenger_arrival_minutes_before_flight");
+            entity.Property(e => e.PaymentDeadlineDays)
+                .HasColumnName("payment_deadline_days");
             entity.Property(e => e.PostalAddress)
                 .HasMaxLength(255)
                 .HasColumnName("postal_address");
@@ -177,6 +189,18 @@ public partial class AirCharterExtendedContext : DbContext
 
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.CharterRequesterId).HasColumnName("charter_requester_id");
+            entity.Property(e => e.ContractDocument).HasColumnName("contract_document");
+            entity.Property(e => e.ContractDocumentContentType)
+                .HasMaxLength(100)
+                .HasColumnName("contract_document_content_type");
+            entity.Property(e => e.ContractDocumentFileName)
+                .HasMaxLength(255)
+                .HasColumnName("contract_document_file_name");
+            entity.Property(e => e.ContractDocumentUploadedAt)
+                .HasColumnType("datetime")
+                .HasColumnName("contract_document_uploaded_at");
+            entity.Property(e => e.ContractDocumentUploadedByUserId)
+                .HasColumnName("contract_document_uploaded_by_user_id");
             entity.Property(e => e.Distance).HasColumnName("distance");
             entity.Property(e => e.FlightTime)
                 .HasColumnType("time")
@@ -339,6 +363,21 @@ public partial class AirCharterExtendedContext : DbContext
 
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.BirthDate).HasColumnName("birth_date");
+            entity.Property(e => e.ActualAddress)
+                .HasMaxLength(255)
+                .HasColumnName("actual_address");
+            entity.Property(e => e.BankIdentifierCode)
+                .HasMaxLength(9)
+                .HasColumnName("bank_identifier_code");
+            entity.Property(e => e.BankName)
+                .HasMaxLength(100)
+                .HasColumnName("bank_name");
+            entity.Property(e => e.CorrespondentAccountNumber)
+                .HasMaxLength(20)
+                .HasColumnName("correspondent_account_number");
+            entity.Property(e => e.CurrentAccountNumber)
+                .HasMaxLength(20)
+                .HasColumnName("current_account_number");
             entity.Property(e => e.Email)
                 .HasMaxLength(255)
                 .HasColumnName("email");
@@ -359,6 +398,15 @@ public partial class AirCharterExtendedContext : DbContext
             entity.Property(e => e.Patronymic)
                 .HasMaxLength(45)
                 .HasColumnName("patronymic");
+            entity.Property(e => e.PhoneNumber)
+                .HasMaxLength(20)
+                .HasColumnName("phone_number");
+            entity.Property(e => e.RegistrationAddress)
+                .HasMaxLength(255)
+                .HasColumnName("registration_address");
+            entity.Property(e => e.TaxpayerId)
+                .HasMaxLength(12)
+                .HasColumnName("taxpayer_id");
         });
 
         modelBuilder.Entity<Plane>(entity =>
