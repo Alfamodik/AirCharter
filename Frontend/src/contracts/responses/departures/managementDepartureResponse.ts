@@ -33,10 +33,13 @@ export interface ManagementDepartureResponse {
     canApprove: boolean;
     canChangeStatus: boolean;
     canDelete: boolean;
+    canPay: boolean;
+    paymentDeadlineAt?: string | null;
     hasContractDocument: boolean;
     contractDocumentFileName?: string | null;
     contractDocumentUploadedAt?: string | null;
     passengers: ManagementPassengerResponse[];
+    employees: ManagementEmployeeResponse[];
     statusHistory: ManagementDepartureStatusResponse[];
     routeAirports: ManagementRouteAirportResponse[];
     routeLegs: ManagementRouteLegResponse[];
@@ -46,6 +49,13 @@ export interface ManagementPassengerResponse {
     id: number;
     fullName: string;
     email?: string | null;
+}
+
+export interface ManagementEmployeeResponse {
+    id: number;
+    email: string;
+    roleName: string;
+    fullName?: string | null;
 }
 
 export interface ManagementDepartureStatusResponse {

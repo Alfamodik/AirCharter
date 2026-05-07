@@ -12,6 +12,7 @@ import CabinetPage from "./pages/cabinet/CabinetPage";
 import CabinetDeparturePage from "./pages/cabinet/CabinetDeparturePage";
 import ProfilePage from "./pages/profilePage/ProfilePage";
 import AirlineProfilePage from "./pages/airlineProfile/AirlineProfilePage";
+import RegisterAirlinePage from "./pages/airlineProfile/RegisterAirlinePage";
 import OrderPage from "./pages/orderPage/OrderPage.tsx";
 import StaffRoute from "./components/StaffRoute";
 import ManagementPage from "./pages/management/ManagementPage";
@@ -33,6 +34,7 @@ export default function App() {
                 <Route path="/cabinet" element={<ProtectedRoute><CabinetPage/></ProtectedRoute>} />
                 <Route path="/cabinet/departures/:departureId" element={<ProtectedRoute><CabinetDeparturePage /></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><ProfilePage/></ProtectedRoute>} />
+                <Route path="/airline-register" element={<ProtectedRoute><RegisterAirlinePage /></ProtectedRoute>} />
                 <Route path="/airline-profile" element={<ProtectedRoute><AirlineProfilePage /></ProtectedRoute>} />
                 <Route path="/create-order" element={<ProtectedRoute><OrderPage/></ProtectedRoute>} />
                 <Route element={<StaffRoute />}>

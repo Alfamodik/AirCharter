@@ -92,6 +92,17 @@ export async function confirmManagementDepartureContractDocument(departureId: nu
     );
 }
 
+export async function updateManagementDepartureEmployees(
+    departureId: number,
+    employeeIds: number[]
+): Promise<void> {
+    await sendRequest<void>(
+        `/departures/management/${departureId}/employees`,
+        "PUT",
+        { employeeIds }
+    );
+}
+
 export async function updateManagementDepartureStatus(
     departureId: number,
     statusId: number,

@@ -262,7 +262,8 @@ namespace AirCharter.API.Controllers
                     HasContractDocument = departure.ContractDocumentFileName != null ||
                         departure.ContractDocumentUploadedAt != null,
                     departure.ContractDocumentFileName,
-                    departure.ContractDocumentUploadedAt
+                    departure.ContractDocumentUploadedAt,
+                    PaymentDeadlineDays = departure.Plane.Airline.PaymentDeadlineDays
                 })
                 .ToListAsync(cancellationToken);
 
@@ -293,6 +294,21 @@ namespace AirCharter.API.Controllers
                         .OrderBy(user => user.Id)
                         .Select(user => user.Email)
                         .FirstOrDefault()
+                }))
+                .ToListAsync(cancellationToken);
+
+            var employeeRows = await _context.Departures
+                .AsNoTracking()
+                .Where(departure => departureIds.Contains(departure.Id))
+                .SelectMany(departure => departure.Employees.Select(employee => new
+                {
+                    DepartureId = departure.Id,
+                    employee.Id,
+                    employee.Email,
+                    RoleName = employee.Role.Name,
+                    FirstName = employee.Person == null ? null : employee.Person.FirstName,
+                    LastName = employee.Person == null ? null : employee.Person.LastName,
+                    Patronymic = employee.Person == null ? null : employee.Person.Patronymic
                 }))
                 .ToListAsync(cancellationToken);
 
@@ -383,6 +399,26 @@ namespace AirCharter.API.Controllers
                         .Select(status => status.Status)
                         .ToArray());
 
+            Dictionary<int, IReadOnlyCollection<ManagementEmployeeResponse>> employeesByDepartureId = employeeRows
+                .GroupBy(employee => employee.DepartureId)
+                .ToDictionary(
+                    group => group.Key,
+                    group => (IReadOnlyCollection<ManagementEmployeeResponse>)group
+                        .OrderBy(employee => employee.LastName)
+                        .ThenBy(employee => employee.FirstName)
+                        .ThenBy(employee => employee.Email)
+                        .Select(employee => new ManagementEmployeeResponse
+                        {
+                            Id = employee.Id,
+                            Email = employee.Email,
+                            RoleName = employee.RoleName,
+                            FullName = BuildPersonFullName(
+                                employee.LastName,
+                                employee.FirstName,
+                                employee.Patronymic)
+                        })
+                        .ToArray());
+
             Dictionary<int, List<ManagementDepartureRouteLegListItem>> routeRowsByDepartureId = routeLegRows
                 .GroupBy(routeLeg => routeLeg.DepartureId)
                 .ToDictionary(
@@ -402,6 +438,10 @@ namespace AirCharter.API.Controllers
                         statusesByDepartureId.GetValueOrDefault(
                             departure.Id,
                             Array.Empty<ManagementDepartureStatusResponse>());
+                    IReadOnlyCollection<ManagementEmployeeResponse> employees =
+                        employeesByDepartureId.GetValueOrDefault(
+                            departure.Id,
+                            Array.Empty<ManagementEmployeeResponse>());
                     IReadOnlyCollection<RouteLegResponse> routeLegs = CreateListRouteLegResponses(
                         routeRowsByDepartureId.GetValueOrDefault(departure.Id));
                     IReadOnlyCollection<AirportSearchResponse> routeAirports = CreateListRouteAirportResponses(
@@ -454,11 +494,16 @@ namespace AirCharter.API.Controllers
                         CanApprove = departure.CurrentStatus.StatusId == (int)FlightStatusId.AwaitingApproval && hasEditAccess,
                         CanChangeStatus = IsActiveFlightStatus(departure.CurrentStatus.StatusId) && hasEditAccess,
                         CanDelete = CanRequesterDeleteDeparture(departure.CurrentStatus.StatusId),
+                        CanPay = departure.CurrentStatus.StatusId == (int)FlightStatusId.AwaitingPayment,
+                        PaymentDeadlineAt = CalculatePaymentDeadlineAtFromResponses(
+                            statusHistory,
+                            departure.PaymentDeadlineDays),
                         HasContractDocument = departure.HasContractDocument,
                         ContractDocumentFileName = departure.ContractDocumentFileName,
                         ContractDocumentUploadedAt = departure.ContractDocumentUploadedAt,
 
                         Passengers = passengers,
+                        Employees = employees,
                         StatusHistory = statusHistory,
                         RouteAirports = routeAirports,
                         RouteLegs = routeLegs
@@ -768,6 +813,47 @@ namespace AirCharter.API.Controllers
 
             if (departure.ContractDocument is null || departure.ContractDocument.Length == 0)
                 return BadRequest("Подписанный договор ещё не загружен.");
+
+            AddDepartureStatus(departure, FlightStatusId.AwaitingPayment);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return NoContent();
+        }
+
+        [HttpPost("my/{departureId:int}/pay")]
+        public async Task<IActionResult> PayMyDeparture(
+            int departureId,
+            CancellationToken cancellationToken)
+        {
+            int? userId = GetCurrentUserId();
+
+            if (userId is null)
+                return Unauthorized();
+
+            Departure? departure = await GetManagementDepartureQuery()
+                .FirstOrDefaultAsync(
+                    departure => departure.Id == departureId &&
+                        departure.CharterRequesterId == userId.Value,
+                    cancellationToken);
+
+            if (departure is null)
+                return NotFound();
+
+            DepartureStatus? currentStatus = GetCurrentStatus(departure);
+
+            if (currentStatus?.StatusId != (int)FlightStatusId.AwaitingPayment)
+                return BadRequest("Оплата доступна только в статусе ожидания оплаты.");
+
+            DateTime? paymentDeadlineAt = CalculatePaymentDeadlineAt(
+                departure.DepartureStatuses,
+                departure.Plane.Airline.PaymentDeadlineDays);
+
+            if (paymentDeadlineAt is not null && DateTime.UtcNow > paymentDeadlineAt.Value)
+            {
+                AddDepartureStatus(departure, FlightStatusId.Cancelled);
+                await _context.SaveChangesAsync(cancellationToken);
+                return BadRequest("Срок оплаты истёк. Вылет отменён.");
+            }
 
             AddDepartureStatus(departure, FlightStatusId.Scheduled);
             await _context.SaveChangesAsync(cancellationToken);
@@ -1222,6 +1308,57 @@ namespace AirCharter.API.Controllers
             return NoContent();
         }
 
+        [HttpPut("management/{departureId:int}/employees")]
+        [Authorize(Roles = ManagementEditorRoles)]
+        public async Task<IActionResult> UpdateManagementDepartureEmployees(
+            int departureId,
+            [FromBody] UpdateDepartureEmployeesRequest request,
+            CancellationToken cancellationToken)
+        {
+            int? userAirlineId = await GetCurrentUserAirlineIdAsync(cancellationToken);
+
+            if (userAirlineId is null)
+                return Forbid();
+
+            Departure? departure = await GetManagementDepartureQuery()
+                .FirstOrDefaultAsync(
+                    departure => departure.Id == departureId,
+                    cancellationToken);
+
+            if (departure is null)
+                return NotFound();
+
+            if (departure.Plane.AirlineId != userAirlineId.Value)
+                return Forbid();
+
+            int[] employeeIds = request.EmployeeIds
+                .Distinct()
+                .ToArray();
+
+            User[] employees = await _context.Users
+                .Include(user => user.Role)
+                .Where(user =>
+                    employeeIds.Contains(user.Id) &&
+                    user.AirlineId == userAirlineId.Value &&
+                    user.IsActive)
+                .ToArrayAsync(cancellationToken);
+
+            if (employees.Length != employeeIds.Length)
+                return BadRequest("Один или несколько сотрудников не найдены в вашей авиакомпании.");
+
+            if (employees.Any(employee => employee.Role.Name == "Client"))
+                return BadRequest("К вылету можно прикреплять только сотрудников авиакомпании.");
+
+            departure.Employees.Clear();
+
+            foreach (User employee in employees)
+                departure.Employees.Add(employee);
+
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return NoContent();
+        }
+
         private ManagementDepartureResponse? CreateManagementDepartureResponse(
             Departure departure,
             ManagementDepartureSection section,
@@ -1315,6 +1452,10 @@ namespace AirCharter.API.Controllers
                 CanApprove = currentStatus.StatusId == (int)FlightStatusId.AwaitingApproval && hasEditAccess,
                 CanChangeStatus = IsActiveFlightStatus(currentStatus.StatusId) && hasEditAccess,
                 CanDelete = CanRequesterDeleteDeparture(currentStatus.StatusId),
+                CanPay = currentStatus.StatusId == (int)FlightStatusId.AwaitingPayment,
+                PaymentDeadlineAt = CalculatePaymentDeadlineAt(
+                    departure.DepartureStatuses,
+                    departure.Plane.Airline.PaymentDeadlineDays),
                 HasContractDocument = departure.ContractDocument != null && departure.ContractDocument.Length > 0,
                 ContractDocumentFileName = departure.ContractDocumentFileName,
                 ContractDocumentUploadedAt = departure.ContractDocumentUploadedAt,
@@ -1327,6 +1468,19 @@ namespace AirCharter.API.Controllers
                         Id = person.Id,
                         FullName = BuildPersonFullName(person),
                         Email = GetPassengerEmail(person)
+                    })
+                    .ToArray(),
+                Employees = departure.Employees
+                    .OrderBy(employee => employee.Person == null ? employee.Email : employee.Person.LastName)
+                    .ThenBy(employee => employee.Person == null ? employee.Email : employee.Person.FirstName)
+                    .Select(employee => new ManagementEmployeeResponse
+                    {
+                        Id = employee.Id,
+                        Email = employee.Email,
+                        RoleName = employee.Role.Name,
+                        FullName = employee.Person == null
+                            ? null
+                            : BuildPersonFullName(employee.Person)
                     })
                     .ToArray(),
                 StatusHistory = statusHistory,
@@ -1424,6 +1578,10 @@ namespace AirCharter.API.Controllers
                     .ThenInclude(user => user.Person)
                 .Include(departure => departure.People)
                     .ThenInclude(person => person.Users)
+                .Include(departure => departure.Employees)
+                    .ThenInclude(employee => employee.Role)
+                .Include(departure => departure.Employees)
+                    .ThenInclude(employee => employee.Person)
                 .Include(departure => departure.DepartureStatuses)
                     .ThenInclude(departureStatus => departureStatus.Status)
                 .Include(departure => departure.DepartureRouteLegs)
@@ -1811,7 +1969,8 @@ namespace AirCharter.API.Controllers
             {
                 ManagementDepartureSection.Orders =>
                     currentStatusId == (int)FlightStatusId.AwaitingApproval ||
-                    currentStatusId == (int)FlightStatusId.AwaitingContractSigning,
+                    currentStatusId == (int)FlightStatusId.AwaitingContractSigning ||
+                    currentStatusId == (int)FlightStatusId.AwaitingPayment,
 
                 ManagementDepartureSection.Flights =>
                     IsActiveFlightStatus(currentStatusId),
@@ -2058,6 +2217,39 @@ namespace AirCharter.API.Controllers
                 .OrderBy(user => user.Id)
                 .Select(user => user.Email)
                 .FirstOrDefault(email => !string.IsNullOrWhiteSpace(email));
+        }
+
+        private static DateTime? CalculatePaymentDeadlineAt(
+            IEnumerable<DepartureStatus> departureStatuses,
+            int? paymentDeadlineDays)
+        {
+            if (paymentDeadlineDays is null or <= 0)
+                return null;
+
+            DateTime? awaitingPaymentSetAt = departureStatuses
+                .Where(departureStatus => departureStatus.StatusId == (int)FlightStatusId.AwaitingPayment)
+                .OrderByDescending(departureStatus => departureStatus.StatusSettingDateTime)
+                .ThenByDescending(departureStatus => departureStatus.Id)
+                .Select(departureStatus => (DateTime?)departureStatus.StatusSettingDateTime)
+                .FirstOrDefault();
+
+            return awaitingPaymentSetAt?.AddDays(paymentDeadlineDays.Value);
+        }
+
+        private static DateTime? CalculatePaymentDeadlineAtFromResponses(
+            IEnumerable<ManagementDepartureStatusResponse> departureStatuses,
+            int? paymentDeadlineDays)
+        {
+            if (paymentDeadlineDays is null or <= 0)
+                return null;
+
+            DateTime? awaitingPaymentSetAt = departureStatuses
+                .Where(departureStatus => departureStatus.Id == (int)FlightStatusId.AwaitingPayment)
+                .OrderByDescending(departureStatus => departureStatus.SetAt)
+                .Select(departureStatus => (DateTime?)departureStatus.SetAt)
+                .FirstOrDefault();
+
+            return awaitingPaymentSetAt?.AddDays(paymentDeadlineDays.Value);
         }
 
         [HttpGet("{departureId:int}/ticket")]

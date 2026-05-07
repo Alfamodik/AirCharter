@@ -13,6 +13,7 @@ import {
     previewManagementDepartureRoute,
     rejectManagementDeparture,
     saveManagementDepartureRoute,
+    updateManagementDepartureEmployees,
     updateManagementDepartureTakeOffDateTime,
     updateManagementDepartureStatus,
     type ManagementRouteCandidateResponse,
@@ -34,8 +35,10 @@ import {
     downloadDepartureContract,
     downloadDepartureContractDocument,
     uploadDepartureContractDocument,
+    payUserDeparture,
     downloadUserDepartureTicket
 } from "../../api/userService";
+import { getMyAirlineEmployees, type AirlineEmployeeResponse } from "../../api/airlineService";
 import {
     createPassenger,
     getPassengerEditDetails,
@@ -105,7 +108,7 @@ type ManagementOrderRoutePageProps = {
     mode?: "management" | "client";
 };
 
-type DepartureSectionKey = "operations" | "passengers" | "route" | "history";
+type DepartureSectionKey = "operations" | "passengers" | "employees" | "route" | "history";
 
 type PendingManagementStatusChange = {
     statusId: number;
@@ -153,6 +156,8 @@ export default function ManagementOrderRoutePage({
     const [editingPassenger, setEditingPassenger] = useState<ManagementPassengerResponse | null>(null);
     const [passengerForm, setPassengerForm] = useState<ProfileFormData>(emptyPassengerForm);
     const [pendingPassengers, setPendingPassengers] = useState<ManagementPassengerResponse[]>([]);
+    const [availableEmployees, setAvailableEmployees] = useState<AirlineEmployeeResponse[]>([]);
+    const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
     const [errorMessage, setErrorMessage] = useState("");
     const [requestedTakeOffInput, setRequestedTakeOffInput] = useState("");
     const [mapInstance, setMapInstance] = useState<YandexMapInstance | null>(null);
@@ -281,6 +286,7 @@ export default function ManagementOrderRoutePage({
 
                 setDeparture(response);
                 setPendingPassengers(response.passengers);
+                setSelectedEmployeeIds(response.employees.map((employee) => employee.id));
                 setRequestedTakeOffInput(formatDateTimeLocalInput(response.requestedTakeOffDateTime));
                 setRoutePoints(createInitialRoutePoints(response));
                 setGroundTimesMinutes(createInitialGroundTimes(response));
@@ -299,6 +305,34 @@ export default function ManagementOrderRoutePage({
 
         return () => abortController.abort();
     }, [isUserLoading, mode, parsedDepartureId, user]);
+
+    useEffect(() => {
+        if (
+            isUserLoading ||
+            user === null ||
+            mode !== "management" ||
+            !hasManagementAccess(user.role?.name)
+        ) {
+            return;
+        }
+
+        const abortController = new AbortController();
+
+        async function loadEmployees() {
+            try {
+                const response = await getMyAirlineEmployees(abortController.signal);
+                setAvailableEmployees(response);
+            } catch {
+                if (!abortController.signal.aborted) {
+                    setAvailableEmployees([]);
+                }
+            }
+        }
+
+        loadEmployees();
+
+        return () => abortController.abort();
+    }, [isUserLoading, mode, user]);
 
     useEffect(() => {
         if (routeRequest === null || !hasRouteChanges || Number.isNaN(parsedDepartureId)) {
@@ -720,6 +754,7 @@ export default function ManagementOrderRoutePage({
 
             setDeparture(response);
             setPendingPassengers(response.passengers);
+            setSelectedEmployeeIds(response.employees.map((employee) => employee.id));
             setRequestedTakeOffInput(formatDateTimeLocalInput(response.requestedTakeOffDateTime));
             setRoutePoints(createInitialRoutePoints(response));
             setGroundTimesMinutes(createInitialGroundTimes(response));
@@ -796,6 +831,7 @@ export default function ManagementOrderRoutePage({
             const response = await getUserDeparture(departure.id);
             setDeparture(response);
             setPendingPassengers(response.passengers);
+            setSelectedEmployeeIds(response.employees.map((employee) => employee.id));
             setRequestedTakeOffInput(formatDateTimeLocalInput(response.requestedTakeOffDateTime));
             setRoutePoints(createInitialRoutePoints(response));
             setGroundTimesMinutes(createInitialGroundTimes(response));
@@ -879,6 +915,42 @@ export default function ManagementOrderRoutePage({
             navigate("/management/flights");
         } catch (error: unknown) {
             setErrorMessage(getApiErrorMessage(error, "Не удалось подтвердить договор."));
+        } finally {
+            setIsActionLoading(false);
+        }
+    }
+
+    async function handlePayDeparture() {
+        if (departure === null || mode !== "client") {
+            return;
+        }
+
+        setIsActionLoading(true);
+        setErrorMessage("");
+
+        try {
+            await payUserDeparture(departure.id);
+            await refreshDeparture();
+        } catch (error: unknown) {
+            setErrorMessage(getApiErrorMessage(error, "Не удалось оплатить вылет."));
+        } finally {
+            setIsActionLoading(false);
+        }
+    }
+
+    async function handleSaveEmployees() {
+        if (departure === null || mode !== "management") {
+            return;
+        }
+
+        setIsActionLoading(true);
+        setErrorMessage("");
+
+        try {
+            await updateManagementDepartureEmployees(departure.id, selectedEmployeeIds);
+            await refreshDeparture();
+        } catch (error: unknown) {
+            setErrorMessage(getApiErrorMessage(error, "Не удалось сохранить сотрудников вылета."));
         } finally {
             setIsActionLoading(false);
         }
@@ -1032,6 +1104,7 @@ export default function ManagementOrderRoutePage({
 
         setDeparture(response);
         setPendingPassengers(response.passengers);
+        setSelectedEmployeeIds(response.employees.map((employee) => employee.id));
         setRequestedTakeOffInput(formatDateTimeLocalInput(response.requestedTakeOffDateTime));
         setRoutePoints(createInitialRoutePoints(response));
         setGroundTimesMinutes(createInitialGroundTimes(response));
@@ -1608,6 +1681,58 @@ export default function ManagementOrderRoutePage({
         );
     }
 
+    function renderEmployeeSection(currentDeparture: ManagementDepartureResponse) {
+        const selectedEmployeeIdSet = new Set(selectedEmployeeIds);
+        const displayedEmployees = [...availableEmployees].sort((leftEmployee, rightEmployee) =>
+            compareEmployeesForAssignment(leftEmployee, rightEmployee, selectedEmployeeIdSet)
+        );
+
+        return renderSectionCard(
+            "employees",
+            "Сотрудники вылета",
+            <>
+                {availableEmployees.length === 0 ? (
+                    <p className="management-muted-text">Сотрудники авиакомпании не найдены.</p>
+                ) : (
+                    <div className="management-passenger-list">
+                        {displayedEmployees.map((employee) => (
+                            <label key={employee.id} className="management-passenger-row management-employee-row">
+                                <span>
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedEmployeeIdSet.has(employee.id)}
+                                        disabled={isActionLoading}
+                                        onChange={(event) => {
+                                            setSelectedEmployeeIds((currentIds) =>
+                                                event.target.checked
+                                                    ? [...currentIds, employee.id]
+                                                    : currentIds.filter((employeeId) => employeeId !== employee.id)
+                                            );
+                                        }}
+                                    />
+                                    {employee.fullName || employee.email}
+                                </span>
+                                <span>{employee.roleName}</span>
+                            </label>
+                        ))}
+                    </div>
+                )}
+            </>,
+            <span>{currentDeparture.employees.length} назначено</span>,
+            <button
+                type="button"
+                className="management-secondary-button management-compact-button"
+                onClick={handleSaveEmployees}
+                disabled={isActionLoading || areNumberArraysEqual(
+                    selectedEmployeeIds,
+                    currentDeparture.employees.map((employee) => employee.id)
+                )}
+            >
+                Сохранить
+            </button>
+        );
+    }
+
     return (
         <div className="catalog-wrapper">
             <Header showSearch={false}>
@@ -1628,6 +1753,7 @@ export default function ManagementOrderRoutePage({
 
                             {isFlightManagementPage && renderFlightOperations(departure)}
                             {mode === "client" && renderPassengerSection(departure)}
+                            {mode === "management" && isFlightManagementPage && renderEmployeeSection(departure)}
                             {renderStatusHistory(departure)}
                             {renderRouteEditor(departure)}
                             {mode === "management" && renderPassengerSection(departure)}
@@ -1700,10 +1826,20 @@ export default function ManagementOrderRoutePage({
                                         </button>
                                     </>
                                 )}
+                                {mode === "client" && departure.canPay && (
+                                    <button
+                                        type="button"
+                                        className="management-primary-button management-pay-button"
+                                        onClick={handlePayDeparture}
+                                        disabled={isActionLoading}
+                                    >
+                                        Оплатить
+                                    </button>
+                                )}
                                 {departure.hasContractDocument && (
                                     <button
                                         type="button"
-                                        className="management-secondary-button"
+                                        className="management-secondary-button management-contract-document-button"
                                         onClick={handleDownloadContractDocument}
                                         disabled={isActionLoading}
                                     >
@@ -2438,7 +2574,7 @@ function getRouteStatusClassName(statusId: number): string {
         return "rejected";
     }
 
-    if (statusId === 2 || statusId === 19) {
+    if (statusId === 2 || statusId === 19 || statusId === 20) {
         return "pending";
     }
 
@@ -3808,4 +3944,59 @@ function minutesToTimeSpan(totalMinutes: number): string {
     const minutes = totalMinutes % 60;
 
     return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
+}
+
+function areNumberArraysEqual(left: number[], right: number[]): boolean {
+    if (left.length !== right.length) {
+        return false;
+    }
+
+    const sortedLeft = [...left].sort((a, b) => a - b);
+    const sortedRight = [...right].sort((a, b) => a - b);
+
+    return sortedLeft.every((value, index) => value === sortedRight[index]);
+}
+
+function compareEmployeesForAssignment(
+    leftEmployee: AirlineEmployeeResponse,
+    rightEmployee: AirlineEmployeeResponse,
+    selectedEmployeeIds: Set<number>
+): number {
+    const leftSelectedRank = selectedEmployeeIds.has(leftEmployee.id) ? 0 : 1;
+    const rightSelectedRank = selectedEmployeeIds.has(rightEmployee.id) ? 0 : 1;
+
+    if (leftSelectedRank !== rightSelectedRank) {
+        return leftSelectedRank - rightSelectedRank;
+    }
+
+    const roleRankDifference = getEmployeeRoleRank(leftEmployee.roleName) -
+        getEmployeeRoleRank(rightEmployee.roleName);
+
+    if (roleRankDifference !== 0) {
+        return roleRankDifference;
+    }
+
+    const leftName = leftEmployee.fullName || leftEmployee.email;
+    const rightName = rightEmployee.fullName || rightEmployee.email;
+
+    return leftName.localeCompare(rightName, "ru");
+}
+
+function getEmployeeRoleRank(roleName: string): number {
+    switch (roleName) {
+        case "Employee":
+            return 0;
+
+        case "Manager":
+            return 1;
+
+        case "GeneralDirector":
+            return 2;
+
+        case "Owner":
+            return 3;
+
+        default:
+            return 4;
+    }
 }

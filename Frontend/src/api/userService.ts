@@ -100,6 +100,13 @@ export async function deleteUserDeparture(departureId: number): Promise<void> {
     );
 }
 
+export async function payUserDeparture(departureId: number): Promise<void> {
+    await sendRequest<void>(
+        `/departures/my/${departureId}/pay`,
+        "POST"
+    );
+}
+
 export async function downloadUserDepartureTicket(departureId: number): Promise<Blob> {
     return await sendBlobRequest(
         `/departures/${departureId}/ticket`,

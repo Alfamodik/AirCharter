@@ -54,6 +54,15 @@ export default function CabinetPage() {
                         <a href="/profile" className="profile-redirect-btn">
                             Профиль
                         </a>
+                        {!isUserLoading && !user?.airlineId && (
+                            <button
+                                type="button"
+                                className="profile-redirect-btn cabinet-airline-register-btn"
+                                onClick={() => navigate("/airline-register")}
+                            >
+                                Зарегистрировать авиакомпанию
+                            </button>
+                        )}
                     </div>
                 </aside>
 

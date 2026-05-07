@@ -139,7 +139,7 @@ export default function ManagementPage() {
 
         try {
             await confirmManagementDepartureContractDocument(departureId);
-            navigate("/management/flights");
+            await loadDepartures();
         } catch {
             setErrorMessage("Не удалось подтвердить подписанный договор.");
         } finally {
@@ -687,7 +687,7 @@ function getStatusClassName(statusId: number): string {
         return "rejected";
     }
 
-    if (statusId === 2 || statusId === 19) {
+    if (statusId === 2 || statusId === 19 || statusId === 20) {
         return "pending";
     }
 

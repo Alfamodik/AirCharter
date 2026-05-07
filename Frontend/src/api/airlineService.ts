@@ -46,6 +46,36 @@ export interface UpdateAirlineContractSettingsRequest {
     passengerArrivalMinutesBeforeFlight: number | null;
 }
 
+export interface AirlineEmployeeResponse {
+    id: number;
+    email: string;
+    roleName: string;
+    fullName?: string | null;
+}
+
+export interface AccessTokenResponse {
+    token: string;
+}
+
+export type RegisterAirlineRequest = UpdateAirlineContractSettingsRequest;
+
+export async function registerAirline(data: RegisterAirlineRequest): Promise<AccessTokenResponse> {
+    return await sendRequest<AccessTokenResponse>(
+        "/airlines/register",
+        "POST",
+        data
+    );
+}
+
+export async function getMyAirlineEmployees(signal?: AbortSignal): Promise<AirlineEmployeeResponse[]> {
+    return await sendRequest<AirlineEmployeeResponse[]>(
+        "/airlines/my/employees",
+        "GET",
+        undefined,
+        signal
+    );
+}
+
 export async function getMyAirlineContractSettings(): Promise<AirlineContractSettingsResponse> {
     return await sendRequest<AirlineContractSettingsResponse>(
         "/airlines/my/contract-settings",

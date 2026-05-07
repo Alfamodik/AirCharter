@@ -73,6 +73,10 @@ namespace AirCharter.API.Responses.Departures
 
         public bool CanDelete { get; set; }
 
+        public bool CanPay { get; set; }
+
+        public DateTime? PaymentDeadlineAt { get; set; }
+
         public bool HasContractDocument { get; set; }
 
         public string? ContractDocumentFileName { get; set; }
@@ -81,6 +85,9 @@ namespace AirCharter.API.Responses.Departures
 
         public IReadOnlyCollection<ManagementPassengerResponse> Passengers { get; set; } =
             Array.Empty<ManagementPassengerResponse>();
+
+        public IReadOnlyCollection<ManagementEmployeeResponse> Employees { get; set; } =
+            Array.Empty<ManagementEmployeeResponse>();
 
         public IReadOnlyCollection<ManagementDepartureStatusResponse> StatusHistory { get; set; } =
             Array.Empty<ManagementDepartureStatusResponse>();
@@ -99,6 +106,17 @@ namespace AirCharter.API.Responses.Departures
         public string FullName { get; set; } = string.Empty;
 
         public string? Email { get; set; }
+    }
+
+    public sealed class ManagementEmployeeResponse
+    {
+        public int Id { get; set; }
+
+        public string Email { get; set; } = string.Empty;
+
+        public string RoleName { get; set; } = string.Empty;
+
+        public string? FullName { get; set; }
     }
 
     public sealed class ManagementDepartureStatusResponse

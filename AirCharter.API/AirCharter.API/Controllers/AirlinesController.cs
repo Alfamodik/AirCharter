@@ -1,6 +1,8 @@
 using AirCharter.API.Model;
 using AirCharter.API.Requests.Airlines;
+using AirCharter.API.Requests.Authentication;
 using AirCharter.API.Responses.Airlines;
+using AirCharter.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,11 +13,143 @@ namespace AirCharter.API.Controllers;
 [ApiController]
 [Authorize]
 [Route("airlines")]
-public sealed class AirlinesController(AirCharterExtendedContext context) : ControllerBase
+public sealed class AirlinesController(AirCharterExtendedContext context, JwtService jwtService) : ControllerBase
 {
     private const string AirlineProfileRoles = "Owner,GeneralDirector";
+    private const string AirlineEmployeeRoles = "Owner,Manager,Admin,GeneralDirector,Employee";
 
     private readonly AirCharterExtendedContext _context = context;
+    private readonly JwtService _jwtService = jwtService;
+
+    [HttpPost("register")]
+    public async Task<ActionResult<AccessTokenResponse>> RegisterAirline(
+        RegisterAirlineRequest request,
+        CancellationToken cancellationToken)
+    {
+        int? userId = GetCurrentUserId();
+
+        if (userId is null)
+            return Unauthorized();
+
+        User? user = await _context.Users
+            .Include(currentUser => currentUser.Role)
+            .FirstOrDefaultAsync(currentUser => currentUser.Id == userId.Value, cancellationToken);
+
+        if (user is null)
+            return Unauthorized();
+
+        if (user.AirlineId is not null)
+            return BadRequest("Пользователь уже привязан к авиакомпании.");
+
+        int ownerRoleId = await _context.Roles
+            .Where(role => role.Name == "Owner")
+            .Select(role => role.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (ownerRoleId == 0)
+            return BadRequest("Роль владельца авиакомпании не найдена.");
+
+        string airlineName = NormalizeRequiredString(request.AirlineName);
+        string organizationFullName = NormalizeRequiredString(request.OrganizationFullName);
+        string organizationShortName = NormalizeRequiredString(request.OrganizationShortName);
+
+        if (string.IsNullOrWhiteSpace(airlineName))
+            return BadRequest("Укажите название авиакомпании.");
+
+        if (string.IsNullOrWhiteSpace(organizationFullName))
+            return BadRequest("Укажите полное наименование организации.");
+
+        if (string.IsNullOrWhiteSpace(organizationShortName))
+            return BadRequest("Укажите краткое наименование организации.");
+
+        bool duplicateExists = await _context.Airlines.AnyAsync(airline =>
+            airline.AirlineName == airlineName ||
+            airline.OrganizationFullName == organizationFullName ||
+            airline.OrganizationShortName == organizationShortName,
+            cancellationToken);
+
+        if (duplicateExists)
+            return Conflict("Авиакомпания с таким названием или наименованием уже существует.");
+
+        if (request.ContractValidityDays is <= 0)
+            return BadRequest("Срок действия договора должен быть больше 0.");
+
+        if (request.PaymentDeadlineDays is <= 0)
+            return BadRequest("Срок оплаты должен быть больше 0.");
+
+        if (request.PassengerArrivalMinutesBeforeFlight is <= 0)
+            return BadRequest("Время прибытия пассажиров должно быть больше 0.");
+
+        Airline airline = new()
+        {
+            AirlineName = airlineName,
+            CreationDate = DateOnly.FromDateTime(DateTime.UtcNow),
+            OrganizationFullName = organizationFullName,
+            OrganizationShortName = organizationShortName,
+            LegalAddress = NormalizeRequiredString(request.LegalAddress),
+            PostalAddress = NormalizeRequiredString(request.PostalAddress),
+            PhoneNumber = NormalizeRequiredString(request.PhoneNumber),
+            Email = NormalizeRequiredString(request.Email),
+            BankName = NormalizeRequiredString(request.BankName),
+            TaxpayerId = NormalizeRequiredString(request.TaxpayerId),
+            TaxRegistrationReasonCode = NormalizeRequiredString(request.TaxRegistrationReasonCode),
+            PrimaryStateRegistrationNumber = NormalizeRequiredString(request.PrimaryStateRegistrationNumber),
+            CurrentAccountNumber = NormalizeRequiredString(request.CurrentAccountNumber),
+            CorrespondentAccountNumber = NormalizeRequiredString(request.CorrespondentAccountNumber),
+            BankIdentifierCode = NormalizeRequiredString(request.BankIdentifierCode),
+            ContractCity = NormalizeOptionalString(request.ContractCity),
+            ContractValidityDays = request.ContractValidityDays,
+            PaymentDeadlineDays = request.PaymentDeadlineDays,
+            CateringClass = NormalizeOptionalString(request.CateringClass),
+            PassengerArrivalMinutesBeforeFlight = request.PassengerArrivalMinutesBeforeFlight
+        };
+
+        _context.Airlines.Add(airline);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        user.AirlineId = airline.Id;
+        user.RoleId = ownerRoleId;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        string token = _jwtService.GenerateAccessToken(user.Id, "Owner");
+
+        return Ok(new AccessTokenResponse
+        {
+            Token = token
+        });
+    }
+
+    [HttpGet("my/employees")]
+    [Authorize(Roles = AirlineEmployeeRoles)]
+    public async Task<ActionResult<IEnumerable<AirlineEmployeeResponse>>> GetMyEmployees(
+        CancellationToken cancellationToken)
+    {
+        int? airlineId = await GetCurrentUserAirlineIdAsync(cancellationToken);
+
+        if (airlineId is null)
+            return Forbid();
+
+        AirlineEmployeeResponse[] employees = await _context.Users
+            .AsNoTracking()
+            .Where(user => user.AirlineId == airlineId.Value && user.IsActive)
+            .OrderBy(user => user.Person == null ? user.Email : user.Person.LastName)
+            .ThenBy(user => user.Person == null ? user.Email : user.Person.FirstName)
+            .Select(user => new AirlineEmployeeResponse
+            {
+                Id = user.Id,
+                Email = user.Email,
+                RoleName = user.Role.Name,
+                FullName = user.Person == null
+                    ? null
+                    : BuildPersonFullName(
+                        user.Person.LastName,
+                        user.Person.FirstName,
+                        user.Person.Patronymic)
+            })
+            .ToArrayAsync(cancellationToken);
+
+        return Ok(employees);
+    }
 
     [HttpGet("my/contract-settings")]
     [Authorize(Roles = AirlineProfileRoles)]
@@ -134,16 +268,26 @@ public sealed class AirlinesController(AirCharterExtendedContext context) : Cont
 
     private async Task<int?> GetCurrentUserAirlineIdAsync(CancellationToken cancellationToken)
     {
+        int? userId = GetCurrentUserId();
+
+        if (userId is null)
+            return null;
+
+        return await _context.Users
+            .AsNoTracking()
+            .Where(user => user.Id == userId.Value)
+            .Select(user => user.AirlineId)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private int? GetCurrentUserId()
+    {
         Claim? userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
 
         if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
             return null;
 
-        return await _context.Users
-            .AsNoTracking()
-            .Where(user => user.Id == userId)
-            .Select(user => user.AirlineId)
-            .FirstOrDefaultAsync(cancellationToken);
+        return userId;
     }
 
     private static AirlineContractSettingsResponse CreateResponse(Airline airline)
@@ -182,5 +326,20 @@ public sealed class AirlinesController(AirCharterExtendedContext context) : Cont
     private static string NormalizeRequiredString(string? value)
     {
         return value?.Trim() ?? string.Empty;
+    }
+
+    private static string BuildPersonFullName(
+        string? lastName,
+        string? firstName,
+        string? patronymic)
+    {
+        return string.Join(
+            " ",
+            new[]
+            {
+                lastName,
+                firstName,
+                patronymic
+            }.Where(namePart => !string.IsNullOrWhiteSpace(namePart)));
     }
 }
