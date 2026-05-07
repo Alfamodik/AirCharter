@@ -258,7 +258,7 @@ export default function ManagementOrderRoutePage({
     }, [isUserLoading, mode, parsedDepartureId, user]);
 
     useEffect(() => {
-        if (routeRequest === null || Number.isNaN(parsedDepartureId)) {
+        if (routeRequest === null || !hasRouteChanges || Number.isNaN(parsedDepartureId)) {
             setRoutePreview(null);
             return;
         }
@@ -290,7 +290,7 @@ export default function ManagementOrderRoutePage({
             abortController.abort();
             window.clearTimeout(timeoutId);
         };
-    }, [mode, parsedDepartureId, routeRequest]);
+    }, [hasRouteChanges, mode, parsedDepartureId, routeRequest]);
 
     useEffect(() => {
         if (

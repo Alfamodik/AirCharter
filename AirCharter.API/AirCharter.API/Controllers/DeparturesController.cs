@@ -192,33 +192,274 @@ namespace AirCharter.API.Controllers
                 return Forbid();
             }
 
-            List<Departure> departures = await _context.Departures
+            var departureRows = await _context.Departures
                 .AsNoTracking()
-                .Include(departure => departure.Plane)
-                    .ThenInclude(plane => plane.Airline)
-                .Include(departure => departure.TakeOffAirport)
-                .Include(departure => departure.LandingAirport)
-                .Include(departure => departure.CharterRequester)
-                    .ThenInclude(user => user.Person)
-                .Include(departure => departure.People)
-                    .ThenInclude(person => person.Users)
-                .Include(departure => departure.DepartureStatuses)
-                    .ThenInclude(departureStatus => departureStatus.Status)
-                .Include(departure => departure.DepartureRouteLegs)
-                    .ThenInclude(routeLeg => routeLeg.FromAirport)
-                .Include(departure => departure.DepartureRouteLegs)
-                    .ThenInclude(routeLeg => routeLeg.ToAirport)
                 .Where(departure => departure.Plane.AirlineId == userAirlineId.Value)
                 .OrderByDescending(departure => departure.RequestedTakeOffDateTime)
+                .Select(departure => new
+                {
+                    departure.Id,
+                    PlaneModelName = departure.Plane.ModelName,
+                    PlanePassengerCapacity = departure.Plane.PassengerCapacity,
+                    AirlineName = departure.Plane.Airline.AirlineName,
+
+                    departure.TakeOffAirportId,
+                    TakeOffAirportName = departure.TakeOffAirport.Name,
+                    TakeOffAirportCity = departure.TakeOffAirport.City,
+                    TakeOffAirportIata = departure.TakeOffAirport.Iata,
+                    TakeOffAirportIcao = departure.TakeOffAirport.Icao,
+
+                    departure.LandingAirportId,
+                    LandingAirportName = departure.LandingAirport.Name,
+                    LandingAirportCity = departure.LandingAirport.City,
+                    LandingAirportIata = departure.LandingAirport.Iata,
+                    LandingAirportIcao = departure.LandingAirport.Icao,
+
+                    departure.RequestedTakeOffDateTime,
+                    departure.Price,
+                    departure.Distance,
+                    departure.FlightTime,
+                    departure.Transfers,
+
+                    CurrentStatus = departure.DepartureStatuses
+                        .OrderByDescending(departureStatus => departureStatus.StatusSettingDateTime)
+                        .ThenByDescending(departureStatus => departureStatus.Id)
+                        .Select(departureStatus => new
+                        {
+                            departureStatus.StatusId,
+                            StatusName = departureStatus.Status.Status1,
+                            departureStatus.StatusSettingDateTime
+                        })
+                        .FirstOrDefault(),
+                    CreatedAt = departure.DepartureStatuses
+                        .Where(departureStatus => departureStatus.StatusId == (int)FlightStatusId.InCreation)
+                        .OrderBy(departureStatus => departureStatus.StatusSettingDateTime)
+                        .ThenBy(departureStatus => departureStatus.Id)
+                        .Select(departureStatus => (DateTime?)departureStatus.StatusSettingDateTime)
+                        .FirstOrDefault(),
+                    SubmittedAt = departure.DepartureStatuses
+                        .Where(departureStatus => departureStatus.StatusId == (int)FlightStatusId.AwaitingApproval)
+                        .OrderBy(departureStatus => departureStatus.StatusSettingDateTime)
+                        .ThenBy(departureStatus => departureStatus.Id)
+                        .Select(departureStatus => (DateTime?)departureStatus.StatusSettingDateTime)
+                        .FirstOrDefault(),
+
+                    CharterRequesterEmail = departure.CharterRequester.Email,
+                    CharterRequesterFirstName = departure.CharterRequester.Person == null
+                        ? null
+                        : departure.CharterRequester.Person.FirstName,
+                    CharterRequesterLastName = departure.CharterRequester.Person == null
+                        ? null
+                        : departure.CharterRequester.Person.LastName,
+                    CharterRequesterPatronymic = departure.CharterRequester.Person == null
+                        ? null
+                        : departure.CharterRequester.Person.Patronymic,
+                    PassengerCount = departure.People.Count,
+
+                    HasContractDocument = departure.ContractDocumentFileName != null ||
+                        departure.ContractDocumentUploadedAt != null,
+                    departure.ContractDocumentFileName,
+                    departure.ContractDocumentUploadedAt
+                })
                 .ToListAsync(cancellationToken);
 
-            List<ManagementDepartureResponse> responses = departures
-                .Select(departure => CreateManagementDepartureResponse(
-                    departure,
-                    managementSection,
-                    isManagementView: true))
-                .Where(response => response is not null)
-                .Select(response => response!)
+            var filteredDepartureRows = departureRows
+                .Where(departure => departure.CurrentStatus is not null &&
+                    IsDepartureInManagementSection(departure.CurrentStatus.StatusId, managementSection))
+                .ToList();
+
+            int[] departureIds = filteredDepartureRows
+                .Select(departure => departure.Id)
+                .ToArray();
+
+            if (departureIds.Length == 0)
+                return Ok(Array.Empty<ManagementDepartureResponse>());
+
+            var passengerRows = await _context.Departures
+                .AsNoTracking()
+                .Where(departure => departureIds.Contains(departure.Id))
+                .SelectMany(departure => departure.People.Select(person => new
+                {
+                    DepartureId = departure.Id,
+                    person.Id,
+                    person.FirstName,
+                    person.LastName,
+                    person.Patronymic,
+                    PersonEmail = person.Email,
+                    UserEmail = person.Users
+                        .OrderBy(user => user.Id)
+                        .Select(user => user.Email)
+                        .FirstOrDefault()
+                }))
+                .ToListAsync(cancellationToken);
+
+            var statusRows = await _context.DepartureStatuses
+                .AsNoTracking()
+                .Where(departureStatus => departureIds.Contains(departureStatus.DepartureId))
+                .OrderBy(departureStatus => departureStatus.StatusSettingDateTime)
+                .ThenBy(departureStatus => departureStatus.Id)
+                .Select(departureStatus => new
+                {
+                    departureStatus.DepartureId,
+                    Status = new ManagementDepartureStatusResponse
+                    {
+                        Id = departureStatus.StatusId,
+                        Name = departureStatus.Status.Status1,
+                        SetAt = departureStatus.StatusSettingDateTime
+                    }
+                })
+                .ToListAsync(cancellationToken);
+
+            var routeLegRows = await _context.DepartureRouteLegs
+                .AsNoTracking()
+                .Where(routeLeg => departureIds.Contains(routeLeg.DepartureId))
+                .OrderBy(routeLeg => routeLeg.SequenceNumber)
+                .Select(routeLeg => new ManagementDepartureRouteLegListItem
+                {
+                    DepartureId = routeLeg.DepartureId,
+                    SequenceNumber = routeLeg.SequenceNumber,
+                    FromAirport = new AirportSearchResponse
+                    {
+                        Id = routeLeg.FromAirport.Id,
+                        Name = routeLeg.FromAirport.Name,
+                        City = routeLeg.FromAirport.City,
+                        Country = routeLeg.FromAirport.Country,
+                        Iata = routeLeg.FromAirport.Iata,
+                        Icao = routeLeg.FromAirport.Icao,
+                        Latitude = routeLeg.FromAirport.Latitude,
+                        Longitude = routeLeg.FromAirport.Longitude
+                    },
+                    ToAirport = new AirportSearchResponse
+                    {
+                        Id = routeLeg.ToAirport.Id,
+                        Name = routeLeg.ToAirport.Name,
+                        City = routeLeg.ToAirport.City,
+                        Country = routeLeg.ToAirport.Country,
+                        Iata = routeLeg.ToAirport.Iata,
+                        Icao = routeLeg.ToAirport.Icao,
+                        Latitude = routeLeg.ToAirport.Latitude,
+                        Longitude = routeLeg.ToAirport.Longitude
+                    },
+                    Leg = new RouteLegResponse
+                    {
+                        FromAirportId = routeLeg.FromAirportId,
+                        ToAirportId = routeLeg.ToAirportId,
+                        DistanceKm = routeLeg.Distance,
+                        FlightTime = routeLeg.FlightTime,
+                        FlightCost = routeLeg.FlightCost,
+                        GroundTimeAfterArrival = routeLeg.GroundTimeAfterArrival
+                    }
+                })
+                .ToListAsync(cancellationToken);
+
+            Dictionary<int, IReadOnlyCollection<ManagementPassengerResponse>> passengersByDepartureId = passengerRows
+                .GroupBy(passenger => passenger.DepartureId)
+                .ToDictionary(
+                    group => group.Key,
+                    group => (IReadOnlyCollection<ManagementPassengerResponse>)group
+                        .OrderBy(passenger => passenger.LastName)
+                        .ThenBy(passenger => passenger.FirstName)
+                        .Select(passenger => new ManagementPassengerResponse
+                        {
+                            Id = passenger.Id,
+                            FullName = BuildPersonFullName(
+                                passenger.LastName,
+                                passenger.FirstName,
+                                passenger.Patronymic),
+                            Email = !string.IsNullOrWhiteSpace(passenger.PersonEmail)
+                                ? passenger.PersonEmail
+                                : passenger.UserEmail
+                        })
+                        .ToArray());
+
+            Dictionary<int, IReadOnlyCollection<ManagementDepartureStatusResponse>> statusesByDepartureId = statusRows
+                .GroupBy(status => status.DepartureId)
+                .ToDictionary(
+                    group => group.Key,
+                    group => (IReadOnlyCollection<ManagementDepartureStatusResponse>)group
+                        .Select(status => status.Status)
+                        .ToArray());
+
+            Dictionary<int, List<ManagementDepartureRouteLegListItem>> routeRowsByDepartureId = routeLegRows
+                .GroupBy(routeLeg => routeLeg.DepartureId)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group
+                        .OrderBy(routeLeg => routeLeg.SequenceNumber)
+                        .ToList());
+
+            List<ManagementDepartureResponse> responses = filteredDepartureRows
+                .Select(departure =>
+                {
+                    IReadOnlyCollection<ManagementPassengerResponse> passengers =
+                        passengersByDepartureId.GetValueOrDefault(
+                            departure.Id,
+                            Array.Empty<ManagementPassengerResponse>());
+                    IReadOnlyCollection<ManagementDepartureStatusResponse> statusHistory =
+                        statusesByDepartureId.GetValueOrDefault(
+                            departure.Id,
+                            Array.Empty<ManagementDepartureStatusResponse>());
+                    IReadOnlyCollection<RouteLegResponse> routeLegs = CreateListRouteLegResponses(
+                        routeRowsByDepartureId.GetValueOrDefault(departure.Id));
+                    IReadOnlyCollection<AirportSearchResponse> routeAirports = CreateListRouteAirportResponses(
+                        routeRowsByDepartureId.GetValueOrDefault(departure.Id));
+                    bool hasEditAccess = CanCurrentUserEditManagementDepartures();
+                    bool canEditByStatus =
+                        departure.CurrentStatus!.StatusId == (int)FlightStatusId.InCreation ||
+                        departure.CurrentStatus.StatusId == (int)FlightStatusId.AwaitingApproval;
+
+                    return new ManagementDepartureResponse
+                    {
+                        Id = departure.Id,
+                        PlaneModelName = departure.PlaneModelName,
+                        PlanePassengerCapacity = departure.PlanePassengerCapacity,
+                        PlaneImage = null,
+                        AirlineName = departure.AirlineName,
+                        AirlineImage = null,
+
+                        TakeOffAirportId = departure.TakeOffAirportId,
+                        TakeOffAirportName = departure.TakeOffAirportName,
+                        TakeOffAirportCity = departure.TakeOffAirportCity,
+                        TakeOffAirportIata = departure.TakeOffAirportIata,
+                        TakeOffAirportIcao = departure.TakeOffAirportIcao,
+
+                        LandingAirportId = departure.LandingAirportId,
+                        LandingAirportName = departure.LandingAirportName,
+                        LandingAirportCity = departure.LandingAirportCity,
+                        LandingAirportIata = departure.LandingAirportIata,
+                        LandingAirportIcao = departure.LandingAirportIcao,
+
+                        RequestedTakeOffDateTime = departure.RequestedTakeOffDateTime,
+                        ArrivalDateTime = departure.RequestedTakeOffDateTime.Add(departure.FlightTime),
+                        CreatedAt = departure.CreatedAt,
+                        SubmittedAt = departure.SubmittedAt,
+                        Price = departure.Price,
+                        Distance = departure.Distance,
+                        FlightTime = departure.FlightTime,
+                        Transfers = departure.Transfers,
+
+                        CurrentStatusId = departure.CurrentStatus.StatusId,
+                        StatusName = departure.CurrentStatus.StatusName,
+                        CurrentStatusSetAt = departure.CurrentStatus.StatusSettingDateTime,
+                        CharterRequesterEmail = departure.CharterRequesterEmail,
+                        CharterRequesterFullName = BuildPersonFullName(
+                            departure.CharterRequesterLastName,
+                            departure.CharterRequesterFirstName,
+                            departure.CharterRequesterPatronymic),
+                        PassengerCount = departure.PassengerCount,
+                        CanEditRoute = canEditByStatus && hasEditAccess,
+                        CanApprove = departure.CurrentStatus.StatusId == (int)FlightStatusId.AwaitingApproval && hasEditAccess,
+                        CanChangeStatus = IsActiveFlightStatus(departure.CurrentStatus.StatusId) && hasEditAccess,
+                        HasContractDocument = departure.HasContractDocument,
+                        ContractDocumentFileName = departure.ContractDocumentFileName,
+                        ContractDocumentUploadedAt = departure.ContractDocumentUploadedAt,
+
+                        Passengers = passengers,
+                        StatusHistory = statusHistory,
+                        RouteAirports = routeAirports,
+                        RouteLegs = routeLegs
+                    };
+                })
                 .ToList();
 
             return Ok(responses);
@@ -1044,9 +1285,42 @@ namespace AirCharter.API.Controllers
                 .ToArray();
         }
 
+        private static IReadOnlyCollection<AirportSearchResponse> CreateListRouteAirportResponses(
+            IReadOnlyCollection<ManagementDepartureRouteLegListItem>? routeLegs)
+        {
+            if (routeLegs is null || routeLegs.Count == 0)
+                return Array.Empty<AirportSearchResponse>();
+
+            List<ManagementDepartureRouteLegListItem> orderedRouteLegs = routeLegs
+                .OrderBy(routeLeg => routeLeg.SequenceNumber)
+                .ToList();
+            List<AirportSearchResponse> routeAirports = new List<AirportSearchResponse>
+            {
+                orderedRouteLegs[0].FromAirport
+            };
+
+            foreach (ManagementDepartureRouteLegListItem routeLeg in orderedRouteLegs)
+                routeAirports.Add(routeLeg.ToAirport);
+
+            return routeAirports;
+        }
+
+        private static IReadOnlyCollection<RouteLegResponse> CreateListRouteLegResponses(
+            IReadOnlyCollection<ManagementDepartureRouteLegListItem>? routeLegs)
+        {
+            if (routeLegs is null || routeLegs.Count == 0)
+                return Array.Empty<RouteLegResponse>();
+
+            return routeLegs
+                .OrderBy(routeLeg => routeLeg.SequenceNumber)
+                .Select(routeLeg => routeLeg.Leg)
+                .ToArray();
+        }
+
         private IQueryable<Departure> GetManagementDepartureQuery()
         {
             return _context.Departures
+                .AsSplitQuery()
                 .Include(departure => departure.Plane)
                     .ThenInclude(plane => plane.Airline)
                 .Include(departure => departure.TakeOffAirport)
@@ -1643,13 +1917,21 @@ namespace AirCharter.API.Controllers
 
         private static string BuildPersonFullName(Person person)
         {
+            return BuildPersonFullName(person.LastName, person.FirstName, person.Patronymic);
+        }
+
+        private static string BuildPersonFullName(
+            string? lastName,
+            string? firstName,
+            string? patronymic)
+        {
             return string.Join(
                 " ",
                 new[]
                 {
-                    person.LastName,
-                    person.FirstName,
-                    person.Patronymic
+                    lastName,
+                    firstName,
+                    patronymic
                 }.Where(namePart => !string.IsNullOrWhiteSpace(namePart)));
         }
 
@@ -1866,6 +2148,19 @@ namespace AirCharter.API.Controllers
             Orders,
             Flights,
             Completed
+        }
+
+        private sealed class ManagementDepartureRouteLegListItem
+        {
+            public int DepartureId { get; init; }
+
+            public int SequenceNumber { get; init; }
+
+            public AirportSearchResponse FromAirport { get; init; } = null!;
+
+            public AirportSearchResponse ToAirport { get; init; } = null!;
+
+            public RouteLegResponse Leg { get; init; } = null!;
         }
 
         private enum FlightStatusId
