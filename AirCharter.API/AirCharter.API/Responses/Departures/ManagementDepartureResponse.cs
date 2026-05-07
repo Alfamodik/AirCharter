@@ -61,6 +61,8 @@ namespace AirCharter.API.Responses.Departures
 
         public string CharterRequesterEmail { get; set; } = string.Empty;
 
+        public string? CharterRequesterFullName { get; set; }
+
         public int PassengerCount { get; set; }
 
         public bool CanEditRoute { get; set; }

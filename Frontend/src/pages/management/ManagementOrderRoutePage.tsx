@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
-import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { YMaps, Map, Placemark, Polyline } from "@pbe/react-yandex-maps";
 import Header from "../../components/header/Header";
 import AirportSearch from "../../components/airportSearch/AirportSearch";
 import {
     approveManagementDepartureRoute,
     confirmManagementDepartureContractDocument,
+    deleteLatestManagementDepartureStatus,
     getManagementDeparture,
     getManagementRouteCandidates,
     previewManagementDepartureRoute,
     rejectManagementDeparture,
     saveManagementDepartureRoute,
+    updateManagementDepartureStatus,
     type ManagementRouteCandidateResponse,
     type ManagementRoutePreviewLegResponse,
     type ManagementRoutePreviewResponse,
@@ -100,7 +102,13 @@ type ManagementOrderRoutePageProps = {
     mode?: "management" | "client";
 };
 
-type DepartureSectionKey = "passengers" | "route" | "history";
+type DepartureSectionKey = "operations" | "passengers" | "route" | "history";
+
+type PendingManagementStatusChange = {
+    statusId: number;
+    includePreviousStatuses: boolean;
+    targetLegIndex?: number | null;
+};
 
 const emptyPassengerForm: ProfileFormData = {
     firstName: "",
@@ -124,6 +132,7 @@ export default function ManagementOrderRoutePage({
     mode = "management"
 }: ManagementOrderRoutePageProps) {
     const navigate = useNavigate();
+    const location = useLocation();
     const { departureId } = useParams();
     const { user, isLoading: isUserLoading } = useUser();
 
@@ -145,7 +154,9 @@ export default function ManagementOrderRoutePage({
     const [mapInstance, setMapInstance] = useState<YandexMapInstance | null>(null);
     const contractFileInputRef = useRef<HTMLInputElement | null>(null);
     const [routeChooserElement, setRouteChooserElement] = useState<HTMLDivElement | null>(null);
-    const [expandedSections, setExpandedSections] = useState<Set<DepartureSectionKey>>(() => new Set());
+    const [expandedSections, setExpandedSections] = useState<Set<DepartureSectionKey>>(() => new Set(["operations"]));
+    const [pendingCompletionStatus, setPendingCompletionStatus] = useState<PendingManagementStatusChange | null>(null);
+    const isFlightManagementPage = mode === "management" && location.pathname.includes("/management/flights/");
 
     const invalidSameAirportLegIndexes = useMemo(() => {
         return createSameAirportLegIndexSet(routePoints);
@@ -181,11 +192,19 @@ export default function ManagementOrderRoutePage({
             departure?.routeLegs ?? []
         );
     }, [departure?.routeLegs, routePoints, routePreview]);
+    const visibleRouteCandidates = useMemo(() => {
+        return departure?.canEditRoute === true ? routeCandidates : [];
+    }, [departure?.canEditRoute, routeCandidates]);
     const hasRouteChanges = departure !== null &&
         hasUnsavedRouteChanges(departure, routePoints, groundTimesMinutes);
     const hasTakeOffDateTimeChanges = departure !== null &&
         requestedTakeOffInput.trim() !== "" &&
         requestedTakeOffInput !== formatDateTimeLocalInput(departure.requestedTakeOffDateTime);
+    const canDownloadContractTemplate = departure !== null &&
+        (
+            departure.canEditRoute ||
+            departure.currentStatusId === 19
+        );
     const canSaveRouteOrTakeOffDateTime = departure !== null &&
         departure.canEditRoute &&
         (
@@ -276,6 +295,7 @@ export default function ManagementOrderRoutePage({
     useEffect(() => {
         if (
             departure === null ||
+            !departure.canEditRoute ||
             normalizedActiveCandidatePointIndex === null ||
             normalizedActiveCandidatePointIndex >= routePoints.length - 1 ||
             Number.isNaN(parsedDepartureId)
@@ -335,8 +355,8 @@ export default function ManagementOrderRoutePage({
     }, [departure, mode, normalizedActiveCandidatePointIndex, parsedDepartureId, routePoints]);
 
     const routeMapData = useMemo(() => {
-        return createRouteMapData(mapAirports, mapLegs, routeCandidates);
-    }, [mapAirports, mapLegs, routeCandidates]);
+        return createRouteMapData(mapAirports, mapLegs, visibleRouteCandidates);
+    }, [mapAirports, mapLegs, visibleRouteCandidates]);
 
     useEffect(() => {
         if (mapInstance === null || routeMapData.bounds === undefined) {
@@ -710,9 +730,90 @@ export default function ManagementOrderRoutePage({
 
         try {
             await confirmManagementDepartureContractDocument(departure.id);
-            await refreshDeparture();
+            navigate("/management/flights");
         } catch (error: unknown) {
             setErrorMessage(getApiErrorMessage(error, "Не удалось подтвердить договор."));
+        } finally {
+            setIsActionLoading(false);
+        }
+    }
+
+    async function handleSetManagementStatus(
+        statusId: number,
+        includePreviousStatuses = false,
+        targetLegIndex?: number | null
+    ) {
+        if (departure === null) {
+            return;
+        }
+
+        if (statusId === 14) {
+            setPendingCompletionStatus({
+                statusId,
+                includePreviousStatuses,
+                targetLegIndex
+            });
+            return;
+        }
+
+        await applyManagementStatus(statusId, includePreviousStatuses, targetLegIndex);
+    }
+
+    async function applyManagementStatus(
+        statusId: number,
+        includePreviousStatuses = false,
+        targetLegIndex?: number | null
+    ) {
+        if (departure === null) {
+            return;
+        }
+
+        setIsActionLoading(true);
+        setErrorMessage("");
+
+        try {
+            await updateManagementDepartureStatus(
+                departure.id,
+                statusId,
+                includePreviousStatuses,
+                targetLegIndex
+            );
+            await refreshDeparture();
+        } catch (error: unknown) {
+            setErrorMessage(getApiErrorMessage(error, "Не удалось изменить статус вылета."));
+        } finally {
+            setIsActionLoading(false);
+        }
+    }
+
+    async function handleConfirmCompletionStatus() {
+        if (pendingCompletionStatus === null) {
+            return;
+        }
+
+        const statusChange = pendingCompletionStatus;
+
+        setPendingCompletionStatus(null);
+        await applyManagementStatus(
+            statusChange.statusId,
+            statusChange.includePreviousStatuses,
+            statusChange.targetLegIndex
+        );
+    }
+
+    async function handleDeleteLatestManagementStatus() {
+        if (departure === null) {
+            return;
+        }
+
+        setIsActionLoading(true);
+        setErrorMessage("");
+
+        try {
+            await deleteLatestManagementDepartureStatus(departure.id);
+            await refreshDeparture();
+        } catch (error: unknown) {
+            setErrorMessage(getApiErrorMessage(error, "Не удалось удалить предыдущий статус."));
         } finally {
             setIsActionLoading(false);
         }
@@ -923,7 +1024,7 @@ export default function ManagementOrderRoutePage({
     const canEditPassengers = mode === "client" && departure?.canEditRoute === true;
     const hasFreePassengerSeat = departure !== null &&
         departure.passengerCount < departure.planePassengerCapacity;
-    const backTarget = mode === "management" ? "/management/orders" : "/cabinet";
+    const backTarget = getBackTarget(location.state, location.pathname, mode);
 
     function toggleSection(sectionKey: DepartureSectionKey) {
         setExpandedSections((currentSections) => {
@@ -1059,7 +1160,12 @@ export default function ManagementOrderRoutePage({
                             )}
                             <h1>{currentDeparture.planeModelName}</h1>
                             <p>{getDepartureRouteTitle(currentDeparture)}</p>
-                            <span className="management-flight-airline-name">{currentDeparture.airlineName}</span>
+                            <span className="management-flight-airline-name">
+                                Исполнитель: {currentDeparture.airlineName}
+                            </span>
+                            <span className="management-flight-customer">
+                                Заказчик: {formatCustomerInfo(currentDeparture)}
+                            </span>
                         </div>
 
                         <div className="management-flight-overview-side">
@@ -1117,7 +1223,7 @@ export default function ManagementOrderRoutePage({
 
                     <ManagementRouteMap
                         airports={mapAirports}
-                        candidates={routeCandidates}
+                        candidates={canEditRoute ? routeCandidates : []}
                         mapData={routeMapData}
                         mapInstance={mapInstance}
                         onCandidateSelect={handleRouteCandidateSelect}
@@ -1173,6 +1279,83 @@ export default function ManagementOrderRoutePage({
                 </button>
                 )}
             </div>
+        );
+    }
+
+    function renderFlightOperations(currentDeparture: ManagementDepartureResponse) {
+        const timing = calculateFlightTiming(currentDeparture);
+        const actualState = getActualFlightState(currentDeparture);
+        const nextStatus = getSuggestedNextFlightStatus(currentDeparture, timing);
+        const canChangeStatus = currentDeparture.canChangeStatus && !isActionLoading;
+        const canDeleteLatestStatus = canChangeStatus && currentDeparture.currentStatusId > 4;
+        const isCalculatedStatusCurrent = isCalculatedStatusAlreadyCurrent(currentDeparture, timing);
+        const canApplyCalculatedStatus = canChangeStatus &&
+            !isCalculatedStatusCurrent &&
+            !isStatusAheadOfCalculatedStatus(currentDeparture, timing);
+        const isNextStatusCompletion = nextStatus.id === 14;
+
+        return renderSectionCard(
+            "operations",
+            "Управление статусом",
+            <>
+                <div className="management-flight-operation-grid">
+                    <div className="management-flight-operation-panel">
+                        <span>Расчётный статус: {timing.statusText}</span>
+                        <p className="management-flight-operation-route">{timing.locationText}</p>
+                        <p>{timing.timeWindowText}</p>
+                    </div>
+
+                    <div className="management-flight-operation-panel">
+                        <span>Фактическое состояние: {actualState.statusText}</span>
+                        <p className="management-flight-operation-route">{actualState.locationText}</p>
+                        <p>Установлено {formatDateTime(currentDeparture.currentStatusSetAt)}.</p>
+                    </div>
+
+                    <div className="management-flight-operation-panel">
+                        <span>Следующий статус</span>
+                        <strong>{nextStatus.name}</strong>
+                        <p>Предложение построено по маршруту и пересадкам.</p>
+                    </div>
+                </div>
+
+                <FlightTimingTimeline departure={currentDeparture} />
+
+                <div className="management-flight-status-actions">
+                    <button
+                        type="button"
+                        className="management-danger-button"
+                        onClick={handleDeleteLatestManagementStatus}
+                        disabled={!canDeleteLatestStatus}
+                    >
+                        Удалить текущий статус
+                    </button>
+                    <button
+                        type="button"
+                        className="management-secondary-button"
+                        onClick={() => handleSetManagementStatus(
+                            timing.statusId,
+                            true,
+                            timing.currentLegIndex
+                        )}
+                        disabled={!canApplyCalculatedStatus}
+                    >
+                        Установить расчётный статус
+                    </button>
+                    <button
+                        type="button"
+                        className={`management-primary-button ${isNextStatusCompletion ? "management-complete-flight-button" : ""}`}
+                        onClick={() => handleSetManagementStatus(nextStatus.id)}
+                        disabled={!canChangeStatus || currentDeparture.currentStatusId === nextStatus.id}
+                    >
+                        {isNextStatusCompletion ? "Завершить вылет" : "Установить следующий статус"}
+                    </button>
+                </div>
+            </>,
+            <span className={`status-badge ${getRouteStatusClassName(currentDeparture.currentStatusId)}`}>
+                {currentDeparture.statusName}
+            </span>,
+            undefined,
+            true
         );
     }
 
@@ -1283,9 +1466,10 @@ export default function ManagementOrderRoutePage({
                         <>
                             {renderFlightOverview(departure)}
 
+                            {isFlightManagementPage && renderFlightOperations(departure)}
                             {mode === "client" && renderPassengerSection(departure)}
-                            {renderRouteEditor(departure)}
                             {renderStatusHistory(departure)}
+                            {renderRouteEditor(departure)}
                             {mode === "management" && renderPassengerSection(departure)}
 
                             {errorMessage !== "" && (
@@ -1314,7 +1498,7 @@ export default function ManagementOrderRoutePage({
                                         Сохранить маршрутную квитанцию
                                     </button>
                                 )}
-                                {departure.canEditRoute && (
+                                {canDownloadContractTemplate && (
                                     <button
                                     type="button"
                                     className="management-secondary-button"
@@ -1432,6 +1616,15 @@ export default function ManagementOrderRoutePage({
                     onSubmit={handleUpdatePassenger}
                 />
             )}
+
+            {pendingCompletionStatus !== null && departure !== null && (
+                <FlightCompletionConfirmModal
+                    departure={departure}
+                    isLoading={isActionLoading}
+                    onClose={() => setPendingCompletionStatus(null)}
+                    onConfirm={handleConfirmCompletionStatus}
+                />
+            )}
             </div>
         </div>
     );
@@ -1465,6 +1658,33 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
     }
 
     return fallback;
+}
+
+function getBackTarget(
+    state: unknown,
+    pathname: string,
+    mode: "management" | "client"
+): string {
+    if (
+        typeof state === "object" &&
+        state !== null &&
+        "backTo" in state &&
+        typeof (state as { backTo?: unknown }).backTo === "string"
+    ) {
+        const backTo = (state as { backTo: string }).backTo;
+
+        if (backTo.startsWith("/management/") || backTo === "/cabinet") {
+            return backTo;
+        }
+    }
+
+    if (mode === "client") {
+        return "/cabinet";
+    }
+
+    return pathname.includes("/management/flights/")
+        ? "/management/flights"
+        : "/management/orders";
 }
 
 function hasUnsavedRouteChanges(
@@ -1503,6 +1723,508 @@ function downloadBlob(blob: Blob, fileName: string) {
     link.click();
     link.remove();
     URL.revokeObjectURL(objectUrl);
+}
+
+function formatCustomerInfo(departure: ManagementDepartureResponse): string {
+    const fullName = departure.charterRequesterFullName?.trim();
+
+    if (fullName) {
+        return `${fullName} · ${departure.charterRequesterEmail}`;
+    }
+
+    return departure.charterRequesterEmail;
+}
+
+function calculateFlightTiming(departure: ManagementDepartureResponse): {
+    statusText: string;
+    statusId: number;
+    description: string;
+    locationText: string;
+    timeWindowText: string;
+    currentLegIndex: number | null;
+    isGroundTransfer: boolean;
+    isCompleted: boolean;
+} {
+    const takeOffDate = new Date(departure.requestedTakeOffDateTime);
+
+    if (Number.isNaN(takeOffDate.getTime()) || departure.routeLegs.length === 0) {
+        return {
+            statusText: "Нет расчёта",
+            statusId: 3,
+            description: "Недостаточно данных маршрута.",
+            locationText: getDepartureRouteTitleFromAirports(departure),
+            timeWindowText: "Маршрут не рассчитан.",
+            currentLegIndex: null,
+            isGroundTransfer: false,
+            isCompleted: false
+        };
+    }
+
+    const now = new Date();
+    let cursor = takeOffDate;
+
+    if (now < cursor) {
+        return {
+            statusText: "Ожидает вылета",
+            statusId: 3,
+            description: "Самолёт должен находиться в аэропорту отправления.",
+            locationText: getAirportLabelById(departure, departure.routeLegs[0].fromAirportId),
+            timeWindowText: `Вылет запланирован на ${formatDateTime(departure.requestedTakeOffDateTime)}.`,
+            currentLegIndex: null,
+            isGroundTransfer: false,
+            isCompleted: false
+        };
+    }
+
+    for (let index = 0; index < departure.routeLegs.length; index++) {
+        const leg = departure.routeLegs[index];
+        const legStart = cursor;
+        const legEnd = addMinutes(legStart, timeSpanToMinutes(leg.flightTime) ?? 0);
+
+        if (now <= legEnd) {
+            return {
+                statusText: "В пути",
+                statusId: 13,
+                description: `Выполняется плечо ${index + 1} из ${departure.routeLegs.length}.`,
+                locationText: `${getAirportLabelById(departure, leg.fromAirportId)} -> ${getAirportLabelById(departure, leg.toAirportId)}`,
+                timeWindowText: `${formatDateTime(legStart.toISOString())} -> ${formatDateTime(legEnd.toISOString())}`,
+                currentLegIndex: index,
+                isGroundTransfer: false,
+                isCompleted: false
+            };
+        }
+
+        const groundMinutes = timeSpanToMinutes(leg.groundTimeAfterArrival) ?? 0;
+        const isIntermediateStop = index < departure.routeLegs.length - 1 && groundMinutes > 0;
+        const groundEnd = addMinutes(legEnd, groundMinutes);
+
+        if (isIntermediateStop && now <= groundEnd) {
+            return {
+                statusText: "На промежуточной посадке",
+                statusId: 21,
+                description: `Самолёт ожидает следующий взлёт, плечо ${index + 2} из ${departure.routeLegs.length}.`,
+                locationText: getAirportLabelById(departure, leg.toAirportId),
+                timeWindowText: `${formatDateTime(legEnd.toISOString())} -> ${formatDateTime(groundEnd.toISOString())}`,
+                currentLegIndex: index,
+                isGroundTransfer: true,
+                isCompleted: false
+            };
+        }
+
+        cursor = groundEnd;
+    }
+
+    return {
+        statusText: "Вылет завершён",
+        statusId: 14,
+        description: "Расчётное время маршрута уже прошло.",
+        locationText: getAirportLabelById(departure, departure.landingAirportId),
+        timeWindowText: `Расчётное прибытие: ${formatDateTime(departure.arrivalDateTime)}.`,
+        currentLegIndex: departure.routeLegs.length - 1,
+        isGroundTransfer: false,
+        isCompleted: true
+    };
+}
+
+function getActualFlightState(departure: ManagementDepartureResponse): {
+    statusText: string;
+    locationText: string;
+} {
+    if (departure.routeLegs.length === 0) {
+        return {
+            statusText: departure.statusName,
+            locationText: getDepartureRouteTitleFromAirports(departure)
+        };
+    }
+
+    if (departure.currentStatusId === 13) {
+        const legIndex = getActualCurrentRouteLegIndex(departure) ?? 0;
+        const leg = departure.routeLegs[legIndex];
+
+        return {
+            statusText: departure.statusName,
+            locationText: `${getAirportLabelById(departure, leg.fromAirportId)} -> ${getAirportLabelById(departure, leg.toAirportId)}`
+        };
+    }
+
+    if (departure.currentStatusId === 21) {
+        const legIndex = getActualCurrentRouteLegIndex(departure) ?? 0;
+        const leg = departure.routeLegs[Math.max(legIndex, 0)];
+
+        return {
+            statusText: departure.statusName,
+            locationText: getAirportLabelById(departure, leg.toAirportId)
+        };
+    }
+
+    if (departure.currentStatusId === 14) {
+        return {
+            statusText: departure.statusName,
+            locationText: getAirportLabelById(departure, departure.landingAirportId)
+        };
+    }
+
+    return {
+        statusText: departure.statusName,
+        locationText: getAirportLabelById(departure, departure.routeLegs[0].fromAirportId)
+    };
+}
+
+function getActualCurrentRouteLegIndex(departure: ManagementDepartureResponse): number | null {
+    if (departure.routeLegs.length === 0) {
+        return null;
+    }
+
+    if (departure.currentStatusId === 13) {
+        return Math.min(
+            Math.max(getStatusOccurrenceCount(departure, 13) - 1, 0),
+            departure.routeLegs.length - 1
+        );
+    }
+
+    if (departure.currentStatusId === 21) {
+        return Math.min(
+            Math.max(getStatusOccurrenceCount(departure, 21) - 1, 0),
+            Math.max(departure.routeLegs.length - 2, 0)
+        );
+    }
+
+    if (departure.currentStatusId === 14) {
+        return departure.routeLegs.length - 1;
+    }
+
+    return 0;
+}
+
+function getStatusOccurrenceCount(
+    departure: ManagementDepartureResponse,
+    statusId: number
+): number {
+    return departure.statusHistory.filter((status) => status.id === statusId).length;
+}
+
+function getSuggestedNextFlightStatus(
+    departure: ManagementDepartureResponse,
+    timing: ReturnType<typeof calculateFlightTiming>
+): { id: number; name: string } {
+    switch (departure.currentStatusId) {
+        case 3:
+            return { id: 5, name: "Регистрация открыта" };
+        case 4:
+            return { id: 5, name: "Регистрация открыта" };
+        case 5:
+            return { id: 6, name: "Закрывается регистрация" };
+        case 6:
+            return { id: 7, name: "Регистрация закрыта" };
+        case 7:
+            return { id: 8, name: "Ожидает посадки" };
+        case 8:
+            return { id: 9, name: "Посадка" };
+        case 9:
+            return { id: 10, name: "Выход открыт" };
+        case 10:
+            return { id: 11, name: "Выход закрыт" };
+        case 11:
+            return { id: 12, name: "Посадка завершена" };
+        case 12:
+            return { id: 13, name: "В пути" };
+        case 13:
+            if ((getActualCurrentRouteLegIndex(departure) ?? 0) < departure.routeLegs.length - 1) {
+                return { id: 21, name: "На промежуточной посадке" };
+            }
+
+            return { id: 14, name: "Приземлился" };
+        case 21:
+            return { id: 13, name: "В пути" };
+        default:
+            return timing.isCompleted
+                ? { id: 14, name: "Приземлился" }
+                : { id: 13, name: "В пути" };
+    }
+}
+
+function isStatusAheadOfCalculatedStatus(
+    departure: ManagementDepartureResponse,
+    timing: ReturnType<typeof calculateFlightTiming>
+): boolean {
+    const sequence = buildOperationalStatusSequence(
+        Math.max(1, departure.routeLegs.length),
+        timing.currentLegIndex ?? 0,
+        timing.statusId
+    );
+    const currentIndex = getCurrentOperationalStatusSequenceIndex(departure, sequence);
+    const calculatedIndex = sequence.lastIndexOf(timing.statusId);
+
+    return currentIndex >= 0 && calculatedIndex >= 0 && currentIndex > calculatedIndex;
+}
+
+function isCalculatedStatusAlreadyCurrent(
+    departure: ManagementDepartureResponse,
+    timing: ReturnType<typeof calculateFlightTiming>
+): boolean {
+    const sequence = buildOperationalStatusSequence(
+        Math.max(1, departure.routeLegs.length),
+        timing.currentLegIndex ?? 0,
+        timing.statusId
+    );
+    const currentIndex = getCurrentOperationalStatusSequenceIndex(departure, sequence);
+    const calculatedIndex = sequence.lastIndexOf(timing.statusId);
+
+    return currentIndex >= 0 && calculatedIndex >= 0 && currentIndex === calculatedIndex;
+}
+
+function getCurrentOperationalStatusSequenceIndex(
+    departure: ManagementDepartureResponse,
+    sequence: number[]
+): number {
+    if (departure.currentStatusId === 13 || departure.currentStatusId === 21) {
+        const occurrenceIndex = Math.max(
+            getStatusOccurrenceCount(departure, departure.currentStatusId) - 1,
+            0
+        );
+        const sequenceIndex = findStatusSequenceIndexByOccurrence(
+            sequence,
+            departure.currentStatusId,
+            occurrenceIndex
+        );
+
+        return sequenceIndex >= 0 ? sequenceIndex : sequence.length;
+    }
+
+    return sequence.indexOf(departure.currentStatusId);
+}
+
+function findStatusSequenceIndexByOccurrence(
+    sequence: number[],
+    statusId: number,
+    occurrenceIndex: number
+): number {
+    let seenCount = 0;
+
+    for (let index = 0; index < sequence.length; index++) {
+        if (sequence[index] !== statusId) {
+            continue;
+        }
+
+        if (seenCount === occurrenceIndex) {
+            return index;
+        }
+
+        seenCount++;
+    }
+
+    return -1;
+}
+
+function buildOperationalStatusSequence(
+    routeLegCount: number,
+    targetLegIndex: number,
+    targetStatusId: number
+): number[] {
+    const sequence = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+    const normalizedTargetLegIndex = Math.min(
+        Math.max(targetLegIndex, 0),
+        routeLegCount - 1
+    );
+
+    for (let legIndex = 0; legIndex < normalizedTargetLegIndex; legIndex++) {
+        sequence.push(21, 13);
+    }
+
+    if (targetStatusId === 21) {
+        sequence.push(21);
+    } else if (targetStatusId === 14) {
+        sequence.push(14);
+    }
+
+    return sequence;
+}
+
+type FlightTimelineItem = {
+    type: "key" | "ground";
+    phase: "departure" | "arrival";
+    index: number;
+    time: string;
+    title: string;
+    detail: string;
+};
+
+function FlightTimingTimeline({ departure }: { departure: ManagementDepartureResponse }) {
+    const timeline = createFlightTimeline(departure);
+    const currentTimelineIndex = getCurrentStatusTimelineIndex(departure, timeline);
+    const calculatedTimelineIndex = getCalculatedTimelineIndex(departure, timeline);
+
+    if (timeline.length === 0) {
+        return null;
+    }
+
+    return (
+        <div className="management-flight-timeline">
+            {timeline.map((item, index) => (
+                <div
+                    key={`${item.type}-${item.index}`}
+                    className={`management-flight-timeline-row ${item.type} ${index === currentTimelineIndex ? "current" : ""} ${index === calculatedTimelineIndex && index !== currentTimelineIndex ? "calculated" : ""}`}
+                >
+                    <span className="management-flight-timeline-time">{item.time}</span>
+                    <span className="management-flight-timeline-title">{item.title}</span>
+                    <span className="management-flight-timeline-detail">{item.detail}</span>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function createFlightTimeline(departure: ManagementDepartureResponse): FlightTimelineItem[] {
+    const takeOffDate = new Date(departure.requestedTakeOffDateTime);
+
+    if (Number.isNaN(takeOffDate.getTime())) {
+        return [];
+    }
+
+    const timeline: FlightTimelineItem[] = [];
+    let cursor = takeOffDate;
+
+    departure.routeLegs.forEach((leg, index) => {
+        const legStart = cursor;
+        const legEnd = addMinutes(legStart, timeSpanToMinutes(leg.flightTime) ?? 0);
+        const fromAirport = getAirportLabelById(departure, leg.fromAirportId);
+        const toAirport = getAirportLabelById(departure, leg.toAirportId);
+        const groundMinutes = timeSpanToMinutes(leg.groundTimeAfterArrival) ?? 0;
+        const hasIntermediateStop = index < departure.routeLegs.length - 1;
+        let arrivalDetail = "Финальная точка маршрута";
+
+        if (hasIntermediateStop) {
+            arrivalDetail = groundMinutes > 0
+                ? `Промежуточная посадка, стоянка ${formatDuration(minutesToTimeSpan(groundMinutes))}`
+                : "Промежуточная точка маршрута";
+        }
+
+        timeline.push({
+            type: "key",
+            phase: "departure",
+            index: index * 2,
+            time: formatTimelineDateTime(legStart),
+            title: `Вылет из ${fromAirport}`,
+            detail: `В пути ${formatDuration(leg.flightTime)}`
+        });
+
+        timeline.push({
+            type: "ground",
+            phase: "arrival",
+            index: index * 2 + 1,
+            time: formatTimelineDateTime(legEnd),
+            title: `Прибытие в ${toAirport}`,
+            detail: arrivalDetail
+        });
+
+        cursor = hasIntermediateStop
+            ? addMinutes(legEnd, groundMinutes)
+            : legEnd;
+    });
+
+    return timeline;
+}
+
+function getCurrentStatusTimelineIndex(
+    departure: ManagementDepartureResponse,
+    timeline: ReturnType<typeof createFlightTimeline>
+): number {
+    if (timeline.length === 0) {
+        return -1;
+    }
+
+    if (departure.currentStatusId === 13) {
+        const legIndex = getActualCurrentRouteLegIndex(departure) ?? 0;
+        const flightIndex = timeline.findIndex((item) =>
+            item.phase === "departure" &&
+            item.index === legIndex * 2
+        );
+
+        return flightIndex >= 0 ? flightIndex : 0;
+    }
+
+    if (departure.currentStatusId === 21) {
+        const legIndex = getActualCurrentRouteLegIndex(departure) ?? 0;
+        const landingIndex = timeline.findIndex((item) =>
+            item.phase === "arrival" &&
+            item.index === legIndex * 2 + 1
+        );
+
+        return landingIndex;
+    }
+
+    if (departure.currentStatusId === 14) {
+        for (let index = timeline.length - 1; index >= 0; index--) {
+            if (timeline[index].phase === "arrival") {
+                return index;
+            }
+        }
+    }
+
+    return 0;
+}
+
+function getCalculatedTimelineIndex(
+    departure: ManagementDepartureResponse,
+    timeline: ReturnType<typeof createFlightTimeline>
+): number {
+    if (timeline.length === 0) {
+        return -1;
+    }
+
+    const calculated = calculateFlightTiming(departure);
+
+    if (calculated.statusId === 13) {
+        const legIndex = calculated.currentLegIndex ?? 0;
+
+        return timeline.findIndex((item) =>
+            item.phase === "departure" &&
+            item.index === legIndex * 2
+        );
+    }
+
+    if (calculated.statusId === 21) {
+        const legIndex = calculated.currentLegIndex ?? 0;
+
+        return timeline.findIndex((item) =>
+            item.phase === "arrival" &&
+            item.index === legIndex * 2 + 1
+        );
+    }
+
+    if (calculated.statusId === 14) {
+        for (let index = timeline.length - 1; index >= 0; index--) {
+            if (timeline[index].phase === "arrival") {
+                return index;
+            }
+        }
+    }
+
+    return 0;
+}
+
+function formatTimelineDateTime(date: Date): string {
+    return date.toLocaleString("ru-RU", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+    });
+}
+
+function getAirportLabelById(departure: ManagementDepartureResponse, airportId: number): string {
+    const airport = departure.routeAirports.find((routeAirport) => routeAirport.id === airportId);
+
+    return airport ? getAirportDisplayName(airport) : airportId.toString();
+}
+
+function getDepartureRouteTitleFromAirports(departure: ManagementDepartureResponse): string {
+    return `${getAirportLabelById(departure, departure.takeOffAirportId)} -> ${getAirportLabelById(departure, departure.landingAirportId)}`;
+}
+
+function addMinutes(date: Date, minutes: number): Date {
+    return new Date(date.getTime() + minutes * 60_000);
 }
 
 function formatDateTimeLocalInput(value: string): string {
@@ -1624,6 +2346,71 @@ function PassengerSearchInput({
                     ))}
                 </ul>
             )}
+        </div>
+    );
+}
+
+function FlightCompletionConfirmModal({
+    departure,
+    isLoading,
+    onClose,
+    onConfirm
+}: {
+    departure: ManagementDepartureResponse;
+    isLoading: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+}) {
+    return (
+        <div className="management-modal-backdrop" role="presentation" onMouseDown={onClose}>
+            <section
+                className="management-passenger-modal management-confirm-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="flight-completion-title"
+                onMouseDown={(event) => event.stopPropagation()}
+            >
+                <div className="management-passenger-modal-header">
+                    <div>
+                        <h3 id="flight-completion-title">Завершить вылет?</h3>
+                        <span>{getDepartureRouteTitleFromAirports(departure)}</span>
+                    </div>
+                    <button type="button" onClick={onClose} disabled={isLoading} aria-label="Закрыть">
+                        ×
+                    </button>
+                </div>
+
+                <p className="management-passenger-modal-note">
+                    Будет установлен финальный статус «Приземлился», а вылет перейдёт из текущих в завершённые.
+                    Если самолёт ещё не приземлился, лучше отменить действие и дождаться фактической посадки.
+                </p>
+
+                <div className="management-confirm-summary">
+                    <span>Текущий статус</span>
+                    <strong>{departure.statusName}</strong>
+                    <span>Расчётное прибытие</span>
+                    <strong>{formatDateTime(departure.arrivalDateTime)}</strong>
+                </div>
+
+                <div className="management-passenger-modal-actions">
+                    <button
+                        type="button"
+                        className="management-secondary-button"
+                        onClick={onClose}
+                        disabled={isLoading}
+                    >
+                        Отмена
+                    </button>
+                    <button
+                        type="button"
+                        className="management-primary-button management-complete-flight-button"
+                        onClick={onConfirm}
+                        disabled={isLoading}
+                    >
+                        Завершить вылет
+                    </button>
+                </div>
+            </section>
         </div>
     );
 }

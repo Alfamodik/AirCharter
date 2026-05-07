@@ -199,6 +199,7 @@ namespace AirCharter.API.Controllers
                 .Include(departure => departure.TakeOffAirport)
                 .Include(departure => departure.LandingAirport)
                 .Include(departure => departure.CharterRequester)
+                    .ThenInclude(user => user.Person)
                 .Include(departure => departure.People)
                     .ThenInclude(person => person.Users)
                 .Include(departure => departure.DepartureStatuses)
@@ -466,6 +467,113 @@ namespace AirCharter.API.Controllers
                 return BadRequest("Подписанный договор ещё не загружен.");
 
             AddDepartureStatus(departure, FlightStatusId.Scheduled);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return NoContent();
+        }
+
+        [HttpPost("management/{departureId:int}/status")]
+        [Authorize(Roles = ManagementEditorRoles)]
+        public async Task<IActionResult> UpdateManagementDepartureStatus(
+            int departureId,
+            [FromBody] UpdateManagementDepartureStatusRequest request,
+            CancellationToken cancellationToken)
+        {
+            int? userAirlineId = await GetCurrentUserAirlineIdAsync(cancellationToken);
+
+            if (userAirlineId is null)
+                return Forbid();
+
+            if (!Enum.IsDefined(typeof(FlightStatusId), request.StatusId))
+                return BadRequest("Unknown status.");
+
+            FlightStatusId nextStatusId = (FlightStatusId)request.StatusId;
+
+            if (!IsOperationalStatus(nextStatusId))
+                return BadRequest("Status cannot be set from flight management.");
+
+            Departure? departure = await GetManagementDepartureQuery()
+                .FirstOrDefaultAsync(
+                    departure => departure.Id == departureId,
+                    cancellationToken);
+
+            if (departure is null)
+                return NotFound();
+
+            if (departure.Plane.AirlineId != userAirlineId.Value)
+                return Forbid();
+
+            DepartureStatus? currentStatus = GetCurrentStatus(departure);
+
+            if (currentStatus is null || !IsActiveFlightStatus(currentStatus.StatusId))
+                return BadRequest("Flight status cannot be changed now.");
+
+            if (request.IncludePreviousStatuses)
+            {
+                if (IsStatusAlreadyPastCatchUpTarget(
+                    departure,
+                    (FlightStatusId)currentStatus.StatusId,
+                    nextStatusId,
+                    departure.DepartureRouteLegs.Count,
+                    request.TargetLegIndex))
+                {
+                    return BadRequest("Current status is already ahead of the calculated status.");
+                }
+
+                foreach (FlightStatusId statusId in BuildOperationalStatusCatchUpSequence(
+                    departure,
+                    (FlightStatusId)currentStatus.StatusId,
+                    nextStatusId,
+                    departure.DepartureRouteLegs.Count,
+                    request.TargetLegIndex))
+                {
+                    AddDepartureStatus(departure, statusId);
+                }
+
+                await _context.SaveChangesAsync(cancellationToken);
+                return NoContent();
+            }
+
+            if (currentStatus.StatusId != request.StatusId)
+            {
+                AddDepartureStatus(departure, nextStatusId);
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+
+            return NoContent();
+        }
+
+        [HttpDelete("management/{departureId:int}/status/latest")]
+        [Authorize(Roles = ManagementEditorRoles)]
+        public async Task<IActionResult> DeleteLatestManagementDepartureStatus(
+            int departureId,
+            CancellationToken cancellationToken)
+        {
+            int? userAirlineId = await GetCurrentUserAirlineIdAsync(cancellationToken);
+
+            if (userAirlineId is null)
+                return Forbid();
+
+            Departure? departure = await GetManagementDepartureQuery()
+                .FirstOrDefaultAsync(
+                    departure => departure.Id == departureId,
+                    cancellationToken);
+
+            if (departure is null)
+                return NotFound();
+
+            if (departure.Plane.AirlineId != userAirlineId.Value)
+                return Forbid();
+
+            DepartureStatus? currentStatus = GetCurrentStatus(departure);
+
+            if (currentStatus is null)
+                return BadRequest("Flight has no status.");
+
+            if (currentStatus.StatusId <= (int)FlightStatusId.Planned)
+                return BadRequest("This status cannot be deleted.");
+
+            _context.DepartureStatuses.Remove(currentStatus);
             await _context.SaveChangesAsync(cancellationToken);
 
             return NoContent();
@@ -864,6 +972,9 @@ namespace AirCharter.API.Controllers
                 StatusName = currentStatus.Status.Status1,
                 CurrentStatusSetAt = currentStatus.StatusSettingDateTime,
                 CharterRequesterEmail = departure.CharterRequester.Email,
+                CharterRequesterFullName = departure.CharterRequester.Person is null
+                    ? null
+                    : BuildPersonFullName(departure.CharterRequester.Person),
                 PassengerCount = departure.People.Count,
                 CanEditRoute = canEditByStatus && hasEditAccess,
                 CanApprove = currentStatus.StatusId == (int)FlightStatusId.AwaitingApproval && hasEditAccess,
@@ -941,6 +1052,7 @@ namespace AirCharter.API.Controllers
                 .Include(departure => departure.TakeOffAirport)
                 .Include(departure => departure.LandingAirport)
                 .Include(departure => departure.CharterRequester)
+                    .ThenInclude(user => user.Person)
                 .Include(departure => departure.People)
                     .ThenInclude(person => person.Users)
                 .Include(departure => departure.DepartureStatuses)
@@ -1349,7 +1461,184 @@ namespace AirCharter.API.Controllers
         {
             return currentStatusId is >= (int)FlightStatusId.Scheduled and <= (int)FlightStatusId.EnRoute
                 or (int)FlightStatusId.Delayed
-                or (int)FlightStatusId.Redirected;
+                or (int)FlightStatusId.Redirected
+                or (int)FlightStatusId.IntermediateStop;
+        }
+
+        private static bool IsOperationalStatus(FlightStatusId statusId)
+        {
+            return statusId is
+                FlightStatusId.Scheduled or
+                FlightStatusId.Planned or
+                FlightStatusId.RegistrationOpen or
+                FlightStatusId.RegistrationClosing or
+                FlightStatusId.RegistrationClosed or
+                FlightStatusId.AwaitingBoarding or
+                FlightStatusId.Boarding or
+                FlightStatusId.GateOpen or
+                FlightStatusId.GateClosed or
+                FlightStatusId.BoardingCompleted or
+                FlightStatusId.EnRoute or
+                FlightStatusId.Landed or
+                FlightStatusId.Delayed or
+                FlightStatusId.Redirected or
+                FlightStatusId.Cancelled or
+                FlightStatusId.IntermediateStop;
+        }
+
+        private static IReadOnlyCollection<FlightStatusId> BuildOperationalStatusCatchUpSequence(
+            Departure departure,
+            FlightStatusId currentStatusId,
+            FlightStatusId targetStatusId,
+            int routeLegCount,
+            int? targetLegIndex)
+        {
+            IReadOnlyList<FlightStatusId> sequence = BuildOperationalStatusSequence(
+                routeLegCount,
+                targetLegIndex,
+                targetStatusId);
+            int currentIndex = FindCurrentStatusIndex(sequence, departure, currentStatusId);
+            int targetIndex = FindLastStatusIndex(sequence, targetStatusId);
+
+            if (targetIndex < 0)
+                return Array.Empty<FlightStatusId>();
+
+            if (currentIndex < 0)
+                currentIndex = -1;
+
+            if (targetIndex <= currentIndex)
+                return Array.Empty<FlightStatusId>();
+
+            return sequence
+                .Skip(currentIndex + 1)
+                .Take(targetIndex - currentIndex)
+                .ToArray();
+        }
+
+        private static bool IsStatusAlreadyPastCatchUpTarget(
+            Departure departure,
+            FlightStatusId currentStatusId,
+            FlightStatusId targetStatusId,
+            int routeLegCount,
+            int? targetLegIndex)
+        {
+            IReadOnlyList<FlightStatusId> sequence = BuildOperationalStatusSequence(routeLegCount, targetLegIndex, targetStatusId);
+            int currentIndex = FindCurrentStatusIndex(sequence, departure, currentStatusId);
+            int targetIndex = FindLastStatusIndex(sequence, targetStatusId);
+
+            if (targetIndex < 0)
+                return true;
+
+            if (currentIndex < 0)
+                return true;
+
+            return currentIndex > targetIndex;
+        }
+
+        private static IReadOnlyList<FlightStatusId> BuildOperationalStatusSequence(
+            int routeLegCount,
+            int? targetLegIndex,
+            FlightStatusId targetStatusId)
+        {
+            List<FlightStatusId> fullSequence = new()
+            {
+                FlightStatusId.Scheduled,
+                FlightStatusId.Planned,
+                FlightStatusId.RegistrationOpen,
+                FlightStatusId.RegistrationClosing,
+                FlightStatusId.RegistrationClosed,
+                FlightStatusId.AwaitingBoarding,
+                FlightStatusId.Boarding,
+                FlightStatusId.GateOpen,
+                FlightStatusId.GateClosed,
+                FlightStatusId.BoardingCompleted,
+                FlightStatusId.EnRoute
+            };
+
+            int normalizedRouteLegCount = Math.Max(1, routeLegCount);
+            int normalizedTargetLegIndex = Math.Clamp(targetLegIndex ?? 0, 0, normalizedRouteLegCount - 1);
+
+            for (int legIndex = 0; legIndex < normalizedTargetLegIndex; legIndex++)
+            {
+                fullSequence.Add(FlightStatusId.IntermediateStop);
+                fullSequence.Add(FlightStatusId.EnRoute);
+            }
+
+            if (targetStatusId == FlightStatusId.IntermediateStop)
+            {
+                fullSequence.Add(FlightStatusId.IntermediateStop);
+            }
+            else if (targetStatusId == FlightStatusId.Landed)
+            {
+                fullSequence.Add(FlightStatusId.Landed);
+            }
+
+            return fullSequence;
+        }
+
+        private static int FindCurrentStatusIndex(
+            IReadOnlyList<FlightStatusId> sequence,
+            Departure departure,
+            FlightStatusId statusId)
+        {
+            if (statusId is FlightStatusId.EnRoute or FlightStatusId.IntermediateStop)
+            {
+                int occurrenceIndex = Math.Max(
+                    departure.DepartureStatuses.Count(departureStatus => departureStatus.StatusId == (int)statusId) - 1,
+                    0);
+                int sequenceIndex = FindStatusIndexByOccurrence(sequence, statusId, occurrenceIndex);
+
+                return sequenceIndex >= 0 ? sequenceIndex : sequence.Count;
+            }
+
+            return FindFirstStatusIndex(sequence, statusId);
+        }
+
+        private static int FindStatusIndexByOccurrence(
+            IReadOnlyList<FlightStatusId> sequence,
+            FlightStatusId statusId,
+            int occurrenceIndex)
+        {
+            int seenCount = 0;
+
+            for (int index = 0; index < sequence.Count; index++)
+            {
+                if (sequence[index] != statusId)
+                    continue;
+
+                if (seenCount == occurrenceIndex)
+                    return index;
+
+                seenCount++;
+            }
+
+            return -1;
+        }
+
+        private static int FindFirstStatusIndex(
+            IReadOnlyList<FlightStatusId> sequence,
+            FlightStatusId statusId)
+        {
+            for (int index = 0; index < sequence.Count; index++)
+            {
+                if (sequence[index] == statusId)
+                    return index;
+            }
+
+            return -1;
+        }
+
+        private static int FindLastStatusIndex(
+            IReadOnlyList<FlightStatusId> sequence,
+            FlightStatusId statusId)
+        {
+            for (int index = sequence.Count - 1; index >= 0; index--)
+            {
+                if (sequence[index] == statusId)
+                    return index;
+            }
+
+            return -1;
         }
 
         private static string BuildPersonFullName(Person person)
@@ -1599,7 +1888,9 @@ namespace AirCharter.API.Controllers
             Redirected = 16,
             Cancelled = 17,
             Denied = 18,
-            AwaitingContractSigning = 19
+            AwaitingContractSigning = 19,
+            AwaitingPayment = 20,
+            IntermediateStop = 21
         }
 
         private sealed class RouteTotals

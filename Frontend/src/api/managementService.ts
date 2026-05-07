@@ -92,6 +92,30 @@ export async function confirmManagementDepartureContractDocument(departureId: nu
     );
 }
 
+export async function updateManagementDepartureStatus(
+    departureId: number,
+    statusId: number,
+    includePreviousStatuses = false,
+    targetLegIndex?: number | null
+): Promise<void> {
+    await sendRequest<void>(
+        `/departures/management/${departureId}/status`,
+        "POST",
+        {
+            statusId,
+            includePreviousStatuses,
+            targetLegIndex
+        }
+    );
+}
+
+export async function deleteLatestManagementDepartureStatus(departureId: number): Promise<void> {
+    await sendRequest<void>(
+        `/departures/management/${departureId}/status/latest`,
+        "DELETE"
+    );
+}
+
 export async function saveManagementDepartureRoute(
     departureId: number,
     request: UpdateDepartureRouteRequest

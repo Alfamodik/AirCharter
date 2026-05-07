@@ -27,6 +27,7 @@ export interface ManagementDepartureResponse {
     statusName: string;
     currentStatusSetAt: string;
     charterRequesterEmail: string;
+    charterRequesterFullName?: string | null;
     passengerCount: number;
     canEditRoute: boolean;
     canApprove: boolean;

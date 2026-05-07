@@ -134,7 +134,10 @@ public sealed class DatabaseCompatibilityService(AirCharterExtendedContext conte
         await _context.Database.ExecuteSqlRawAsync(
             """
             INSERT INTO statuses (id, status)
-            VALUES (19, 'Ожидает подписания договора')
+            VALUES
+                (19, 'Ожидает подписания договора'),
+                (20, 'Ожидает оплаты'),
+                (21, 'На промежуточной посадке')
             ON DUPLICATE KEY UPDATE status = VALUES(status)
             """,
             cancellationToken);

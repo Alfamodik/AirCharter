@@ -40,6 +40,7 @@ export default function App() {
                     <Route path="/management/orders" element={<ManagementPage />} />
                     <Route path="/management/orders/:departureId" element={<ManagementOrderRoutePage />} />
                     <Route path="/management/flights" element={<ManagementPage />} />
+                    <Route path="/management/flights/:departureId" element={<ManagementOrderRoutePage />} />
                     <Route path="/management/completed" element={<ManagementPage />} />
                 </Route>
             </Routes>

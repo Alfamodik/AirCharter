@@ -133,7 +133,7 @@ export default function ManagementPage() {
 
         try {
             await confirmManagementDepartureContractDocument(departureId);
-            await loadDepartures();
+            navigate("/management/flights");
         } catch {
             setErrorMessage("Не удалось подтвердить подписанный договор.");
         } finally {
@@ -225,7 +225,12 @@ export default function ManagementPage() {
                                                 currentValue === departure.id ? null : departure.id
                                             )
                                         }
-                                        onEditRoute={() => navigate(`/management/orders/${departure.id}`)}
+                                        onEditRoute={() => navigate(`/management/orders/${departure.id}`, {
+                                            state: { backTo: location.pathname }
+                                        })}
+                                        onManageFlight={() => navigate(`/management/flights/${departure.id}`, {
+                                            state: { backTo: location.pathname }
+                                        })}
                                         onApprove={() => handleApprove(departure.id)}
                                         onReject={() => handleReject(departure.id)}
                                         onDownloadContractDocument={() => handleDownloadContractDocument(departure)}
@@ -248,6 +253,7 @@ function ManagementDepartureCard({
     isActionLoading,
     onToggle,
     onEditRoute,
+    onManageFlight,
     onApprove,
     onReject,
     onDownloadContractDocument,
@@ -259,6 +265,7 @@ function ManagementDepartureCard({
     isActionLoading: boolean;
     onToggle: () => void;
     onEditRoute: () => void;
+    onManageFlight: () => void;
     onApprove: () => void;
     onReject: () => void;
     onDownloadContractDocument: () => void;
@@ -361,6 +368,19 @@ function ManagementDepartureCard({
                                     Одобрить
                                 </button>
                             )}
+                        </div>
+                    )}
+
+                    {section === "flights" && (
+                        <div className="management-card-actions">
+                            <button
+                                type="button"
+                                className="management-primary-button"
+                                onClick={onManageFlight}
+                                disabled={isActionLoading}
+                            >
+                                Управление вылетом
+                            </button>
                         </div>
                     )}
                 </div>

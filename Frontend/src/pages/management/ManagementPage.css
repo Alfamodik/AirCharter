@@ -8,26 +8,34 @@
 }
 
 .user-email-label {
+    padding: 0 12px;
     font-size: 14px;
     color: var(--text-secondary);
     word-break: break-all;
 }
 
 .user-role-label {
+    padding: 0 12px;
     font-size: 14px;
     color: var(--text-primary);
     font-weight: 600;
 }
 
 .profile-redirect-btn {
-    color: var(--accent-blue);
+    padding: 10px 12px;
+    border-radius: 8px;
+    color: var(--text-secondary);
     text-decoration: none;
-    font-weight: 600;
     font-size: 15px;
+    font-weight: 600;
+    transition:
+        background-color 0.2s ease,
+        color 0.2s ease;
 }
 
 .profile-redirect-btn:hover {
-    text-decoration: underline;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
 }
 
 .management-nav {
@@ -378,6 +386,10 @@
     box-shadow: 0 22px 70px rgba(0, 0, 0, 0.42);
 }
 
+.management-confirm-modal {
+    width: min(520px, 100%);
+}
+
 .management-passenger-modal-header {
     display: flex;
     justify-content: space-between;
@@ -438,6 +450,27 @@
     margin-top: 14px;
 }
 
+.management-confirm-summary {
+    display: grid;
+    grid-template-columns: minmax(120px, 0.7fr) minmax(0, 1fr);
+    gap: 10px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 12px;
+}
+
+.management-confirm-summary span {
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.management-confirm-summary strong {
+    color: var(--text-primary);
+    font-size: 14px;
+    overflow-wrap: anywhere;
+}
+
 .management-card-actions {
     display: flex;
     flex-wrap: wrap;
@@ -465,6 +498,11 @@
     border: none;
     background: var(--accent-blue);
     color: var(--text-primary);
+}
+
+.management-primary-button.management-complete-flight-button {
+    background: #40c057;
+    color: #ffffff;
 }
 
 .management-danger-button {
@@ -713,6 +751,13 @@
     font-size: 13px;
 }
 
+.management-flight-customer {
+    display: block;
+    margin-top: 6px;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
 .management-flight-overview-side {
     min-width: 220px;
     display: flex;
@@ -724,6 +769,110 @@
 .management-flight-overview-side strong {
     color: var(--text-primary);
     font-size: 22px;
+}
+
+.management-flight-operation-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 10px;
+}
+
+.management-flight-operation-panel {
+    min-height: 108px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.management-flight-operation-panel span {
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.management-flight-operation-panel strong {
+    color: var(--text-primary);
+    font-size: 18px;
+    overflow-wrap: anywhere;
+}
+
+.management-flight-operation-panel p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.35;
+}
+
+.management-flight-operation-panel .management-flight-operation-route {
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.management-flight-timeline {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.management-flight-timeline-row {
+    display: grid;
+    grid-template-columns: minmax(120px, 0.45fr) minmax(180px, 0.8fr) minmax(240px, 1.4fr);
+    gap: 14px;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.management-flight-timeline-row:last-child {
+    border-bottom: none;
+}
+
+.management-flight-timeline-row.current {
+    border-color: rgba(0, 123, 255, 0.45);
+    background: rgba(0, 123, 255, 0.12);
+}
+
+.management-flight-timeline-row.current .management-flight-timeline-time,
+.management-flight-timeline-row.current .management-flight-timeline-title {
+    color: var(--accent-blue);
+}
+
+.management-flight-timeline-row.calculated {
+    border-color: rgba(77, 191, 128, 0.38);
+    background: rgba(77, 191, 128, 0.1);
+}
+
+.management-flight-timeline-row.calculated .management-flight-timeline-time,
+.management-flight-timeline-row.calculated .management-flight-timeline-title {
+    color: #9be7b3;
+}
+
+.management-flight-timeline-time {
+    color: var(--text-secondary);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.management-flight-timeline-title {
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.management-flight-timeline-detail {
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+}
+
+.management-flight-status-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
 }
 
 .management-print-actions {
