@@ -60,7 +60,7 @@ function Stop-PreviousApi {
 
     Get-Process -Name "AirCharter.API" -ErrorAction SilentlyContinue | ForEach-Object {
         Write-Host "Stopping old AirCharter.API.exe process: $($_.Id)"
-        Stop-Process -Id $_.Id -Force
+        Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
     }
 }
 

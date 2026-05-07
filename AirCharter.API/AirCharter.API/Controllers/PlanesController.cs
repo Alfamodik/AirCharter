@@ -28,6 +28,7 @@ namespace AirCharter.API.Controllers
                     FlightCost = 0,
                     NumberOfTransfers = 0,
                     ImageBase64 = plane.Image == null ? null : Convert.ToBase64String(plane.Image),
+                    AirlineName = plane.Airline.AirlineName,
                     AirlineImageBase64 = plane.Airline.Image == null
                         ? null
                         : Convert.ToBase64String(plane.Airline.Image)

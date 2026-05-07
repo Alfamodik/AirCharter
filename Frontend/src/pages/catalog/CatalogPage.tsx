@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useUser } from "../../context/UserContext";
 import InputField from "../../components/inputField/InputField";
@@ -39,6 +39,70 @@ const formatFlightTime = (timeString: string | undefined): string => {
     return formattedResult.trim();
 };
 
+const maxFuzzyWordDistance = 2;
+
+function normalizeSearchText(value: string | undefined): string {
+    return (value || "").trim().toLowerCase();
+}
+
+function fuzzyIncludes(target: string | undefined, query: string): boolean {
+    const normalizedQuery = normalizeSearchText(query);
+
+    if (normalizedQuery === "") {
+        return true;
+    }
+
+    const normalizedTarget = normalizeSearchText(target);
+
+    if (normalizedTarget.includes(normalizedQuery)) {
+        return true;
+    }
+
+    const targetWords = normalizedTarget.split(/\s+/).filter(Boolean);
+    const queryWords = normalizedQuery.split(/\s+/).filter(Boolean);
+
+    return queryWords.every((queryWord) =>
+        targetWords.some((targetWord) =>
+            targetWord.includes(queryWord) ||
+            queryWord.includes(targetWord) ||
+            levenshteinDistance(targetWord, queryWord) <= maxFuzzyWordDistance
+        )
+    );
+}
+
+function levenshteinDistance(source: string, target: string): number {
+    if (source.length === 0) {
+        return target.length;
+    }
+
+    if (target.length === 0) {
+        return source.length;
+    }
+
+    const matrix = Array.from({ length: source.length + 1 }, () => new Array<number>(target.length + 1).fill(0));
+
+    for (let sourceIndex = 0; sourceIndex <= source.length; sourceIndex++) {
+        matrix[sourceIndex][0] = sourceIndex;
+    }
+
+    for (let targetIndex = 0; targetIndex <= target.length; targetIndex++) {
+        matrix[0][targetIndex] = targetIndex;
+    }
+
+    for (let sourceIndex = 1; sourceIndex <= source.length; sourceIndex++) {
+        for (let targetIndex = 1; targetIndex <= target.length; targetIndex++) {
+            const cost = source[sourceIndex - 1] === target[targetIndex - 1] ? 0 : 1;
+            matrix[sourceIndex][targetIndex] = Math.min(
+                matrix[sourceIndex - 1][targetIndex] + 1,
+                matrix[sourceIndex][targetIndex - 1] + 1,
+                matrix[sourceIndex - 1][targetIndex - 1] + cost
+            );
+        }
+    }
+
+    return matrix[source.length][target.length];
+}
+
 export default function CatalogPage() {
     const navigate = useNavigate();
     const { user } = useUser();
@@ -48,6 +112,8 @@ export default function CatalogPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [isAirlineDropdownOpen, setIsAirlineDropdownOpen] = useState(false);
+    const airlineFilterRef = useRef<HTMLDivElement>(null);
 
     const takeOffAirportId = searchParameters.get("from") || "";
     const landingAirportId = searchParameters.get("to") || "";
@@ -56,6 +122,7 @@ export default function CatalogPage() {
 
     const [searchValue, setSearchValue] = useState(searchParameters.get("search") || "");
     const [modelNameFilter, setModelNameFilter] = useState(searchParameters.get("model") || "");
+    const [airlineNameFilter, setAirlineNameFilter] = useState(searchParameters.get("airline") || "");
     const [minimumPassengerCapacityFilter, setMinimumPassengerCapacityFilter] = useState(searchParameters.get("minPassengers") || "");
     const [minimumMaxDistanceFilter, setMinimumMaxDistanceFilter] = useState(searchParameters.get("minDistance") || "");
     const [maximumTransfersFilter, setMaximumTransfersFilter] = useState(searchParameters.get("maxTransfers") || "");
@@ -77,6 +144,17 @@ export default function CatalogPage() {
     useEffect(() => {
         fetchPlanesData();
     }, [takeOffAirportId, landingAirportId, isRouteActive]);
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (airlineFilterRef.current && !airlineFilterRef.current.contains(event.target as Node)) {
+                setIsAirlineDropdownOpen(false);
+            }
+        }
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     async function fetchPlanesData() {
         setIsLoading(true);
@@ -128,6 +206,7 @@ export default function CatalogPage() {
         return planes.filter((plane) => {
             const matchesSearch = plane.modelName.toLowerCase().includes(searchValue.toLowerCase());
             const matchesModel = plane.modelName.toLowerCase().includes(modelNameFilter.toLowerCase());
+            const matchesAirline = fuzzyIncludes(plane.airlineName, airlineNameFilter);
             const matchesCapacity =
                 !minimumPassengerCapacityFilter || plane.passengerCapacity >= Number(minimumPassengerCapacityFilter);
             const matchesDistance =
@@ -136,16 +215,31 @@ export default function CatalogPage() {
                 !maximumTransfersFilter ||
                 (plane.numberOfTransfers !== undefined && plane.numberOfTransfers <= Number(maximumTransfersFilter));
 
-            return matchesSearch && matchesModel && matchesCapacity && matchesDistance && matchesTransfers;
+            return matchesSearch && matchesModel && matchesAirline && matchesCapacity && matchesDistance && matchesTransfers;
         });
     }, [
         planes,
         searchValue,
         modelNameFilter,
+        airlineNameFilter,
         minimumPassengerCapacityFilter,
         minimumMaxDistanceFilter,
         maximumTransfersFilter
     ]);
+
+    const airlineSuggestions = useMemo(() => {
+        const airlineNames = Array.from(
+            new Set(planes.map((plane) => plane.airlineName).filter((airlineName) => airlineName.trim() !== ""))
+        ).sort((firstAirlineName, secondAirlineName) => firstAirlineName.localeCompare(secondAirlineName));
+
+        if (airlineNameFilter.trim() === "") {
+            return airlineNames.slice(0, 5);
+        }
+
+        return airlineNames
+            .filter((airlineName) => fuzzyIncludes(airlineName, airlineNameFilter))
+            .slice(0, 5);
+    }, [planes, airlineNameFilter]);
 
     function handleOrderNavigation(plane: PlaneCatalogResponse) {
         if (!user) {
@@ -191,6 +285,7 @@ export default function CatalogPage() {
     function resetAllFilters() {
         setSearchValue("");
         setModelNameFilter("");
+        setAirlineNameFilter("");
         setMinimumPassengerCapacityFilter("");
         setMinimumMaxDistanceFilter("");
         setMaximumTransfersFilter("");
@@ -257,6 +352,40 @@ export default function CatalogPage() {
                                     updateSearchParameters({ model: value });
                                 }}
                             />
+                            <div className="airport-search-container" ref={airlineFilterRef}>
+                                <InputField
+                                    label="Авиакомпания"
+                                    value={airlineNameFilter}
+                                    onChange={(value) => {
+                                        setAirlineNameFilter(value);
+                                        updateSearchParameters({ airline: value });
+                                        setIsAirlineDropdownOpen(true);
+                                    }}
+                                    onFocus={() => {
+                                        if (airlineSuggestions.length > 0) {
+                                            setIsAirlineDropdownOpen(true);
+                                        }
+                                    }}
+                                    autoComplete="off"
+                                />
+
+                                {isAirlineDropdownOpen && airlineSuggestions.length > 0 && (
+                                    <ul className="airport-dropdown">
+                                        {airlineSuggestions.map((airlineName) => (
+                                            <li
+                                                key={airlineName}
+                                                onClick={() => {
+                                                    setAirlineNameFilter(airlineName);
+                                                    updateSearchParameters({ airline: airlineName });
+                                                    setIsAirlineDropdownOpen(false);
+                                                }}
+                                            >
+                                                <span className="airport-name">{airlineName}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
                             <InputField
                                 label="Минимум мест"
                                 value={minimumPassengerCapacityFilter}

@@ -127,6 +127,17 @@ export async function saveManagementDepartureRoute(
     );
 }
 
+export async function updateManagementDepartureTakeOffDateTime(
+    departureId: number,
+    requestedTakeOffDateTime: string
+): Promise<void> {
+    await sendRequest<void>(
+        `/departures/management/${departureId}/take-off-date-time`,
+        "POST",
+        { requestedTakeOffDateTime }
+    );
+}
+
 export async function previewManagementDepartureRoute(
     departureId: number,
     request: UpdateDepartureRouteRequest,

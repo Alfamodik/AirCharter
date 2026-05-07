@@ -18,8 +18,10 @@ type OrderNavigationState = {
 
 const catalogPagePath = "/";
 
-function getTodayLocalDateString(): string {
+function getTomorrowLocalDateString(): string {
     const currentDate = new Date();
+    currentDate.setDate(currentDate.getDate() + 1);
+
     const year = currentDate.getFullYear();
     const month = String(currentDate.getMonth() + 1).padStart(2, "0");
     const day = String(currentDate.getDate()).padStart(2, "0");
@@ -163,7 +165,7 @@ export default function OrderPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isCalculatingFlight, setIsCalculatingFlight] = useState(false);
 
-    const minimumDate = getTodayLocalDateString();
+    const minimumDate = getTomorrowLocalDateString();
 
     const heroImageUrl = planeImageBase64
         ? `data:image/jpeg;base64,${planeImageBase64}`
@@ -287,6 +289,11 @@ export default function OrderPage() {
         try {
             const requestedTakeOffDateTime =
                 `${orderFormData.departureDate}T${orderFormData.departureTime}:00`;
+
+            if (orderFormData.departureDate < minimumDate) {
+                setStatusMessage({ text: "Дата вылета должна быть не раньше завтрашнего дня", type: "error" });
+                return;
+            }
 
             await createOrder({
                 planeId,

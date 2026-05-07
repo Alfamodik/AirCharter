@@ -30,5 +30,7 @@ public sealed class PlaneCatalogResponse
 
     public string? ImageBase64 { get; set; }
 
+    public string AirlineName { get; set; } = string.Empty;
+
     public string? AirlineImageBase64 { get; set; }
 }

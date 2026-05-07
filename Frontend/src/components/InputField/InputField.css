@@ -45,8 +45,10 @@ input:-webkit-autofill:focus {
     transition: background-color 5000s ease-in-out 0s;
 }
 
-input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: invert(0.8);
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: brightness(0) invert(1);
     cursor: pointer;
 }
 

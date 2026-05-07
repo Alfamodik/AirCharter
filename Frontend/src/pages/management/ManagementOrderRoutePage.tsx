@@ -4,6 +4,7 @@ import { YMaps, Map, Placemark, Polyline } from "@pbe/react-yandex-maps";
 import Header from "../../components/header/Header";
 import AirportSearch from "../../components/airportSearch/AirportSearch";
 import {
+    approveManagementDeparture,
     approveManagementDepartureRoute,
     confirmManagementDepartureContractDocument,
     deleteLatestManagementDepartureStatus,
@@ -12,6 +13,7 @@ import {
     previewManagementDepartureRoute,
     rejectManagementDeparture,
     saveManagementDepartureRoute,
+    updateManagementDepartureTakeOffDateTime,
     updateManagementDepartureStatus,
     type ManagementRouteCandidateResponse,
     type ManagementRoutePreviewLegResponse,
@@ -21,6 +23,7 @@ import {
 import { hasManagementAccess } from "../../api/utils/roleAccess";
 import {
     addUserDeparturePassenger,
+    deleteUserDeparture,
     getUserDeparture,
     getUserRouteCandidates,
     previewUserDepartureRoute,
@@ -149,6 +152,7 @@ export default function ManagementOrderRoutePage({
     const [isPassengerModalOpen, setIsPassengerModalOpen] = useState(false);
     const [editingPassenger, setEditingPassenger] = useState<ManagementPassengerResponse | null>(null);
     const [passengerForm, setPassengerForm] = useState<ProfileFormData>(emptyPassengerForm);
+    const [pendingPassengers, setPendingPassengers] = useState<ManagementPassengerResponse[]>([]);
     const [errorMessage, setErrorMessage] = useState("");
     const [requestedTakeOffInput, setRequestedTakeOffInput] = useState("");
     const [mapInstance, setMapInstance] = useState<YandexMapInstance | null>(null);
@@ -156,6 +160,7 @@ export default function ManagementOrderRoutePage({
     const [routeChooserElement, setRouteChooserElement] = useState<HTMLDivElement | null>(null);
     const [expandedSections, setExpandedSections] = useState<Set<DepartureSectionKey>>(() => new Set(["operations"]));
     const [pendingCompletionStatus, setPendingCompletionStatus] = useState<PendingManagementStatusChange | null>(null);
+    const [isDeleteDepartureConfirmOpen, setIsDeleteDepartureConfirmOpen] = useState(false);
     const isFlightManagementPage = mode === "management" && location.pathname.includes("/management/flights/");
 
     const invalidSameAirportLegIndexes = useMemo(() => {
@@ -200,17 +205,54 @@ export default function ManagementOrderRoutePage({
     const hasTakeOffDateTimeChanges = departure !== null &&
         requestedTakeOffInput.trim() !== "" &&
         requestedTakeOffInput !== formatDateTimeLocalInput(departure.requestedTakeOffDateTime);
+    const isRequestedTakeOffTooEarly = requestedTakeOffInput.trim() !== "" &&
+        requestedTakeOffInput < getTomorrowStartDateTimeLocalInput();
+    const requestedTakeOffDateTimeError = isRequestedTakeOffTooEarly
+        ? "Дата и время вылета должны быть не раньше завтрашнего дня."
+        : "";
+    const passengerIdsToAdd = useMemo(() => {
+        if (departure === null || mode !== "client") {
+            return [];
+        }
+
+        const savedPassengerIds = new Set(departure.passengers.map((passenger) => passenger.id));
+        return pendingPassengers
+            .map((passenger) => passenger.id)
+            .filter((passengerId) => !savedPassengerIds.has(passengerId));
+    }, [departure, mode, pendingPassengers]);
+    const passengerIdsToRemove = useMemo(() => {
+        if (departure === null || mode !== "client") {
+            return [];
+        }
+
+        const pendingPassengerIds = new Set(pendingPassengers.map((passenger) => passenger.id));
+        return departure.passengers
+            .map((passenger) => passenger.id)
+            .filter((passengerId) => !pendingPassengerIds.has(passengerId));
+    }, [departure, mode, pendingPassengers]);
+    const hasPassengerChanges = passengerIdsToAdd.length > 0 || passengerIdsToRemove.length > 0;
+    const hasUnsavedDepartureChanges = hasRouteChanges || hasTakeOffDateTimeChanges || hasPassengerChanges;
+    const unsavedDepartureChangesMessage = hasUnsavedDepartureChanges
+        ? "Есть несохраненные изменения. Нажмите «Сохранить», чтобы применить их."
+        : "";
     const canDownloadContractTemplate = departure !== null &&
         (
             departure.canEditRoute ||
             departure.currentStatusId === 19
         );
-    const canSaveRouteOrTakeOffDateTime = departure !== null &&
+    const canSaveDepartureChanges = departure !== null &&
         departure.canEditRoute &&
+        hasUnsavedDepartureChanges;
+    const canDeleteDeparture = departure !== null &&
+        mode === "client" &&
+        (departure.canDelete || departure.currentStatusId === 1 || departure.currentStatusId === 2);
+    const canApproveDeparture = departure !== null &&
+        mode === "management" &&
+        departure.canApprove &&
+        !isRequestedTakeOffTooEarly &&
         (
-            hasTakeOffDateTimeChanges ||
+            !hasRouteChanges ||
             (
-                hasRouteChanges &&
                 routeRequest !== null &&
                 routePreview?.canFly === true
             )
@@ -238,6 +280,7 @@ export default function ManagementOrderRoutePage({
                     : await getUserDeparture(parsedDepartureId, abortController.signal);
 
                 setDeparture(response);
+                setPendingPassengers(response.passengers);
                 setRequestedTakeOffInput(formatDateTimeLocalInput(response.requestedTakeOffDateTime));
                 setRoutePoints(createInitialRoutePoints(response));
                 setGroundTimesMinutes(createInitialGroundTimes(response));
@@ -522,7 +565,58 @@ export default function ManagementOrderRoutePage({
         }
     }
 
+    async function handleDeleteDeparture() {
+        if (!canDeleteDeparture || departure === null) {
+            return;
+        }
+
+        setIsActionLoading(true);
+        setErrorMessage("");
+
+        try {
+            await deleteUserDeparture(departure.id);
+            navigate("/cabinet");
+        } catch (error: unknown) {
+            setErrorMessage(getApiErrorMessage(
+                error,
+                "Не удалось удалить заявку. Удаление доступно только для статусов создания и ожидания одобрения."
+            ));
+        } finally {
+            setIsActionLoading(false);
+            setIsDeleteDepartureConfirmOpen(false);
+        }
+    }
+
     async function handleApprove() {
+        if (departure === null || mode !== "management" || !departure.canApprove) {
+            return;
+        }
+
+        if (isRequestedTakeOffTooEarly) {
+            setErrorMessage("Дата и время вылета должны быть не раньше завтрашнего дня.");
+            return;
+        }
+
+        if (!hasRouteChanges) {
+            setIsActionLoading(true);
+            setErrorMessage("");
+
+            try {
+                if (hasTakeOffDateTimeChanges) {
+                    await updateManagementDepartureTakeOffDateTime(parsedDepartureId, `${requestedTakeOffInput}:00`);
+                }
+
+                await approveManagementDeparture(parsedDepartureId);
+                navigate("/management/orders");
+            } catch {
+                setErrorMessage("Не удалось одобрить заявку.");
+            } finally {
+                setIsActionLoading(false);
+            }
+
+            return;
+        }
+
         if (invalidSameAirportLegIndexes.size > 0) {
             setErrorMessage("Соседние аэропорты в маршруте не должны совпадать.");
             return;
@@ -547,6 +641,10 @@ export default function ManagementOrderRoutePage({
         setErrorMessage("");
 
         try {
+            if (hasTakeOffDateTimeChanges) {
+                await updateManagementDepartureTakeOffDateTime(parsedDepartureId, `${requestedTakeOffInput}:00`);
+            }
+
             await approveManagementDepartureRoute(parsedDepartureId, routeRequest);
             navigate("/management/orders");
         } catch {
@@ -557,7 +655,12 @@ export default function ManagementOrderRoutePage({
     }
 
     async function handleSaveRoute() {
-        if (!hasRouteChanges && !hasTakeOffDateTimeChanges) {
+        if (!hasUnsavedDepartureChanges) {
+            return;
+        }
+
+        if (isRequestedTakeOffTooEarly) {
+            setErrorMessage("Дата и время вылета должны быть не раньше завтрашнего дня.");
             return;
         }
 
@@ -593,8 +696,22 @@ export default function ManagementOrderRoutePage({
                 }
             }
 
-            if (mode === "client" && hasTakeOffDateTimeChanges) {
-                await updateUserDepartureTakeOffDateTime(parsedDepartureId, `${requestedTakeOffInput}:00`);
+            if (hasTakeOffDateTimeChanges) {
+                if (mode === "management") {
+                    await updateManagementDepartureTakeOffDateTime(parsedDepartureId, `${requestedTakeOffInput}:00`);
+                } else {
+                    await updateUserDepartureTakeOffDateTime(parsedDepartureId, `${requestedTakeOffInput}:00`);
+                }
+            }
+
+            if (mode === "client" && hasPassengerChanges) {
+                for (const passengerId of passengerIdsToRemove) {
+                    await removeUserDeparturePassenger(parsedDepartureId, passengerId);
+                }
+
+                for (const passengerId of passengerIdsToAdd) {
+                    await addUserDeparturePassenger(parsedDepartureId, passengerId);
+                }
             }
 
             const response = mode === "management"
@@ -602,6 +719,7 @@ export default function ManagementOrderRoutePage({
                 : await getUserDeparture(parsedDepartureId);
 
             setDeparture(response);
+            setPendingPassengers(response.passengers);
             setRequestedTakeOffInput(formatDateTimeLocalInput(response.requestedTakeOffDateTime));
             setRoutePoints(createInitialRoutePoints(response));
             setGroundTimesMinutes(createInitialGroundTimes(response));
@@ -621,6 +739,16 @@ export default function ManagementOrderRoutePage({
             return;
         }
 
+        if (pendingPassengers.length <= 0) {
+            setErrorMessage("Добавьте хотя бы одного пассажира перед отправкой заявки.");
+            return;
+        }
+
+        if (isRequestedTakeOffTooEarly) {
+            setErrorMessage("Дата и время вылета должны быть не раньше завтрашнего дня.");
+            return;
+        }
+
         if (invalidSameAirportLegIndexes.size > 0) {
             setErrorMessage("Соседние аэропорты в маршруте не должны совпадать.");
             return;
@@ -631,12 +759,12 @@ export default function ManagementOrderRoutePage({
             return;
         }
 
-        if (routePreview === null) {
+        if (hasRouteChanges && routePreview === null) {
             setErrorMessage("Дождитесь проверки маршрута.");
             return;
         }
 
-        if (!routePreview.canFly) {
+        if (hasRouteChanges && !routePreview?.canFly) {
             setErrorMessage("В маршруте есть плечо, которое самолёт не может пройти с безопасным запасом.");
             return;
         }
@@ -645,17 +773,35 @@ export default function ManagementOrderRoutePage({
         setErrorMessage("");
 
         try {
-            await saveUserDepartureRoute(departure.id, routeRequest);
+            if (hasRouteChanges) {
+                await saveUserDepartureRoute(departure.id, routeRequest);
+            }
+
+            if (hasTakeOffDateTimeChanges) {
+                await updateUserDepartureTakeOffDateTime(departure.id, `${requestedTakeOffInput}:00`);
+            }
+
+            if (hasPassengerChanges) {
+                for (const passengerId of passengerIdsToRemove) {
+                    await removeUserDeparturePassenger(departure.id, passengerId);
+                }
+
+                for (const passengerId of passengerIdsToAdd) {
+                    await addUserDeparturePassenger(departure.id, passengerId);
+                }
+            }
+
             await submitUserDeparture(departure.id);
 
             const response = await getUserDeparture(departure.id);
             setDeparture(response);
+            setPendingPassengers(response.passengers);
             setRequestedTakeOffInput(formatDateTimeLocalInput(response.requestedTakeOffDateTime));
             setRoutePoints(createInitialRoutePoints(response));
             setGroundTimesMinutes(createInitialGroundTimes(response));
             setRoutePreview(null);
-        } catch {
-            setErrorMessage("Не удалось отправить заявку.");
+        } catch (error: unknown) {
+            setErrorMessage(getApiErrorMessage(error, "Не удалось отправить заявку."));
         } finally {
             setIsActionLoading(false);
         }
@@ -885,46 +1031,40 @@ export default function ManagementOrderRoutePage({
             : await getUserDeparture(parsedDepartureId);
 
         setDeparture(response);
+        setPendingPassengers(response.passengers);
         setRequestedTakeOffInput(formatDateTimeLocalInput(response.requestedTakeOffDateTime));
         setRoutePoints(createInitialRoutePoints(response));
         setGroundTimesMinutes(createInitialGroundTimes(response));
         setRoutePreview(null);
     }
 
-    async function handleAddPassenger(passenger: PassengerSearchResponse) {
+    function handleAddPassenger(passenger: PassengerSearchResponse) {
         if (departure === null || mode !== "client" || !departure.canEditRoute) {
             return;
         }
 
-        setIsPassengerActionLoading(true);
         setErrorMessage("");
+        setPendingPassengers((currentPassengers) => {
+            if (
+                currentPassengers.some((currentPassenger) => currentPassenger.id === passenger.id) ||
+                currentPassengers.length >= departure.planePassengerCapacity
+            ) {
+                return currentPassengers;
+            }
 
-        try {
-            await addUserDeparturePassenger(parsedDepartureId, passenger.id);
-            await refreshDeparture();
-        } catch {
-            setErrorMessage("Не удалось добавить пассажира.");
-        } finally {
-            setIsPassengerActionLoading(false);
-        }
+            return [...currentPassengers, passenger];
+        });
     }
 
-    async function handleRemovePassenger(personId: number) {
+    function handleRemovePassenger(personId: number) {
         if (departure === null || mode !== "client" || !departure.canEditRoute) {
             return;
         }
 
-        setIsPassengerActionLoading(true);
         setErrorMessage("");
-
-        try {
-            await removeUserDeparturePassenger(parsedDepartureId, personId);
-            await refreshDeparture();
-        } catch {
-            setErrorMessage("Не удалось удалить пассажира.");
-        } finally {
-            setIsPassengerActionLoading(false);
-        }
+        setPendingPassengers((currentPassengers) =>
+            currentPassengers.filter((passenger) => passenger.id !== personId)
+        );
     }
 
     function updatePassengerFormField(field: keyof ProfileFormData, value: string) {
@@ -952,8 +1092,13 @@ export default function ManagementOrderRoutePage({
                 birthDate: passengerForm.birthDate || null
             });
 
-            await addUserDeparturePassenger(parsedDepartureId, passenger.id);
-            await refreshDeparture();
+            setPendingPassengers((currentPassengers) => {
+                if (currentPassengers.length >= departure.planePassengerCapacity) {
+                    return currentPassengers;
+                }
+
+                return [...currentPassengers, passenger];
+            });
             setPassengerForm(emptyPassengerForm);
             setIsPassengerModalOpen(false);
         } catch {
@@ -1023,7 +1168,7 @@ export default function ManagementOrderRoutePage({
 
     const canEditPassengers = mode === "client" && departure?.canEditRoute === true;
     const hasFreePassengerSeat = departure !== null &&
-        departure.passengerCount < departure.planePassengerCapacity;
+        pendingPassengers.length < departure.planePassengerCapacity;
     const backTarget = getBackTarget(location.state, location.pathname, mode);
 
     function toggleSection(sectionKey: DepartureSectionKey) {
@@ -1127,7 +1272,14 @@ export default function ManagementOrderRoutePage({
     }
 
     function renderFlightOverview(currentDeparture: ManagementDepartureResponse) {
-        const canEditTakeOffDateTime = mode === "client" && currentDeparture.canEditRoute;
+        const canEditTakeOffDateTime = currentDeparture.canEditRoute &&
+            (
+                mode === "client" ||
+                (mode === "management" && currentDeparture.currentStatusId === 2)
+            );
+        const isTakeOffDateTimeWarning = canEditTakeOffDateTime
+            ? isRequestedTakeOffTooEarly
+            : formatDateTimeLocalInput(currentDeparture.requestedTakeOffDateTime) < getTomorrowStartDateTimeLocalInput();
 
         return (
             <section className="management-card management-flight-overview">
@@ -1187,10 +1339,16 @@ export default function ManagementOrderRoutePage({
                             <EditableInfoCell
                                 label="Дата и время вылета"
                                 value={requestedTakeOffInput}
+                                min={getTomorrowStartDateTimeLocalInput()}
+                                isWarning={isTakeOffDateTimeWarning}
                                 onChange={setRequestedTakeOffInput}
                             />
                         ) : (
-                            <InfoCell label="Дата и время вылета" value={formatDateTime(currentDeparture.requestedTakeOffDateTime)} />
+                            <InfoCell
+                                label="Дата и время вылета"
+                                value={formatDateTime(currentDeparture.requestedTakeOffDateTime)}
+                                isWarning={isTakeOffDateTimeWarning}
+                            />
                         )}
                         <InfoCell label="Дата и время прибытия" value={formatDateTime(currentDeparture.arrivalDateTime)} />
                         <InfoCell label="Время в пути" value={formatDuration(summaryFlightTime)} />
@@ -1360,15 +1518,17 @@ export default function ManagementOrderRoutePage({
     }
 
     function renderPassengerSection(currentDeparture: ManagementDepartureResponse) {
+        const displayedPassengers = canEditPassengers ? pendingPassengers : currentDeparture.passengers;
+
         return renderSectionCard(
             "passengers",
             "Пассажиры",
             <>
-                    {currentDeparture.passengers.length === 0 ? (
+                    {displayedPassengers.length === 0 ? (
                         <p className="management-muted-text">Пассажиры не указаны.</p>
                     ) : (
                         <div className="management-passenger-list">
-                            {currentDeparture.passengers.map((passenger) => (
+                            {displayedPassengers.map((passenger) => (
                                 <div key={passenger.id} className="management-passenger-row">
                                     <span>{passenger.fullName}</span>
                                     <span>{passenger.email || "Почта не указана"}</span>
@@ -1401,7 +1561,7 @@ export default function ManagementOrderRoutePage({
                     {canEditPassengers && hasFreePassengerSeat && (
                         <div className="management-passenger-add-row">
                             <PassengerSearchInput
-                                excludedPassengerIds={currentDeparture.passengers.map((passenger) => passenger.id)}
+                                excludedPassengerIds={displayedPassengers.map((passenger) => passenger.id)}
                                 disabled={isPassengerActionLoading}
                                 onSelect={handleAddPassenger}
                             />
@@ -1421,7 +1581,7 @@ export default function ManagementOrderRoutePage({
                         <p className="management-muted-text">Свободных мест в самолёте нет.</p>
                     )}
             </>,
-            <span>{currentDeparture.passengerCount} из {currentDeparture.planePassengerCapacity}</span>
+            <span>{displayedPassengers.length} из {currentDeparture.planePassengerCapacity}</span>
         );
     }
 
@@ -1472,12 +1632,25 @@ export default function ManagementOrderRoutePage({
                             {renderRouteEditor(departure)}
                             {mode === "management" && renderPassengerSection(departure)}
 
-                            {errorMessage !== "" && (
-                                <div className="management-inline-error">{errorMessage}</div>
+                            {(errorMessage !== "" || requestedTakeOffDateTimeError !== "" || unsavedDepartureChangesMessage !== "") && (
+                                <div className={`management-inline-error ${errorMessage === "" && requestedTakeOffDateTimeError === "" ? "warning" : ""}`}>
+                                    {errorMessage || requestedTakeOffDateTimeError || unsavedDepartureChangesMessage}
+                                </div>
                             )}
 
                             <div className="management-route-actions">
-                                {mode === "management" && departure.canEditRoute && (
+                                {canDeleteDeparture && (
+                                    <button
+                                        type="button"
+                                        className="management-danger-button"
+                                        onClick={() => setIsDeleteDepartureConfirmOpen(true)}
+                                        disabled={isActionLoading}
+                                    >
+                                        Удалить заявку
+                                    </button>
+                                )}
+
+                                {mode === "management" && departure.canApprove && (
                                     <button
                                         type="button"
                                         className="management-danger-button"
@@ -1554,7 +1727,7 @@ export default function ManagementOrderRoutePage({
                                     onClick={handleSaveRoute}
                                     disabled={
                                         isActionLoading ||
-                                        !canSaveRouteOrTakeOffDateTime
+                                        !canSaveDepartureChanges
                                     }
                                 >
                                     Сохранить
@@ -1568,25 +1741,21 @@ export default function ManagementOrderRoutePage({
                                         onClick={handleSubmitApplication}
                                         disabled={
                                             isActionLoading ||
-                                            !departure.canEditRoute ||
-                                            routeRequest === null ||
-                                            routePreview?.canFly !== true
+                                            !departure.canEditRoute
                                         }
                                     >
                                         Отправить заявку
                                     </button>
                                 )}
 
-                                {mode === "management" && departure.canEditRoute && (
+                                {mode === "management" && departure.canApprove && (
                                     <button
                                         type="button"
                                         className="management-primary-button"
                                         onClick={handleApprove}
                                         disabled={
                                             isActionLoading ||
-                                            !departure.canApprove ||
-                                            routeRequest === null ||
-                                            routePreview?.canFly !== true
+                                            !canApproveDeparture
                                         }
                                     >
                                         Одобрить
@@ -1623,6 +1792,15 @@ export default function ManagementOrderRoutePage({
                     isLoading={isActionLoading}
                     onClose={() => setPendingCompletionStatus(null)}
                     onConfirm={handleConfirmCompletionStatus}
+                />
+            )}
+
+            {isDeleteDepartureConfirmOpen && departure !== null && (
+                <DeleteDepartureConfirmModal
+                    departure={departure}
+                    isLoading={isActionLoading}
+                    onClose={() => setIsDeleteDepartureConfirmOpen(false)}
+                    onConfirm={handleDeleteDeparture}
                 />
             )}
             </div>
@@ -2243,6 +2421,18 @@ function formatDateTimeLocalInput(value: string): string {
     return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
+function getTomorrowLocalDateInput(): string {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+
+    return formatDateTimeLocalInput(tomorrow.toISOString()).slice(0, 10);
+}
+
+function getTomorrowStartDateTimeLocalInput(): string {
+    return `${getTomorrowLocalDateInput()}T00:00`;
+}
+
 function getRouteStatusClassName(statusId: number): string {
     if (statusId === 17 || statusId === 18) {
         return "rejected";
@@ -2408,6 +2598,70 @@ function FlightCompletionConfirmModal({
                         disabled={isLoading}
                     >
                         Завершить вылет
+                    </button>
+                </div>
+            </section>
+        </div>
+    );
+}
+
+function DeleteDepartureConfirmModal({
+    departure,
+    isLoading,
+    onClose,
+    onConfirm
+}: {
+    departure: ManagementDepartureResponse;
+    isLoading: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+}) {
+    return (
+        <div className="management-modal-backdrop" role="presentation" onMouseDown={onClose}>
+            <section
+                className="management-passenger-modal management-confirm-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="departure-delete-title"
+                onMouseDown={(event) => event.stopPropagation()}
+            >
+                <div className="management-passenger-modal-header">
+                    <div>
+                        <h3 id="departure-delete-title">Удалить заявку?</h3>
+                        <span>{getDepartureRouteTitleFromAirports(departure)}</span>
+                    </div>
+                    <button type="button" onClick={onClose} disabled={isLoading} aria-label="Закрыть">
+                        ×
+                    </button>
+                </div>
+
+                <p className="management-passenger-modal-note">
+                    Заявка будет удалена вместе с маршрутом, пассажирами и историей статусов. Это действие нельзя отменить.
+                </p>
+
+                <div className="management-confirm-summary">
+                    <span>Текущий статус</span>
+                    <strong>{departure.statusName}</strong>
+                    <span>Дата создания</span>
+                    <strong>{formatOptionalDateTime(departure.createdAt)}</strong>
+                </div>
+
+                <div className="management-passenger-modal-actions">
+                    <button
+                        type="button"
+                        className="management-secondary-button"
+                        onClick={onClose}
+                        disabled={isLoading}
+                    >
+                        Отмена
+                    </button>
+                    <button
+                        type="button"
+                        className="management-danger-button"
+                        onClick={onConfirm}
+                        disabled={isLoading}
+                    >
+                        Удалить заявку
                     </button>
                 </div>
             </section>
@@ -3028,11 +3282,11 @@ function ManagementRouteMap({
     );
 }
 
-function InfoCell({ label, value }: { label: string; value: string }) {
+function InfoCell({ label, value, isWarning = false }: { label: string; value: string; isWarning?: boolean }) {
     return (
         <div className="management-info-block">
             <span>{label}</span>
-            <strong>{value}</strong>
+            <strong className={isWarning ? "management-date-warning" : undefined}>{value}</strong>
         </div>
     );
 }
@@ -3040,18 +3294,24 @@ function InfoCell({ label, value }: { label: string; value: string }) {
 function EditableInfoCell({
     label,
     value,
+    min,
+    isWarning = false,
     onChange
 }: {
     label: string;
     value: string;
+    min?: string;
+    isWarning?: boolean;
     onChange: (value: string) => void;
 }) {
     return (
         <label className="management-info-block management-info-block-editable">
             <span>{label}</span>
             <input
+                className={isWarning ? "management-date-warning" : undefined}
                 type="datetime-local"
                 value={value}
+                min={min}
                 onChange={(event) => onChange(event.target.value)}
             />
         </label>

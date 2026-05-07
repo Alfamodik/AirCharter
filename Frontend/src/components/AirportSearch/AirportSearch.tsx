@@ -28,6 +28,12 @@ function buildAirportDisplayName(airport: AirportSearchResponse): string {
     return `${city} (${code})`;
 }
 
+function buildAirportSubtitle(airport: AirportSearchResponse): string {
+    const code = airport.iata || airport.icao;
+
+    return [airport.city, airport.country, code].filter(Boolean).join(", ");
+}
+
 export default function AirportSearch({
     label,
     selectedAirportId,
@@ -120,8 +126,7 @@ export default function AirportSearch({
                         <li key={airport.id} onClick={() => handleSelect(airport)}>
                             <span className="airport-name">{airport.name}</span>
                             <span className="airport-sub">
-                                {airport.city}
-                                {(airport.iata || airport.icao) && `, ${airport.iata || airport.icao}`}
+                                {buildAirportSubtitle(airport)}
                             </span>
                         </li>
                     ))}

@@ -32,6 +32,7 @@ export interface ManagementDepartureResponse {
     canEditRoute: boolean;
     canApprove: boolean;
     canChangeStatus: boolean;
+    canDelete: boolean;
     hasContractDocument: boolean;
     contractDocumentFileName?: string | null;
     contractDocumentUploadedAt?: string | null;

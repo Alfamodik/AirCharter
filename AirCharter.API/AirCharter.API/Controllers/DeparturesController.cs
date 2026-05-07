@@ -57,6 +57,9 @@ namespace AirCharter.API.Controllers
             if (createDepartureRequest.TakeOffAirportId == createDepartureRequest.LandingAirportId)
                 return BadRequest("The landing airport and the take off airport must not be the same.");
 
+            if (IsRequestedTakeOffDateTimeTooEarly(createDepartureRequest.RequestedTakeOffDateTime))
+                return BadRequest("Дата и время вылета должны быть не раньше завтрашнего дня.");
+
             Plane? plane = await _context.Planes
                 .Include(currentPlane => currentPlane.Airline)
                 .FirstOrDefaultAsync(currentPlane => currentPlane.Id == createDepartureRequest.PlaneId, cancellationToken);
@@ -450,6 +453,7 @@ namespace AirCharter.API.Controllers
                         CanEditRoute = canEditByStatus && hasEditAccess,
                         CanApprove = departure.CurrentStatus.StatusId == (int)FlightStatusId.AwaitingApproval && hasEditAccess,
                         CanChangeStatus = IsActiveFlightStatus(departure.CurrentStatus.StatusId) && hasEditAccess,
+                        CanDelete = CanRequesterDeleteDeparture(departure.CurrentStatus.StatusId),
                         HasContractDocument = departure.HasContractDocument,
                         ContractDocumentFileName = departure.ContractDocumentFileName,
                         ContractDocumentUploadedAt = departure.ContractDocumentUploadedAt,
@@ -523,6 +527,55 @@ namespace AirCharter.API.Controllers
                 return NotFound();
 
             return Ok(CreateManagementDepartureResponse(departure, currentStatus));
+        }
+
+        [HttpDelete("my/{departureId:int}")]
+        public async Task<IActionResult> DeleteMyDeparture(
+            int departureId,
+            CancellationToken cancellationToken)
+        {
+            int? userId = GetCurrentUserId();
+
+            if (userId is null)
+                return Unauthorized();
+
+            Departure? departure = await _context.Departures
+                .Include(departure => departure.DepartureStatuses)
+                .Include(departure => departure.DepartureRouteLegs)
+                .FirstOrDefaultAsync(
+                    departure => departure.Id == departureId &&
+                        departure.CharterRequesterId == userId.Value,
+                    cancellationToken);
+
+            if (departure is null)
+                return NotFound();
+
+            DepartureStatus? currentStatus = GetCurrentStatus(departure);
+
+            if (currentStatus is null)
+                return NotFound();
+
+            if (!CanRequesterDeleteDeparture(currentStatus.StatusId))
+                return BadRequest("Заявку можно удалить только в статусе создания или ожидания одобрения.");
+
+            await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+
+            await _context.Database.ExecuteSqlInterpolatedAsync(
+                $"DELETE FROM passenger_departure WHERE departure_id = {departure.Id}",
+                cancellationToken);
+
+            await _context.Database.ExecuteSqlInterpolatedAsync(
+                $"DELETE FROM departure_employees WHERE departure_id = {departure.Id}",
+                cancellationToken);
+
+            _context.DepartureRouteLegs.RemoveRange(departure.DepartureRouteLegs);
+            _context.DepartureStatuses.RemoveRange(departure.DepartureStatuses);
+            _context.Departures.Remove(departure);
+
+            await _context.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            return NoContent();
         }
 
         [HttpPost("my/{departureId:int}/passengers")]
@@ -610,6 +663,9 @@ namespace AirCharter.API.Controllers
             if (departure.DepartureRouteLegs.Count == 0)
                 return BadRequest("Маршрут заявки не рассчитан.");
 
+            if (IsRequestedTakeOffDateTimeTooEarly(departure.RequestedTakeOffDateTime))
+                return BadRequest("Дата и время вылета должны быть не раньше завтрашнего дня.");
+
             AddDepartureStatus(departure, FlightStatusId.AwaitingApproval);
             await _context.SaveChangesAsync(cancellationToken);
 
@@ -633,6 +689,9 @@ namespace AirCharter.API.Controllers
 
             if (currentStatus?.StatusId != (int)FlightStatusId.AwaitingApproval)
                 return BadRequest("Заявку можно одобрить только в статусе ожидания одобрения.");
+
+            if (IsRequestedTakeOffDateTimeTooEarly(departure.RequestedTakeOffDateTime))
+                return BadRequest("Дата и время вылета должны быть не раньше завтрашнего дня.");
 
             AddDepartureStatus(departure, FlightStatusId.AwaitingContractSigning);
             await _context.SaveChangesAsync(cancellationToken);
@@ -658,6 +717,9 @@ namespace AirCharter.API.Controllers
 
             if (currentStatus?.StatusId != (int)FlightStatusId.AwaitingApproval)
                 return BadRequest("Маршрут можно редактировать только до одобрения заявки.");
+
+            if (IsRequestedTakeOffDateTimeTooEarly(departure.RequestedTakeOffDateTime))
+                return BadRequest("Дата и время вылета должны быть не раньше завтрашнего дня.");
 
             ActionResult<ManualRouteCalculation> calculationResult = await TryCalculateManualRouteAsync(
                 departure,
@@ -897,6 +959,35 @@ namespace AirCharter.API.Controllers
                 calculation.RouteAirports));
         }
 
+        [HttpPost("management/{departureId:int}/take-off-date-time")]
+        [Authorize(Roles = ManagementEditorRoles)]
+        public async Task<IActionResult> UpdateManagementDepartureTakeOffDateTime(
+            int departureId,
+            UpdateDepartureTakeOffDateTimeRequest request,
+            CancellationToken cancellationToken)
+        {
+            Departure? departure = await GetEditableManagementDepartureAsync(
+                departureId,
+                cancellationToken);
+
+            if (departure is null)
+                return NotFound();
+
+            DepartureStatus? currentStatus = GetCurrentStatus(departure);
+
+            if (currentStatus?.StatusId != (int)FlightStatusId.AwaitingApproval)
+                return BadRequest("Дату и время вылета можно редактировать только до одобрения заявки.");
+
+            if (IsRequestedTakeOffDateTimeTooEarly(request.RequestedTakeOffDateTime))
+                return BadRequest("Дата и время вылета должны быть не раньше завтрашнего дня.");
+
+            departure.RequestedTakeOffDateTime = request.RequestedTakeOffDateTime;
+
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return NoContent();
+        }
+
         [HttpPost("my/{departureId:int}/route-preview")]
         public async Task<ActionResult<ManagementRoutePreviewResponse>> PreviewMyDepartureRoute(
             int departureId,
@@ -978,6 +1069,9 @@ namespace AirCharter.API.Controllers
 
             if (departure is null)
                 return NotFound();
+
+            if (IsRequestedTakeOffDateTimeTooEarly(request.RequestedTakeOffDateTime))
+                return BadRequest("Дата и время вылета должны быть не раньше завтрашнего дня.");
 
             departure.RequestedTakeOffDateTime = request.RequestedTakeOffDateTime;
 
@@ -1220,6 +1314,7 @@ namespace AirCharter.API.Controllers
                 CanEditRoute = canEditByStatus && hasEditAccess,
                 CanApprove = currentStatus.StatusId == (int)FlightStatusId.AwaitingApproval && hasEditAccess,
                 CanChangeStatus = IsActiveFlightStatus(currentStatus.StatusId) && hasEditAccess,
+                CanDelete = CanRequesterDeleteDeparture(currentStatus.StatusId),
                 HasContractDocument = departure.ContractDocument != null && departure.ContractDocument.Length > 0,
                 ContractDocumentFileName = departure.ContractDocumentFileName,
                 ContractDocumentUploadedAt = departure.ContractDocumentUploadedAt,
@@ -1731,6 +1826,13 @@ namespace AirCharter.API.Controllers
             };
         }
 
+        private static bool CanRequesterDeleteDeparture(int currentStatusId)
+        {
+            return currentStatusId is
+                (int)FlightStatusId.InCreation or
+                (int)FlightStatusId.AwaitingApproval;
+        }
+
         private static bool IsActiveFlightStatus(int currentStatusId)
         {
             return currentStatusId is >= (int)FlightStatusId.Scheduled and <= (int)FlightStatusId.EnRoute
@@ -1940,6 +2042,11 @@ namespace AirCharter.API.Controllers
             return person != null &&
                 !string.IsNullOrWhiteSpace(person.LastName) &&
                 !string.IsNullOrWhiteSpace(person.FirstName);
+        }
+
+        private static bool IsRequestedTakeOffDateTimeTooEarly(DateTime requestedTakeOffDateTime)
+        {
+            return requestedTakeOffDateTime < DateTime.Today.AddDays(1);
         }
 
         private static string? GetPassengerEmail(Person person)

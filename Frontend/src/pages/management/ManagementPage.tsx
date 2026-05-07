@@ -83,6 +83,12 @@ export default function ManagementPage() {
     }, [isUserLoading, loadDepartures, user]);
 
     async function handleApprove(departureId: number) {
+        const departure = departures.find((currentDeparture) => currentDeparture.id === departureId);
+
+        if (departure === undefined || isDateTimeTodayOrEarlier(departure.requestedTakeOffDateTime)) {
+            return;
+        }
+
         setActionDepartureId(departureId);
         setErrorMessage("");
 
@@ -271,6 +277,9 @@ function ManagementDepartureCard({
     onDownloadContractDocument: () => void;
     onConfirmContractDocument: () => void;
 }) {
+    const isTakeOffDateTimeTooEarly = section === "orders" &&
+        isDateTimeTodayOrEarlier(departure.requestedTakeOffDateTime);
+    const canApproveDeparture = departure.canApprove && !isTakeOffDateTimeTooEarly;
     const routeTitle = `${buildAirportLabel(
         departure.takeOffAirportCity,
         departure.takeOffAirportName,
@@ -299,7 +308,9 @@ function ManagementDepartureCard({
 
                 <span className="management-card-date">
                     <span className="management-card-label">Вылет</span>
-                    <span>{formatDateTime(departure.requestedTakeOffDateTime)}</span>
+                    <span className={isTakeOffDateTimeTooEarly ? "management-date-warning" : undefined}>
+                        {formatDateTime(departure.requestedTakeOffDateTime)}
+                    </span>
                 </span>
 
                 <span className="management-card-status">
@@ -363,7 +374,7 @@ function ManagementDepartureCard({
                                     type="button"
                                     className="management-primary-button"
                                     onClick={onApprove}
-                                    disabled={isActionLoading || !departure.canApprove}
+                                    disabled={isActionLoading || !canApproveDeparture}
                                 >
                                     Одобрить
                                 </button>
@@ -625,6 +636,15 @@ export function formatOptionalDateTime(value?: string | null): string {
     }
 
     return formatDateTime(value);
+}
+
+function isDateTimeTodayOrEarlier(value: string): boolean {
+    const date = new Date(value);
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+
+    return date < tomorrow;
 }
 
 export function formatDuration(value: string): string {

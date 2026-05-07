@@ -352,6 +352,7 @@ public sealed class RoutePlanningService
             RouteAirports = routePlan.RouteAirports,
             RouteLegs = routeLegs,
             ImageBase64 = ConvertImageToBase64(plane.Image),
+            AirlineName = plane.Airline?.AirlineName ?? string.Empty,
             AirlineImageBase64 = ConvertImageToBase64(plane.Airline?.Image)
         };
     }
@@ -421,6 +422,7 @@ public sealed class RoutePlanningService
             RouteAirports = Array.Empty<AirportSearchResponse>(),
             RouteLegs = Array.Empty<RouteLegResponse>(),
             ImageBase64 = ConvertImageToBase64(plane.Image),
+            AirlineName = plane.Airline?.AirlineName ?? string.Empty,
             AirlineImageBase64 = ConvertImageToBase64(plane.Airline?.Image)
         };
     }

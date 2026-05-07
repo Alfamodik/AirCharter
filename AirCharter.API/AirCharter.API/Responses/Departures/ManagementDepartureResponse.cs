@@ -71,6 +71,8 @@ namespace AirCharter.API.Responses.Departures
 
         public bool CanChangeStatus { get; set; }
 
+        public bool CanDelete { get; set; }
+
         public bool HasContractDocument { get; set; }
 
         public string? ContractDocumentFileName { get; set; }

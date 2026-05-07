@@ -93,6 +93,13 @@ export async function submitUserDeparture(departureId: number): Promise<void> {
     );
 }
 
+export async function deleteUserDeparture(departureId: number): Promise<void> {
+    await sendRequest<void>(
+        `/departures/my/${departureId}`,
+        "DELETE"
+    );
+}
+
 export async function downloadUserDepartureTicket(departureId: number): Promise<Blob> {
     return await sendBlobRequest(
         `/departures/${departureId}/ticket`,
