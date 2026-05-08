@@ -317,7 +317,15 @@ export default function CatalogPage() {
 
         return Array.from(airlineCounts.entries())
             .map(([name, count]) => ({ name, count }))
-            .sort((firstAirline, secondAirline) => firstAirline.name.localeCompare(secondAirline.name));
+            .sort((firstAirline, secondAirline) => {
+                const countComparison = secondAirline.count - firstAirline.count;
+
+                if (countComparison !== 0) {
+                    return countComparison;
+                }
+
+                return firstAirline.name.localeCompare(secondAirline.name);
+            });
     }, [planes]);
 
     const filteredAirlineOptions = useMemo(() => {
