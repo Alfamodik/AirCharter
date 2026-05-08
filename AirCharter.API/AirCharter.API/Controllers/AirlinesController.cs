@@ -104,6 +104,11 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
             PassengerArrivalMinutesBeforeFlight = request.PassengerArrivalMinutesBeforeFlight
         };
 
+        string? profileValidationError = AirlineProfileCompleteness.Validate(airline);
+
+        if (profileValidationError is not null)
+            return BadRequest(profileValidationError);
+
         _context.Airlines.Add(airline);
         await _context.SaveChangesAsync(cancellationToken);
 
@@ -216,6 +221,11 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
         airline.PaymentDeadlineDays = request.PaymentDeadlineDays;
         airline.CateringClass = NormalizeOptionalString(request.CateringClass);
         airline.PassengerArrivalMinutesBeforeFlight = request.PassengerArrivalMinutesBeforeFlight;
+
+        string? profileValidationError = AirlineProfileCompleteness.Validate(airline);
+
+        if (profileValidationError is not null)
+            return BadRequest(profileValidationError);
 
         await _context.SaveChangesAsync(cancellationToken);
 

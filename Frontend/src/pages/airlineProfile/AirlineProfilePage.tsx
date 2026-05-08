@@ -225,11 +225,11 @@ export default function AirlineProfilePage() {
                             <section className="airline-profile-section">
                                 <h2>Условия договора</h2>
                                 <div className="airline-profile-grid">
-                                    <InputField label="Город договора" value={formData.contractCity ?? ""} onChange={(value) => updateField("contractCity", value)} />
-                                    <InputField label="Срок действия договора, дней" type="number" min="1" value={formData.contractValidityDays?.toString() ?? ""} onChange={(value) => updateField("contractValidityDays", value)} />
-                                    <InputField label="Срок оплаты, дней" type="number" min="1" value={formData.paymentDeadlineDays?.toString() ?? ""} onChange={(value) => updateField("paymentDeadlineDays", value)} />
-                                    <InputField label="Прибытие пассажиров до вылета, минут" type="number" min="1" value={formData.passengerArrivalMinutesBeforeFlight?.toString() ?? ""} onChange={(value) => updateField("passengerArrivalMinutesBeforeFlight", value)} />
-                                    <InputField label="Класс бортпитания" value={formData.cateringClass ?? ""} onChange={(value) => updateField("cateringClass", value)} />
+                                    <InputField label="Город договора" value={formData.contractCity ?? ""} onChange={(value) => updateField("contractCity", value)} required />
+                                    <InputField label="Срок действия договора, дней" type="number" min="1" value={formData.contractValidityDays?.toString() ?? ""} onChange={(value) => updateField("contractValidityDays", value)} required />
+                                    <InputField label="Срок оплаты, дней" type="number" min="1" value={formData.paymentDeadlineDays?.toString() ?? ""} onChange={(value) => updateField("paymentDeadlineDays", value)} required />
+                                    <InputField label="Прибытие пассажиров до вылета, минут" type="number" min="1" value={formData.passengerArrivalMinutesBeforeFlight?.toString() ?? ""} onChange={(value) => updateField("passengerArrivalMinutesBeforeFlight", value)} required />
+                                    <InputField label="Класс бортпитания" value={formData.cateringClass ?? ""} onChange={(value) => updateField("cateringClass", value)} required />
                                 </div>
                             </section>
 

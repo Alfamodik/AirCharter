@@ -17,6 +17,8 @@ import OrderPage from "./pages/orderPage/OrderPage.tsx";
 import StaffRoute from "./components/StaffRoute";
 import ManagementPage from "./pages/management/ManagementPage";
 import ManagementOrderRoutePage from "./pages/management/ManagementOrderRoutePage";
+import ManagementPlanesPage from "./pages/management/ManagementPlanesPage";
+import ManagementPlaneFormPage from "./pages/management/ManagementPlaneFormPage";
 import { useUser } from "./context/UserContext";
 
 export default function App() {
@@ -44,6 +46,9 @@ export default function App() {
                     <Route path="/management/flights" element={<ManagementPage />} />
                     <Route path="/management/flights/:departureId" element={<ManagementOrderRoutePage />} />
                     <Route path="/management/completed" element={<ManagementPage />} />
+                    <Route path="/management/planes" element={<ManagementPlanesPage />} />
+                    <Route path="/management/planes/new" element={<ManagementPlaneFormPage />} />
+                    <Route path="/management/planes/:planeId" element={<ManagementPlaneFormPage />} />
                 </Route>
             </Routes>
         </BrowserRouter>

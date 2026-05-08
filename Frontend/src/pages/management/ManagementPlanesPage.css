@@ -1,0 +1,264 @@
+.management-planes-page {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.management-planes-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.management-planes-header h1 {
+    margin: 0 0 6px;
+    color: var(--text-primary);
+    font-size: 28px;
+}
+
+.management-planes-header p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.management-planes-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.management-planes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+    gap: 18px;
+}
+
+.management-plane-card {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--bg-card);
+    transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.management-plane-card:hover {
+    border-color: var(--accent-soft);
+    transform: translateY(-2px);
+}
+
+.management-plane-image {
+    height: 205px;
+    background: var(--bg-surface);
+    overflow: hidden;
+}
+
+.management-plane-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.management-plane-image-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    font-weight: 800;
+    background:
+        linear-gradient(135deg, rgba(0, 122, 255, 0.18), transparent 44%),
+        var(--bg-surface);
+}
+
+.management-plane-card-body {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.management-plane-card-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.management-plane-card-title-row h2 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 19px;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+
+.management-plane-spec-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+}
+
+.management-plane-info-pill {
+    min-height: 66px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+}
+
+.management-plane-info-pill span {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.management-plane-info-pill strong {
+    color: var(--text-primary);
+    font-size: 15px;
+    overflow-wrap: anywhere;
+}
+
+.management-planes-empty {
+    flex-direction: column;
+    gap: 10px;
+}
+
+.management-planes-empty strong {
+    color: var(--text-primary);
+    font-size: 18px;
+}
+
+.management-plane-form-page {
+    display: flex;
+    flex-direction: column;
+    min-height: min-content;
+    overflow: visible;
+}
+
+.management-plane-form-layout-full {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.management-plane-editor {
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+    flex: 0 0 auto;
+}
+
+.management-plane-editor-image {
+    display: block;
+}
+
+.management-plane-editor-body {
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.management-plane-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.management-plane-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.management-plane-form-field span {
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.management-plane-form-field input {
+    width: 100%;
+    height: 44px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    padding: 0 12px;
+}
+
+.management-plane-form-field input:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.12);
+}
+
+.management-plane-form-field input:read-only {
+    cursor: default;
+    color: var(--accent-soft);
+    border-color: rgba(77, 171, 247, 0.28);
+    background: rgba(77, 171, 247, 0.08);
+}
+
+.management-plane-form-field small {
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.management-plane-remove-image {
+    width: fit-content;
+}
+
+.management-plane-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    padding-top: 4px;
+}
+
+.management-plane-image-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.management-plane-image-button input {
+    display: none;
+}
+
+@media (max-width: 900px) {
+    .management-planes-header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .management-planes-stats,
+    .management-plane-form-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .management-planes-grid,
+    .management-plane-spec-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .management-plane-card-title-row {
+        flex-direction: column;
+    }
+
+    .management-plane-form-actions {
+        flex-direction: column;
+    }
+}

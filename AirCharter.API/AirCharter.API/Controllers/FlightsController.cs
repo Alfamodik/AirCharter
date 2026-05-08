@@ -36,6 +36,7 @@ public sealed class FlightsController(
 
         List<Plane> planes = await _context.Planes
             .Include(plane => plane.Airline)
+            .Where(AirlineProfileCompleteness.PlaneHasCatalogVisibleAirline)
             .AsNoTracking()
             .ToListAsync(cancellationToken);
 

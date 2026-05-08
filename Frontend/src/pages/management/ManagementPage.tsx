@@ -184,6 +184,10 @@ export default function ManagementPage() {
                                 Профиль авиакомпании
                             </NavLink>
                         )}
+
+                        <NavLink to="/management/planes" className="profile-redirect-btn">
+                            Самолеты
+                        </NavLink>
                     </div>
 
                     <nav className="management-nav" aria-label="Разделы управления">
