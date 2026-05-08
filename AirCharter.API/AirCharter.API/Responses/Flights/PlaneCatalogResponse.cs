@@ -12,6 +12,12 @@ public sealed class PlaneCatalogResponse
 
     public int MaxDistance { get; set; }
 
+    public int CruisingSpeed { get; set; }
+
+    public int DepartureCount { get; set; }
+
+    public decimal FlightHourCost { get; set; }
+
     public bool IsRouteFound { get; set; }
 
     public int DistanceKm { get; set; }

@@ -19,6 +19,8 @@ public sealed class FlightLegCalculationService
             ModelName = plane.ModelName,
             PassengerCapacity = plane.PassengerCapacity,
             MaxDistance = plane.MaxDistance,
+            CruisingSpeed = plane.CruisingSpeed,
+            FlightHourCost = plane.FlightHourCost,
             DistanceKm = calculation.DistanceKm,
             FlightTime = calculation.FlightTime,
             FlightCost = decimal.Round(calculation.FlightCost, 0),

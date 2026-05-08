@@ -40,12 +40,31 @@ public sealed class FlightsController(
             .AsNoTracking()
             .ToListAsync(cancellationToken);
 
+        Dictionary<int, int> departureCountByPlaneId = await _context.Departures
+            .AsNoTracking()
+            .GroupBy(departure => departure.PlaneId)
+            .Select(group => new
+            {
+                PlaneId = group.Key,
+                Count = group.Count()
+            })
+            .ToDictionaryAsync(
+                item => item.PlaneId,
+                item => item.Count,
+                cancellationToken);
+
         IReadOnlyCollection<PlaneCatalogResponse> planeCatalogResponses =
             _routePlanningService.CalculateCatalog(
                 planes,
                 airportGraph,
                 request.TakeOffAirportId,
                 request.LandingAirportId);
+
+        foreach (PlaneCatalogResponse planeCatalogResponse in planeCatalogResponses)
+        {
+            planeCatalogResponse.DepartureCount = departureCountByPlaneId.GetValueOrDefault(
+                planeCatalogResponse.Id);
+        }
 
         return Ok(planeCatalogResponses);
     }

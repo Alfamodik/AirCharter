@@ -43,21 +43,157 @@
     flex: 1;
 }
 
-.sidebar-heading {
-    font-size: 20px;
-    margin-bottom: 24px;
-    font-weight: 700;
-    color: var(--text-primary);
-}
-
-.sidebar-heading:first-child {
-    margin-top: 0;
-}
-
-.filters-stack {
+.filter-block {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    border-top: 1px solid var(--border-color);
+    padding: 18px 0;
+}
+
+.filter-block:first-child {
+    border-top: none;
+    padding-top: 0;
+}
+
+.filter-block-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 17px;
+    font-weight: 700;
+    list-style: none;
+}
+
+.filter-block-title::-webkit-details-marker {
+    display: none;
+}
+
+.filter-block-title::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-left: 2px solid currentColor;
+    border-top: 2px solid currentColor;
+    transform: rotate(45deg);
+    transition: transform 0.2s ease;
+}
+
+.filter-block:not([open]) .filter-block-title::before {
+    transform: rotate(225deg);
+}
+
+.filter-block-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-top: 18px;
+}
+
+.range-fields {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 12px;
+}
+
+.range-input,
+.filter-search-box input {
+    min-width: 0;
+    border: 1px solid var(--border-color);
+    background: var(--bg-dark);
+    color: var(--text-primary);
+    outline: none;
+}
+
+.range-input {
+    height: 48px;
+    border-radius: 8px;
+    padding: 0 12px;
+    font-size: 14px;
+}
+
+.range-input:focus,
+.filter-search-box:focus-within,
+.catalog-select:focus {
+    border-color: #4dabf7;
+}
+
+.catalog-select {
+    width: 100%;
+    min-height: 44px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--bg-dark);
+    color: var(--text-primary);
+    padding: 0 12px;
+    font-size: 14px;
+    outline: none;
+}
+
+.checkbox-stack,
+.airline-checkbox-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.airline-checkbox-list {
+    max-height: 240px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.filter-checkbox-row {
+    display: grid;
+    grid-template-columns: 20px minmax(0, auto) minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1.35;
+}
+
+.filter-checkbox-row input {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    accent-color: var(--accent-blue);
+}
+
+.filter-count {
+    color: var(--text-secondary);
+}
+
+.all-airlines-row {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 12px;
+}
+
+.filter-search-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 0 12px;
+}
+
+.filter-search-box svg {
+    width: 18px;
+    height: 18px;
+    color: var(--text-secondary);
+    flex: 0 0 auto;
+}
+
+.filter-search-box input {
+    width: 100%;
+    border: none;
+    background: transparent;
+    font-size: 14px;
 }
 
 .route-info {
@@ -119,6 +255,15 @@
 
 .catalog-sidebar::-webkit-scrollbar-thumb,
 .catalog-main::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 10px;
+}
+
+.airline-checkbox-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.airline-checkbox-list::-webkit-scrollbar-thumb {
     background: var(--border-color);
     border-radius: 10px;
 }

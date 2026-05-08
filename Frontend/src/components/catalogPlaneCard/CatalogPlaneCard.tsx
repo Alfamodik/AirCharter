@@ -25,7 +25,10 @@ type CatalogPlaneCardProps = {
     modelName: string;
     passengerCapacity: number;
     maxDistance: number;
+    cruisingSpeed: number;
+    departureCount: number;
     flightCost?: number;
+    priceSuffix?: string;
     flightTime: string;
     numberOfTransfers: string;
     imageBase64?: string;
@@ -40,7 +43,10 @@ export default function CatalogPlaneCard({
     modelName,
     passengerCapacity,
     maxDistance,
+    cruisingSpeed,
+    departureCount,
     flightCost,
+    priceSuffix = "",
     flightTime,
     numberOfTransfers,
     imageBase64,
@@ -61,7 +67,7 @@ export default function CatalogPlaneCard({
                         className="plane-img"
                     />
                 ) : (
-                    <div className="plane-img-placeholder">✈️</div>
+                    <div className="plane-img-placeholder">✈</div>
                 )}
 
                 {airlineImageBase64 && (
@@ -91,15 +97,25 @@ export default function CatalogPlaneCard({
                     </div>
 
                     <div className="spec-item">
+                        <span className="spec-label">Скорость:</span>
+                        <span className="spec-value">{cruisingSpeed} км/ч</span>
+                    </div>
+
+                    <div className="spec-item">
                         <span className="spec-label">Пересадки:</span>
                         <span className="spec-value">{numberOfTransfers || "0"}</span>
+                    </div>
+
+                    <div className="spec-item">
+                        <span className="spec-label">Вылеты:</span>
+                        <span className="spec-value">{departureCount}</span>
                     </div>
                 </div>
 
                 <div className="plane-card-footer">
                     <div className="plane-price">
                         {flightCost !== undefined
-                            ? `${Math.floor(flightCost).toLocaleString("ru-RU")}₽`
+                            ? `${Math.floor(flightCost).toLocaleString("ru-RU")} ₽${priceSuffix}`
                             : ""}
                     </div>
 

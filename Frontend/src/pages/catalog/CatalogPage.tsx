@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useUser } from "../../context/UserContext";
 import InputField from "../../components/inputField/InputField";
@@ -10,7 +10,33 @@ import type { PlaneCatalogResponse } from "../../contracts/responses/planes/plan
 import "./CatalogPage.css";
 import RouteModal from "../../components/routeModal/RouteModal";
 
-const formatFlightTime = (timeString: string | undefined): string => {
+const maxFuzzyWordDistance = 2;
+
+type CatalogSortOption =
+    | "priceAsc"
+    | "priceDesc"
+    | "distanceDesc"
+    | "speedDesc"
+    | "popularityDesc";
+
+type PriceRangeOption = {
+    id: string;
+    min: number;
+    max: number | null;
+    label: string;
+    count: number;
+};
+
+const defaultSortOption: CatalogSortOption = "priceAsc";
+const sortOptions: Array<{ value: CatalogSortOption; label: string }> = [
+    { value: "priceAsc", label: "Сначала дешёвые" },
+    { value: "priceDesc", label: "Сначала дорогие" },
+    { value: "distanceDesc", label: "Сначала дальние" },
+    { value: "speedDesc", label: "Сначала быстрые" },
+    { value: "popularityDesc", label: "Сначала популярные" }
+];
+
+function formatFlightTime(timeString: string | undefined): string {
     if (!timeString) {
         return "";
     }
@@ -37,9 +63,7 @@ const formatFlightTime = (timeString: string | undefined): string => {
     }
 
     return formattedResult.trim();
-};
-
-const maxFuzzyWordDistance = 2;
+}
 
 function normalizeSearchText(value: string | undefined): string {
     return (value || "").trim().toLowerCase();
@@ -103,6 +127,108 @@ function levenshteinDistance(source: string, target: string): number {
     return matrix[source.length][target.length];
 }
 
+function parseListParameter(value: string | null): string[] {
+    return (value || "")
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+}
+
+function serializeListParameter(values: string[]): string {
+    return values.join(",");
+}
+
+function getInitialSortOption(value: string | null): CatalogSortOption {
+    return sortOptions.some((option) => option.value === value)
+        ? value as CatalogSortOption
+        : defaultSortOption;
+}
+
+function getCatalogPrice(plane: PlaneCatalogResponse, isRouteActive: boolean): number {
+    return isRouteActive ? plane.flightCost : plane.flightHourCost;
+}
+
+function formatMoney(value: number): string {
+    return `${Math.floor(value).toLocaleString("ru-RU")} ₽`;
+}
+
+function getNicePriceStep(maxPrice: number): number {
+    if (maxPrice <= 0) {
+        return 1;
+    }
+
+    const rawStep = maxPrice / 5;
+    const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+    const normalizedStep = rawStep / magnitude;
+
+    if (normalizedStep <= 1) {
+        return magnitude;
+    }
+
+    if (normalizedStep <= 2) {
+        return 2 * magnitude;
+    }
+
+    if (normalizedStep <= 5) {
+        return 5 * magnitude;
+    }
+
+    return 10 * magnitude;
+}
+
+function createPriceRangeOptions(
+    planes: PlaneCatalogResponse[],
+    isRouteActive: boolean
+): PriceRangeOption[] {
+    const prices = planes
+        .map((plane) => getCatalogPrice(plane, isRouteActive))
+        .filter((price) => Number.isFinite(price) && price > 0);
+
+    if (prices.length === 0) {
+        return [];
+    }
+
+    const maxPrice = Math.max(...prices);
+    const step = getNicePriceStep(maxPrice);
+    const ranges: PriceRangeOption[] = [];
+
+    for (let index = 0; index < 5; index++) {
+        const min = index === 0 ? 0 : step * index + 1;
+        const max = index === 4 ? null : step * (index + 1);
+        const count = prices.filter((price) =>
+            price >= min && (max === null || price <= max)
+        ).length;
+
+        if (count === 0) {
+            continue;
+        }
+
+        ranges.push({
+            id: `price-${index}`,
+            min,
+            max,
+            label: max === null
+                ? `${formatMoney(min)} и более`
+                : index === 0
+                    ? `До ${formatMoney(max)}`
+                    : `${formatMoney(min)} - ${formatMoney(max)}`,
+            count
+        });
+    }
+
+    return ranges;
+}
+
+function isPriceInRange(price: number, range: PriceRangeOption): boolean {
+    return price >= range.min && (range.max === null || price <= range.max);
+}
+
+function toggleValue(values: string[], value: string): string[] {
+    return values.includes(value)
+        ? values.filter((item) => item !== value)
+        : [...values, value];
+}
+
 export default function CatalogPage() {
     const navigate = useNavigate();
     const { user } = useUser();
@@ -112,8 +238,6 @@ export default function CatalogPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-    const [isAirlineDropdownOpen, setIsAirlineDropdownOpen] = useState(false);
-    const airlineFilterRef = useRef<HTMLDivElement>(null);
 
     const takeOffAirportId = searchParameters.get("from") || "";
     const landingAirportId = searchParameters.get("to") || "";
@@ -122,13 +246,24 @@ export default function CatalogPage() {
 
     const [searchValue, setSearchValue] = useState(searchParameters.get("search") || "");
     const [modelNameFilter, setModelNameFilter] = useState(searchParameters.get("model") || "");
-    const [airlineNameFilter, setAirlineNameFilter] = useState(searchParameters.get("airline") || "");
     const [minimumPassengerCapacityFilter, setMinimumPassengerCapacityFilter] = useState(searchParameters.get("minPassengers") || "");
     const [minimumMaxDistanceFilter, setMinimumMaxDistanceFilter] = useState(searchParameters.get("minDistance") || "");
     const [maximumTransfersFilter, setMaximumTransfersFilter] = useState(searchParameters.get("maxTransfers") || "");
+    const [minimumPriceFilter, setMinimumPriceFilter] = useState(searchParameters.get("minPrice") || "");
+    const [maximumPriceFilter, setMaximumPriceFilter] = useState(searchParameters.get("maxPrice") || "");
+    const [selectedPriceRangeIds, setSelectedPriceRangeIds] = useState<string[]>(
+        parseListParameter(searchParameters.get("priceRanges"))
+    );
+    const [airlineSearchValue, setAirlineSearchValue] = useState("");
+    const [selectedAirlineNames, setSelectedAirlineNames] = useState<string[]>(
+        parseListParameter(searchParameters.get("airlines"))
+    );
+    const [sortOption, setSortOption] = useState<CatalogSortOption>(
+        getInitialSortOption(searchParameters.get("sort"))
+    );
 
     const [selectedRoutePlane, setSelectedRoutePlane] = useState<PlaneCatalogResponse | null>(null);
-    
+
     const isRouteActive = useMemo(() => {
         return takeOffAirportId.trim() !== "" && landingAirportId.trim() !== "";
     }, [takeOffAirportId, landingAirportId]);
@@ -138,23 +273,40 @@ export default function CatalogPage() {
             return null;
         }
 
-        return planes[0].distanceKm || null;
+        return planes.find((plane) => plane.distanceKm > 0)?.distanceKm ?? null;
     }, [planes, isRouteActive]);
+
+    const priceRangeOptions = useMemo(() => {
+        return createPriceRangeOptions(planes, isRouteActive);
+    }, [planes, isRouteActive]);
+
+    const airlineOptions = useMemo(() => {
+        const airlineCounts = new Map<string, number>();
+
+        planes.forEach((plane) => {
+            const airlineName = plane.airlineName.trim();
+
+            if (airlineName === "") {
+                return;
+            }
+
+            airlineCounts.set(airlineName, (airlineCounts.get(airlineName) ?? 0) + 1);
+        });
+
+        return Array.from(airlineCounts.entries())
+            .map(([name, count]) => ({ name, count }))
+            .sort((firstAirline, secondAirline) => firstAirline.name.localeCompare(secondAirline.name));
+    }, [planes]);
+
+    const filteredAirlineOptions = useMemo(() => {
+        return airlineOptions.filter((airline) =>
+            fuzzyIncludes(airline.name, airlineSearchValue)
+        );
+    }, [airlineOptions, airlineSearchValue]);
 
     useEffect(() => {
         fetchPlanesData();
     }, [takeOffAirportId, landingAirportId, isRouteActive]);
-
-    useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (airlineFilterRef.current && !airlineFilterRef.current.contains(event.target as Node)) {
-                setIsAirlineDropdownOpen(false);
-            }
-        }
-
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
 
     async function fetchPlanesData() {
         setIsLoading(true);
@@ -202,11 +354,31 @@ export default function CatalogPage() {
         });
     }
 
+    function handlePriceRangeToggle(rangeId: string) {
+        const nextRangeIds = toggleValue(selectedPriceRangeIds, rangeId);
+
+        setSelectedPriceRangeIds(nextRangeIds);
+        updateSearchParameters({ priceRanges: serializeListParameter(nextRangeIds) });
+    }
+
+    function handleAirlineToggle(airlineName: string) {
+        const nextAirlineNames = toggleValue(selectedAirlineNames, airlineName);
+
+        setSelectedAirlineNames(nextAirlineNames);
+        updateSearchParameters({ airlines: serializeListParameter(nextAirlineNames) });
+    }
+
     const filteredCatalogPlanes = useMemo(() => {
-        return planes.filter((plane) => {
+        const selectedPriceRanges = priceRangeOptions.filter((range) =>
+            selectedPriceRangeIds.includes(range.id)
+        );
+
+        const filteredPlanes = planes.filter((plane) => {
+            const catalogPrice = getCatalogPrice(plane, isRouteActive);
             const matchesSearch = plane.modelName.toLowerCase().includes(searchValue.toLowerCase());
             const matchesModel = plane.modelName.toLowerCase().includes(modelNameFilter.toLowerCase());
-            const matchesAirline = fuzzyIncludes(plane.airlineName, airlineNameFilter);
+            const matchesAirline =
+                selectedAirlineNames.length === 0 || selectedAirlineNames.includes(plane.airlineName.trim());
             const matchesCapacity =
                 !minimumPassengerCapacityFilter || plane.passengerCapacity >= Number(minimumPassengerCapacityFilter);
             const matchesDistance =
@@ -214,32 +386,56 @@ export default function CatalogPage() {
             const matchesTransfers =
                 !maximumTransfersFilter ||
                 (plane.numberOfTransfers !== undefined && plane.numberOfTransfers <= Number(maximumTransfersFilter));
+            const matchesMinimumPrice =
+                !minimumPriceFilter || catalogPrice >= Number(minimumPriceFilter);
+            const matchesMaximumPrice =
+                !maximumPriceFilter || catalogPrice <= Number(maximumPriceFilter);
+            const matchesSelectedPriceRanges =
+                selectedPriceRanges.length === 0 ||
+                selectedPriceRanges.some((range) => isPriceInRange(catalogPrice, range));
 
-            return matchesSearch && matchesModel && matchesAirline && matchesCapacity && matchesDistance && matchesTransfers;
+            return matchesSearch &&
+                matchesModel &&
+                matchesAirline &&
+                matchesCapacity &&
+                matchesDistance &&
+                matchesTransfers &&
+                matchesMinimumPrice &&
+                matchesMaximumPrice &&
+                matchesSelectedPriceRanges;
+        });
+
+        return [...filteredPlanes].sort((firstPlane, secondPlane) => {
+            switch (sortOption) {
+                case "priceAsc":
+                    return getCatalogPrice(firstPlane, isRouteActive) - getCatalogPrice(secondPlane, isRouteActive);
+                case "priceDesc":
+                    return getCatalogPrice(secondPlane, isRouteActive) - getCatalogPrice(firstPlane, isRouteActive);
+                case "distanceDesc":
+                    return secondPlane.maxDistance - firstPlane.maxDistance;
+                case "speedDesc":
+                    return secondPlane.cruisingSpeed - firstPlane.cruisingSpeed;
+                case "popularityDesc":
+                    return secondPlane.departureCount - firstPlane.departureCount;
+                default:
+                    return 0;
+            }
         });
     }, [
         planes,
         searchValue,
         modelNameFilter,
-        airlineNameFilter,
+        selectedAirlineNames,
         minimumPassengerCapacityFilter,
         minimumMaxDistanceFilter,
-        maximumTransfersFilter
+        maximumTransfersFilter,
+        minimumPriceFilter,
+        maximumPriceFilter,
+        selectedPriceRangeIds,
+        priceRangeOptions,
+        sortOption,
+        isRouteActive
     ]);
-
-    const airlineSuggestions = useMemo(() => {
-        const airlineNames = Array.from(
-            new Set(planes.map((plane) => plane.airlineName).filter((airlineName) => airlineName.trim() !== ""))
-        ).sort((firstAirlineName, secondAirlineName) => firstAirlineName.localeCompare(secondAirlineName));
-
-        if (airlineNameFilter.trim() === "") {
-            return airlineNames.slice(0, 5);
-        }
-
-        return airlineNames
-            .filter((airlineName) => fuzzyIncludes(airlineName, airlineNameFilter))
-            .slice(0, 5);
-    }, [planes, airlineNameFilter]);
 
     function handleOrderNavigation(plane: PlaneCatalogResponse) {
         if (!user) {
@@ -285,10 +481,15 @@ export default function CatalogPage() {
     function resetAllFilters() {
         setSearchValue("");
         setModelNameFilter("");
-        setAirlineNameFilter("");
         setMinimumPassengerCapacityFilter("");
         setMinimumMaxDistanceFilter("");
         setMaximumTransfersFilter("");
+        setMinimumPriceFilter("");
+        setMaximumPriceFilter("");
+        setSelectedPriceRangeIds([]);
+        setAirlineSearchValue("");
+        setSelectedAirlineNames([]);
+        setSortOption(defaultSortOption);
         setSearchParameters(new URLSearchParams());
     }
 
@@ -317,103 +518,190 @@ export default function CatalogPage() {
             <div className={`catalog-layout ${!isSidebarOpen ? "sidebar-closed" : ""}`}>
                 <aside className="catalog-sidebar">
                     <div className="sidebar-content">
-                        <h2 className="sidebar-heading">Маршрут</h2>
+                        <details className="filter-block" open>
+                            <summary className="filter-block-title">Маршрут</summary>
 
-                        <div className="filters-stack" style={{ marginBottom: "32px" }}>
-                            <AirportSearch
-                                label="Вылет"
-                                selectedAirportId={takeOffAirportId}
-                                selectedAirportDisplayName={takeOffAirportLabel}
-                                onSelect={handleTakeOffAirportSelect}
-                            />
-
-                            <AirportSearch
-                                label="Прибытие"
-                                selectedAirportId={landingAirportId}
-                                selectedAirportDisplayName={landingAirportLabel}
-                                onSelect={handleLandingAirportSelect}
-                            />
-
-                            {routeDistance !== null && (
-                                <div className="route-info">
-                                    <span>Расстояние: {routeDistance} км</span>
-                                </div>
-                            )}
-                        </div>
-
-                        <h2 className="sidebar-heading">Фильтры</h2>
-
-                        <div className="filters-stack">
-                            <InputField
-                                label="Модель самолёта"
-                                value={modelNameFilter}
-                                onChange={(value) => {
-                                    setModelNameFilter(value);
-                                    updateSearchParameters({ model: value });
-                                }}
-                            />
-                            <div className="airport-search-container" ref={airlineFilterRef}>
-                                <InputField
-                                    label="Авиакомпания"
-                                    value={airlineNameFilter}
-                                    onChange={(value) => {
-                                        setAirlineNameFilter(value);
-                                        updateSearchParameters({ airline: value });
-                                        setIsAirlineDropdownOpen(true);
-                                    }}
-                                    onFocus={() => {
-                                        if (airlineSuggestions.length > 0) {
-                                            setIsAirlineDropdownOpen(true);
-                                        }
-                                    }}
-                                    autoComplete="off"
+                            <div className="filter-block-content">
+                                <AirportSearch
+                                    label="Вылет"
+                                    selectedAirportId={takeOffAirportId}
+                                    selectedAirportDisplayName={takeOffAirportLabel}
+                                    onSelect={handleTakeOffAirportSelect}
                                 />
 
-                                {isAirlineDropdownOpen && airlineSuggestions.length > 0 && (
-                                    <ul className="airport-dropdown">
-                                        {airlineSuggestions.map((airlineName) => (
-                                            <li
-                                                key={airlineName}
-                                                onClick={() => {
-                                                    setAirlineNameFilter(airlineName);
-                                                    updateSearchParameters({ airline: airlineName });
-                                                    setIsAirlineDropdownOpen(false);
-                                                }}
-                                            >
-                                                <span className="airport-name">{airlineName}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
+                                <AirportSearch
+                                    label="Прибытие"
+                                    selectedAirportId={landingAirportId}
+                                    selectedAirportDisplayName={landingAirportLabel}
+                                    onSelect={handleLandingAirportSelect}
+                                />
+
+                                {routeDistance !== null && (
+                                    <div className="route-info">
+                                        <span>Расстояние: {routeDistance} км</span>
+                                    </div>
                                 )}
                             </div>
-                            <InputField
-                                label="Минимум мест"
-                                value={minimumPassengerCapacityFilter}
-                                onChange={(value) => {
-                                    setMinimumPassengerCapacityFilter(value);
-                                    updateSearchParameters({ minPassengers: value });
-                                }}
-                                type="number"
-                            />
-                            <InputField
-                                label="Мин. дальность (км)"
-                                value={minimumMaxDistanceFilter}
-                                onChange={(value) => {
-                                    setMinimumMaxDistanceFilter(value);
-                                    updateSearchParameters({ minDistance: value });
-                                }}
-                                type="number"
-                            />
-                            <InputField
-                                label="Макс. пересадок"
-                                value={maximumTransfersFilter}
-                                onChange={(value) => {
-                                    setMaximumTransfersFilter(value);
-                                    updateSearchParameters({ maxTransfers: value });
-                                }}
-                                type="number"
-                            />
-                        </div>
+                        </details>
+
+                        <details className="filter-block" open>
+                            <summary className="filter-block-title">Сортировка</summary>
+
+                            <div className="filter-block-content">
+                                <select
+                                    className="catalog-select"
+                                    value={sortOption}
+                                    onChange={(event) => {
+                                        const value = event.target.value as CatalogSortOption;
+                                        setSortOption(value);
+                                        updateSearchParameters({
+                                            sort: value === defaultSortOption ? "" : value
+                                        });
+                                    }}
+                                >
+                                    {sortOptions.map((option) => (
+                                        <option key={option.value} value={option.value}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </details>
+
+                        <details className="filter-block" open>
+                            <summary className="filter-block-title">Цена</summary>
+
+                            <div className="filter-block-content">
+                                <div className="range-fields">
+                                    <input
+                                        className="range-input"
+                                        value={minimumPriceFilter}
+                                        type="number"
+                                        min="0"
+                                        placeholder="от"
+                                        onChange={(event) => {
+                                            setMinimumPriceFilter(event.target.value);
+                                            updateSearchParameters({ minPrice: event.target.value });
+                                        }}
+                                    />
+
+                                    <input
+                                        className="range-input"
+                                        value={maximumPriceFilter}
+                                        type="number"
+                                        min="0"
+                                        placeholder="до"
+                                        onChange={(event) => {
+                                            setMaximumPriceFilter(event.target.value);
+                                            updateSearchParameters({ maxPrice: event.target.value });
+                                        }}
+                                    />
+                                </div>
+
+                                <div className="checkbox-stack">
+                                    {priceRangeOptions.map((range) => (
+                                        <label className="filter-checkbox-row" key={range.id}>
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedPriceRangeIds.includes(range.id)}
+                                                onChange={() => handlePriceRangeToggle(range.id)}
+                                            />
+                                            <span>{range.label}</span>
+                                            <span className="filter-count">({range.count})</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        </details>
+
+                        <details className="filter-block" open>
+                            <summary className="filter-block-title">Авиакомпании</summary>
+
+                            <div className="filter-block-content">
+                                <div className="filter-search-box">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <circle cx="11" cy="11" r="7"></circle>
+                                        <line x1="16.5" y1="16.5" x2="21" y2="21"></line>
+                                    </svg>
+                                    <input
+                                        value={airlineSearchValue}
+                                        placeholder="Поиск"
+                                        onChange={(event) => setAirlineSearchValue(event.target.value)}
+                                    />
+                                </div>
+
+                                <label className="filter-checkbox-row all-airlines-row">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedAirlineNames.length === 0}
+                                        onChange={() => {
+                                            setSelectedAirlineNames([]);
+                                            updateSearchParameters({ airlines: "" });
+                                        }}
+                                    />
+                                    <span>Все авиакомпании</span>
+                                </label>
+
+                                <div className="airline-checkbox-list">
+                                    {filteredAirlineOptions.map((airline) => (
+                                        <label className="filter-checkbox-row" key={airline.name}>
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedAirlineNames.includes(airline.name)}
+                                                onChange={() => handleAirlineToggle(airline.name)}
+                                            />
+                                            <span>{airline.name}</span>
+                                            <span className="filter-count">({airline.count})</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        </details>
+
+                        <details className="filter-block" open>
+                            <summary className="filter-block-title">Параметры</summary>
+
+                            <div className="filter-block-content">
+                                <InputField
+                                    label="Модель самолёта"
+                                    value={modelNameFilter}
+                                    onChange={(value) => {
+                                        setModelNameFilter(value);
+                                        updateSearchParameters({ model: value });
+                                    }}
+                                />
+
+                                <InputField
+                                    label="Минимум мест"
+                                    value={minimumPassengerCapacityFilter}
+                                    onChange={(value) => {
+                                        setMinimumPassengerCapacityFilter(value);
+                                        updateSearchParameters({ minPassengers: value });
+                                    }}
+                                    type="number"
+                                />
+
+                                <InputField
+                                    label="Мин. дальность (км)"
+                                    value={minimumMaxDistanceFilter}
+                                    onChange={(value) => {
+                                        setMinimumMaxDistanceFilter(value);
+                                        updateSearchParameters({ minDistance: value });
+                                    }}
+                                    type="number"
+                                />
+
+                                <InputField
+                                    label="Макс. пересадок"
+                                    value={maximumTransfersFilter}
+                                    onChange={(value) => {
+                                        setMaximumTransfersFilter(value);
+                                        updateSearchParameters({ maxTransfers: value });
+                                    }}
+                                    type="number"
+                                />
+                            </div>
+                        </details>
                     </div>
 
                     <button className="reset-filters-btn" onClick={resetAllFilters}>
@@ -434,9 +722,12 @@ export default function CatalogPage() {
                                     modelName={plane.modelName}
                                     passengerCapacity={plane.passengerCapacity}
                                     maxDistance={plane.maxDistance}
+                                    cruisingSpeed={plane.cruisingSpeed}
+                                    departureCount={plane.departureCount}
                                     imageBase64={plane.imageBase64}
                                     airlineImageBase64={plane.airlineImageBase64}
-                                    flightCost={isRouteActive ? plane.flightCost : undefined}
+                                    flightCost={getCatalogPrice(plane, isRouteActive)}
+                                    priceSuffix={isRouteActive ? "" : "/ч"}
                                     flightTime={isRouteActive ? formatFlightTime(plane.flightTime) : ""}
                                     numberOfTransfers={
                                         isRouteActive && plane.numberOfTransfers !== undefined

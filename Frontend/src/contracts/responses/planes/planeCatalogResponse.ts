@@ -3,6 +3,9 @@ export interface PlaneCatalogResponse {
     modelName: string;
     passengerCapacity: number;
     maxDistance: number;
+    cruisingSpeed: number;
+    departureCount: number;
+    flightHourCost: number;
     isRouteFound: boolean;
     distanceKm: number;
     flightTime: string;
