@@ -58,11 +58,6 @@ public sealed class DatabaseCompatibilityService(AirCharterExtendedContext conte
             cancellationToken);
         await EnsureColumnAsync(
             "airlines",
-            "contract_end_date",
-            "date NULL",
-            cancellationToken);
-        await EnsureColumnAsync(
-            "airlines",
             "contract_validity_days",
             "int NULL",
             cancellationToken);
@@ -75,11 +70,6 @@ public sealed class DatabaseCompatibilityService(AirCharterExtendedContext conte
             "airlines",
             "catering_class",
             "varchar(100) NULL",
-            cancellationToken);
-        await EnsureColumnAsync(
-            "airlines",
-            "passenger_arrival_hours_before_flight",
-            "int NULL",
             cancellationToken);
         await EnsureColumnAsync(
             "airlines",
@@ -113,23 +103,33 @@ public sealed class DatabaseCompatibilityService(AirCharterExtendedContext conte
             "int NULL",
             cancellationToken);
 
-        await _context.Database.ExecuteSqlRawAsync(
-            """
-            UPDATE airlines
-            SET contract_validity_days = GREATEST(1, DATEDIFF(contract_end_date, CURRENT_DATE()))
-            WHERE contract_validity_days IS NULL
-                AND contract_end_date IS NOT NULL
-            """,
-            cancellationToken);
+        if (await ColumnExistsAsync("airlines", "contract_end_date", cancellationToken))
+        {
+            await _context.Database.ExecuteSqlRawAsync(
+                """
+                UPDATE airlines
+                SET contract_validity_days = GREATEST(1, DATEDIFF(contract_end_date, CURRENT_DATE()))
+                WHERE contract_validity_days IS NULL
+                    AND contract_end_date IS NOT NULL
+                """,
+                cancellationToken);
 
-        await _context.Database.ExecuteSqlRawAsync(
-            """
-            UPDATE airlines
-            SET passenger_arrival_minutes_before_flight = passenger_arrival_hours_before_flight * 60
-            WHERE passenger_arrival_minutes_before_flight IS NULL
-                AND passenger_arrival_hours_before_flight IS NOT NULL
-            """,
-            cancellationToken);
+            await DropColumnAsync("airlines", "contract_end_date", cancellationToken);
+        }
+
+        if (await ColumnExistsAsync("airlines", "passenger_arrival_hours_before_flight", cancellationToken))
+        {
+            await _context.Database.ExecuteSqlRawAsync(
+                """
+                UPDATE airlines
+                SET passenger_arrival_minutes_before_flight = passenger_arrival_hours_before_flight * 60
+                WHERE passenger_arrival_minutes_before_flight IS NULL
+                    AND passenger_arrival_hours_before_flight IS NOT NULL
+                """,
+                cancellationToken);
+
+            await DropColumnAsync("airlines", "passenger_arrival_hours_before_flight", cancellationToken);
+        }
 
         await _context.Database.ExecuteSqlRawAsync(
             """
@@ -147,6 +147,33 @@ public sealed class DatabaseCompatibilityService(AirCharterExtendedContext conte
         string tableName,
         string columnName,
         string columnDefinition,
+        CancellationToken cancellationToken)
+    {
+        if (await ColumnExistsAsync(tableName, columnName, cancellationToken))
+            return;
+
+        DbConnection connection = _context.Database.GetDbConnection();
+
+        await using DbCommand alterCommand = connection.CreateCommand();
+        alterCommand.CommandText = $"ALTER TABLE `{tableName}` ADD COLUMN `{columnName}` {columnDefinition}";
+        await alterCommand.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private async Task DropColumnAsync(
+        string tableName,
+        string columnName,
+        CancellationToken cancellationToken)
+    {
+        DbConnection connection = _context.Database.GetDbConnection();
+
+        await using DbCommand alterCommand = connection.CreateCommand();
+        alterCommand.CommandText = $"ALTER TABLE `{tableName}` DROP COLUMN `{columnName}`";
+        await alterCommand.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private async Task<bool> ColumnExistsAsync(
+        string tableName,
+        string columnName,
         CancellationToken cancellationToken)
     {
         DbConnection connection = _context.Database.GetDbConnection();
@@ -169,12 +196,7 @@ public sealed class DatabaseCompatibilityService(AirCharterExtendedContext conte
 
         object? result = await checkCommand.ExecuteScalarAsync(cancellationToken);
 
-        if (Convert.ToInt32(result) > 0)
-            return;
-
-        await using DbCommand alterCommand = connection.CreateCommand();
-        alterCommand.CommandText = $"ALTER TABLE `{tableName}` ADD COLUMN `{columnName}` {columnDefinition}";
-        await alterCommand.ExecuteNonQueryAsync(cancellationToken);
+        return Convert.ToInt32(result) > 0;
     }
 
     private static void AddParameter(DbCommand command, string name, object value)

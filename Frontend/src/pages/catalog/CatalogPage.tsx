@@ -190,21 +190,33 @@ function createPriceRangeOptions(
 
     const maxPrice = Math.max(...prices);
     const step = getNicePriceStep(maxPrice);
+    const baseRanges = Array.from({ length: 5 }, (_, index) => ({
+        id: `price-${index}`,
+        min: index === 0 ? 0 : step * index + 1,
+        max: index === 4 ? null : step * (index + 1)
+    }));
     const ranges: PriceRangeOption[] = [];
+    let nextDisplayMin = 0;
 
-    for (let index = 0; index < 5; index++) {
-        const min = index === 0 ? 0 : step * index + 1;
-        const max = index === 4 ? null : step * (index + 1);
+    for (let index = 0; index < baseRanges.length; index++) {
+        const nextFilledRangeIndex = baseRanges.findIndex((range, rangeIndex) =>
+            rangeIndex >= index &&
+            prices.some((price) => isPriceInRange(price, range))
+        );
+
+        if (nextFilledRangeIndex < 0) {
+            break;
+        }
+
+        const baseRange = baseRanges[nextFilledRangeIndex];
+        const min = nextDisplayMin;
+        const max = baseRange.max;
         const count = prices.filter((price) =>
             price >= min && (max === null || price <= max)
         ).length;
 
-        if (count === 0) {
-            continue;
-        }
-
         ranges.push({
-            id: `price-${index}`,
+            id: baseRange.id,
             min,
             max,
             label: max === null
@@ -214,12 +226,22 @@ function createPriceRangeOptions(
                     : `${formatMoney(min)} - ${formatMoney(max)}`,
             count
         });
+
+        if (max === null) {
+            break;
+        }
+
+        nextDisplayMin = max + 1;
+        index = nextFilledRangeIndex;
     }
 
     return ranges;
 }
 
-function isPriceInRange(price: number, range: PriceRangeOption): boolean {
+function isPriceInRange(
+    price: number,
+    range: Pick<PriceRangeOption, "min" | "max">
+): boolean {
     return price >= range.min && (range.max === null || price <= range.max);
 }
 
@@ -568,7 +590,7 @@ export default function CatalogPage() {
                             </div>
                         </details>
 
-                        <details className="filter-block" open>
+                        <details className="filter-block">
                             <summary className="filter-block-title">Цена</summary>
 
                             <div className="filter-block-content">
@@ -614,7 +636,7 @@ export default function CatalogPage() {
                             </div>
                         </details>
 
-                        <details className="filter-block" open>
+                        <details className="filter-block">
                             <summary className="filter-block-title">Авиакомпании</summary>
 
                             <div className="filter-block-content">
@@ -658,7 +680,7 @@ export default function CatalogPage() {
                             </div>
                         </details>
 
-                        <details className="filter-block" open>
+                        <details className="filter-block">
                             <summary className="filter-block-title">Параметры</summary>
 
                             <div className="filter-block-content">
