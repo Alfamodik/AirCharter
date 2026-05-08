@@ -27,13 +27,13 @@ type PriceRangeOption = {
     count: number;
 };
 
-const defaultSortOption: CatalogSortOption = "priceAsc";
+const defaultSortOption: CatalogSortOption = "popularityDesc";
 const sortOptions: Array<{ value: CatalogSortOption; label: string }> = [
+    { value: "popularityDesc", label: "Сначала популярные" },
     { value: "priceAsc", label: "Сначала дешёвые" },
     { value: "priceDesc", label: "Сначала дорогие" },
     { value: "distanceDesc", label: "Сначала дальние" },
-    { value: "speedDesc", label: "Сначала быстрые" },
-    { value: "popularityDesc", label: "Сначала популярные" }
+    { value: "speedDesc", label: "Сначала быстрые" }
 ];
 
 function formatFlightTime(timeString: string | undefined): string {
@@ -378,9 +378,29 @@ export default function CatalogPage() {
 
     function handlePriceRangeToggle(rangeId: string) {
         const nextRangeIds = toggleValue(selectedPriceRangeIds, rangeId);
+        const selectedRange = priceRangeOptions.find((range) => range.id === rangeId);
 
         setSelectedPriceRangeIds(nextRangeIds);
-        updateSearchParameters({ priceRanges: serializeListParameter(nextRangeIds) });
+        const priceUpdates: Record<string, string> = {
+            priceRanges: serializeListParameter(nextRangeIds)
+        };
+
+        if (nextRangeIds.length === 1 && selectedRange !== undefined && nextRangeIds[0] === rangeId) {
+            const minPrice = selectedRange.min > 0 ? selectedRange.min.toString() : "";
+            const maxPrice = selectedRange.max?.toString() ?? "";
+
+            setMinimumPriceFilter(minPrice);
+            setMaximumPriceFilter(maxPrice);
+            priceUpdates.minPrice = minPrice;
+            priceUpdates.maxPrice = maxPrice;
+        } else {
+            setMinimumPriceFilter("");
+            setMaximumPriceFilter("");
+            priceUpdates.minPrice = "";
+            priceUpdates.maxPrice = "";
+        }
+
+        updateSearchParameters(priceUpdates);
     }
 
     function handleAirlineToggle(airlineName: string) {
@@ -388,6 +408,63 @@ export default function CatalogPage() {
 
         setSelectedAirlineNames(nextAirlineNames);
         updateSearchParameters({ airlines: serializeListParameter(nextAirlineNames) });
+    }
+
+    function handleAllAirlinesToggle() {
+        const allAirlineNames = airlineOptions.map((airline) => airline.name);
+        const nextAirlineNames = selectedAirlineNames.length === allAirlineNames.length
+            ? []
+            : allAirlineNames;
+
+        setSelectedAirlineNames(nextAirlineNames);
+        updateSearchParameters({ airlines: serializeListParameter(nextAirlineNames) });
+    }
+
+    function updateMinimumPriceFilter(value: string) {
+        setMinimumPriceFilter(value);
+        setSelectedPriceRangeIds([]);
+        updateSearchParameters({
+            minPrice: value,
+            priceRanges: ""
+        });
+    }
+
+    function updateMaximumPriceFilter(value: string) {
+        setMaximumPriceFilter(value);
+        setSelectedPriceRangeIds([]);
+        updateSearchParameters({
+            maxPrice: value,
+            priceRanges: ""
+        });
+    }
+
+    function normalizePriceBounds(changedField: "min" | "max") {
+        const numericMinimumPrice = Number(minimumPriceFilter);
+        const numericMaximumPrice = Number(maximumPriceFilter);
+        const hasMinimumPrice = minimumPriceFilter.trim() !== "" && Number.isFinite(numericMinimumPrice);
+        const hasMaximumPrice = maximumPriceFilter.trim() !== "" && Number.isFinite(numericMaximumPrice);
+
+        if (!hasMinimumPrice || !hasMaximumPrice || numericMinimumPrice <= numericMaximumPrice) {
+            return;
+        }
+
+        if (changedField === "min") {
+            setMaximumPriceFilter(minimumPriceFilter);
+            updateSearchParameters({ maxPrice: minimumPriceFilter });
+            return;
+        }
+
+        setMinimumPriceFilter(maximumPriceFilter);
+        updateSearchParameters({ minPrice: maximumPriceFilter });
+    }
+
+    function handlePriceInputKeyDown(
+        event: React.KeyboardEvent<HTMLInputElement>,
+        changedField: "min" | "max"
+    ) {
+        if (event.key === "Enter") {
+            normalizePriceBounds(changedField);
+        }
     }
 
     const filteredCatalogPlanes = useMemo(() => {
@@ -400,7 +477,9 @@ export default function CatalogPage() {
             const matchesSearch = plane.modelName.toLowerCase().includes(searchValue.toLowerCase());
             const matchesModel = plane.modelName.toLowerCase().includes(modelNameFilter.toLowerCase());
             const matchesAirline =
-                selectedAirlineNames.length === 0 || selectedAirlineNames.includes(plane.airlineName.trim());
+                selectedAirlineNames.length === 0 ||
+                selectedAirlineNames.length === airlineOptions.length ||
+                selectedAirlineNames.includes(plane.airlineName.trim());
             const matchesCapacity =
                 !minimumPassengerCapacityFilter || plane.passengerCapacity >= Number(minimumPassengerCapacityFilter);
             const matchesDistance =
@@ -448,6 +527,7 @@ export default function CatalogPage() {
         searchValue,
         modelNameFilter,
         selectedAirlineNames,
+        airlineOptions.length,
         minimumPassengerCapacityFilter,
         minimumMaxDistanceFilter,
         maximumTransfersFilter,
@@ -520,6 +600,7 @@ export default function CatalogPage() {
             <Header
                 showSearch={true}
                 searchValue={searchValue}
+                onLogoClick={resetAllFilters}
                 onSearchChange={(value) => {
                     setSearchValue(value);
                     updateSearchParameters({ search: value });
@@ -595,29 +676,51 @@ export default function CatalogPage() {
 
                             <div className="filter-block-content">
                                 <div className="range-fields">
-                                    <input
-                                        className="range-input"
-                                        value={minimumPriceFilter}
-                                        type="number"
-                                        min="0"
-                                        placeholder="от"
-                                        onChange={(event) => {
-                                            setMinimumPriceFilter(event.target.value);
-                                            updateSearchParameters({ minPrice: event.target.value });
-                                        }}
-                                    />
+                                    <div className="range-input-wrap">
+                                        <input
+                                            className="range-input"
+                                            value={minimumPriceFilter}
+                                            type="number"
+                                            min="0"
+                                            placeholder="от"
+                                            onChange={(event) => updateMinimumPriceFilter(event.target.value)}
+                                            onBlur={() => normalizePriceBounds("min")}
+                                            onKeyDown={(event) => handlePriceInputKeyDown(event, "min")}
+                                        />
+                                        {minimumPriceFilter && (
+                                            <button
+                                                type="button"
+                                                className="range-clear-button"
+                                                onClick={() => updateMinimumPriceFilter("")}
+                                                aria-label="Очистить минимальную цену"
+                                            >
+                                                ×
+                                            </button>
+                                        )}
+                                    </div>
 
-                                    <input
-                                        className="range-input"
-                                        value={maximumPriceFilter}
-                                        type="number"
-                                        min="0"
-                                        placeholder="до"
-                                        onChange={(event) => {
-                                            setMaximumPriceFilter(event.target.value);
-                                            updateSearchParameters({ maxPrice: event.target.value });
-                                        }}
-                                    />
+                                    <div className="range-input-wrap">
+                                        <input
+                                            className="range-input"
+                                            value={maximumPriceFilter}
+                                            type="number"
+                                            min="0"
+                                            placeholder="до"
+                                            onChange={(event) => updateMaximumPriceFilter(event.target.value)}
+                                            onBlur={() => normalizePriceBounds("max")}
+                                            onKeyDown={(event) => handlePriceInputKeyDown(event, "max")}
+                                        />
+                                        {maximumPriceFilter && (
+                                            <button
+                                                type="button"
+                                                className="range-clear-button"
+                                                onClick={() => updateMaximumPriceFilter("")}
+                                                aria-label="Очистить максимальную цену"
+                                            >
+                                                ×
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div className="checkbox-stack">
@@ -655,11 +758,11 @@ export default function CatalogPage() {
                                 <label className="filter-checkbox-row all-airlines-row">
                                     <input
                                         type="checkbox"
-                                        checked={selectedAirlineNames.length === 0}
-                                        onChange={() => {
-                                            setSelectedAirlineNames([]);
-                                            updateSearchParameters({ airlines: "" });
-                                        }}
+                                        checked={
+                                            airlineOptions.length > 0 &&
+                                            selectedAirlineNames.length === airlineOptions.length
+                                        }
+                                        onChange={handleAllAirlinesToggle}
                                     />
                                     <span>Все авиакомпании</span>
                                 </label>

@@ -7,6 +7,7 @@ interface HeaderProps {
     searchValue?: string;
     onSearchChange?: (value: string) => void;
     showSearch?: boolean;
+    onLogoClick?: () => void;
     children?: React.ReactNode;
 }
 
@@ -14,6 +15,7 @@ export default function Header({
     searchValue,
     onSearchChange,
     showSearch = false,
+    onLogoClick,
     children
 }: HeaderProps) {
     const { user, isLoading, logout } = useUser();
@@ -29,7 +31,7 @@ export default function Header({
             <div className="navbar-logo">
                 {children}
 
-                <Link to="/catalog" className="logo-link">
+                <Link to="/catalog" className="logo-link" onClick={onLogoClick}>
                     <span className="logo-text">AirCharter</span>
                 </Link>
             </div>
