@@ -1,4 +1,5 @@
-const apiBaseUrl = "https://localhost:7219";
+//const apiBaseUrl = "https://localhost:7219";
+const apiBaseUrl = "https://unshareable-flavia-swimmable.ngrok-free.dev";
 
 export async function sendRequest<TResponse>(path: string, init?: RequestInit): Promise<TResponse> {
     const response = await fetch(`${apiBaseUrl}${path}`, {
