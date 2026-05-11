@@ -1,6 +1,6 @@
 import type { ApiError } from "./utils/apiError";
 
-const apiBaseUrl = "https://unshareable-flavia-swimmable.ngrok-free.dev";
+const apiBaseUrl = "https://localhost:7219";
 export const unauthorizedResponseEventName = "aircharter:unauthorized-response";
 
 type AccessTokenResponse = {
