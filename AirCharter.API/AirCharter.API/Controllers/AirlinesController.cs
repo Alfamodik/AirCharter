@@ -321,7 +321,12 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
 
             try
             {
-                airline.Image = Convert.FromBase64String(imageBase64);
+                byte[] imageBytes = Convert.FromBase64String(imageBase64);
+
+                if (!ImageAspectRatioValidator.HasAspectRatio(imageBytes, 1, 1))
+                    return BadRequest("Изображение авиакомпании должно быть квадратным (1:1).");
+
+                airline.Image = imageBytes;
             }
             catch (FormatException)
             {

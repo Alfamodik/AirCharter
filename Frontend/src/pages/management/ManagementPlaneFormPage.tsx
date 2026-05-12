@@ -8,6 +8,7 @@ import {
 } from "../../api/planesService";
 import { hasManagementAccess } from "../../api/utils/roleAccess";
 import { useUser } from "../../context/UserContext";
+import { validateImageAspectRatio } from "../../utils/imageAspectRatio";
 import type {
     ManagementPlaneResponse,
     SavePlaneRequest
@@ -120,6 +121,22 @@ export default function ManagementPlaneFormPage() {
 
         if (!file.type.startsWith("image/")) {
             setErrorMessage("Выберите файл изображения.");
+            return;
+        }
+
+        let hasValidAspectRatio = false;
+
+        try {
+            hasValidAspectRatio = await validateImageAspectRatio(file, { width: 16, height: 9 });
+        } catch {
+            setErrorMessage("Выберите файл изображения.");
+            event.target.value = "";
+            return;
+        }
+
+        if (!hasValidAspectRatio) {
+            setErrorMessage("Изображение самолёта должно быть в формате 16:9.");
+            event.target.value = "";
             return;
         }
 

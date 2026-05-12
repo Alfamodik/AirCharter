@@ -216,7 +216,12 @@ namespace AirCharter.API.Controllers
 
             try
             {
-                plane.Image = Convert.FromBase64String(imageBase64);
+                byte[] imageBytes = Convert.FromBase64String(imageBase64);
+
+                if (!ImageAspectRatioValidator.HasAspectRatio(imageBytes, 16, 9))
+                    return "Изображение самолёта должно быть в формате 16:9.";
+
+                plane.Image = imageBytes;
             }
             catch (FormatException)
             {

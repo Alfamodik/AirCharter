@@ -11,6 +11,7 @@ import { hasAirlineProfileAccess } from "../../api/utils/roleAccess";
 import Header from "../../components/header/Header";
 import InputField from "../../components/inputField/InputField";
 import { useUser } from "../../context/UserContext";
+import { validateImageAspectRatio } from "../../utils/imageAspectRatio";
 import "./AirlineProfilePage.css";
 import { inferOrganizationType, organizationTypeOptions } from "./organizationTypes";
 
@@ -130,8 +131,23 @@ export default function AirlineProfilePage() {
             return;
         }
 
-        const dataUrl = await readFileAsDataUrl(file);
+        let hasValidAspectRatio = false;
 
+        try {
+            hasValidAspectRatio = await validateImageAspectRatio(file, { width: 1, height: 1 });
+        } catch {
+            setStatusMessage({ text: "Выберите файл изображения.", type: "error" });
+            event.target.value = "";
+            return;
+        }
+
+        if (!hasValidAspectRatio) {
+            setStatusMessage({ text: "Изображение авиакомпании должно быть квадратным (1:1).", type: "error" });
+            event.target.value = "";
+            return;
+        }
+
+        const dataUrl = await readFileAsDataUrl(file);
         setStatusMessage(null);
         setPendingImageBase64(dataUrl.split(",")[1] ?? dataUrl);
         event.target.value = "";
