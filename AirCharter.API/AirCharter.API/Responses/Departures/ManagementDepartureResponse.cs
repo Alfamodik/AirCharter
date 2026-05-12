@@ -15,6 +15,10 @@ namespace AirCharter.API.Responses.Departures
 
         public string AirlineName { get; set; } = string.Empty;
 
+        public string AirlineEmail { get; set; } = string.Empty;
+
+        public string AirlinePhoneNumber { get; set; } = string.Empty;
+
         public string? AirlineImage { get; set; }
 
         public int TakeOffAirportId { get; set; }

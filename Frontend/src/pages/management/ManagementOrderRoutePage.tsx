@@ -1394,6 +1394,9 @@ export default function ManagementOrderRoutePage({
                             <span className="management-flight-airline-name">
                                 Исполнитель: {currentDeparture.airlineName}
                             </span>
+                            <span className="management-flight-airline-contact">
+                                Контакты исполнителя: {formatAirlineContactInfo(currentDeparture)}
+                            </span>
                             <span className="management-flight-customer">
                                 Заказчик: {formatCustomerInfo(currentDeparture)}
                             </span>
@@ -2055,10 +2058,23 @@ function formatCustomerInfo(departure: ManagementDepartureResponse): string {
     const fullName = departure.charterRequesterFullName?.trim();
 
     if (fullName) {
-        return `${fullName} · ${departure.charterRequesterEmail}`;
+        return `${fullName}, ${departure.charterRequesterEmail}`;
     }
 
     return departure.charterRequesterEmail;
+}
+
+function formatAirlineContactInfo(departure: ManagementDepartureResponse): string {
+    const contactParts = [
+        departure.airlineEmail,
+        departure.airlinePhoneNumber
+    ]
+        .map((part) => part?.trim())
+        .filter((part): part is string => Boolean(part));
+
+    return contactParts.length > 0
+        ? contactParts.join(", ")
+        : "не указаны";
 }
 
 function calculateFlightTiming(departure: ManagementDepartureResponse): {

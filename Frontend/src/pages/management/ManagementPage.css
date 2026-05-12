@@ -787,6 +787,13 @@
     font-size: 13px;
 }
 
+.management-flight-airline-contact {
+    display: block;
+    margin-top: 6px;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
 .management-flight-customer {
     display: block;
     margin-top: 6px;

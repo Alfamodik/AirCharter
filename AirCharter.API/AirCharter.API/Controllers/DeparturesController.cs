@@ -205,6 +205,8 @@ namespace AirCharter.API.Controllers
                     PlaneModelName = departure.Plane.ModelName,
                     PlanePassengerCapacity = departure.Plane.PassengerCapacity,
                     AirlineName = departure.Plane.Airline.AirlineName,
+                    AirlineEmail = departure.Plane.Airline.Email,
+                    AirlinePhoneNumber = departure.Plane.Airline.PhoneNumber,
 
                     departure.TakeOffAirportId,
                     TakeOffAirportName = departure.TakeOffAirport.Name,
@@ -458,6 +460,8 @@ namespace AirCharter.API.Controllers
                         PlanePassengerCapacity = departure.PlanePassengerCapacity,
                         PlaneImage = null,
                         AirlineName = departure.AirlineName,
+                        AirlineEmail = departure.AirlineEmail,
+                        AirlinePhoneNumber = departure.AirlinePhoneNumber,
                         AirlineImage = null,
 
                         TakeOffAirportId = departure.TakeOffAirportId,
@@ -1423,6 +1427,8 @@ namespace AirCharter.API.Controllers
                 PlanePassengerCapacity = departure.Plane.PassengerCapacity,
                 PlaneImage = departure.Plane.Image == null ? null : Convert.ToBase64String(departure.Plane.Image),
                 AirlineName = departure.Plane.Airline.AirlineName,
+                AirlineEmail = departure.Plane.Airline.Email,
+                AirlinePhoneNumber = departure.Plane.Airline.PhoneNumber,
                 AirlineImage = departure.Plane.Airline.Image == null ? null : Convert.ToBase64String(departure.Plane.Airline.Image),
 
                 TakeOffAirportId = departure.TakeOffAirportId,

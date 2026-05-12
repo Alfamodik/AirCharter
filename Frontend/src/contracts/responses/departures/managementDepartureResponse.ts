@@ -4,6 +4,8 @@ export interface ManagementDepartureResponse {
     planePassengerCapacity: number;
     planeImage?: string | null;
     airlineName: string;
+    airlineEmail: string;
+    airlinePhoneNumber: string;
     airlineImage?: string | null;
     takeOffAirportId: number;
     takeOffAirportName: string;
