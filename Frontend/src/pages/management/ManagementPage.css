@@ -108,6 +108,13 @@
     font-size: 14px;
 }
 
+.management-crew-warning {
+    margin: 0;
+    color: #ff6b6b;
+    font-size: 14px;
+    font-weight: 600;
+}
+
 .management-inline-error.warning {
     border-color: rgba(255, 193, 7, 0.36);
     background: rgba(255, 193, 7, 0.1);

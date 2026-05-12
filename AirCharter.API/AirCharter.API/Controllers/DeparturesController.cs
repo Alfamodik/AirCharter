@@ -913,12 +913,17 @@ namespace AirCharter.API.Controllers
                     return BadRequest("Current status is already ahead of the calculated status.");
                 }
 
-                foreach (FlightStatusId statusId in BuildOperationalStatusCatchUpSequence(
+                IReadOnlyCollection<FlightStatusId> catchUpSequence = BuildOperationalStatusCatchUpSequence(
                     departure,
                     (FlightStatusId)currentStatus.StatusId,
                     nextStatusId,
                     departure.DepartureRouteLegs.Count,
-                    request.TargetLegIndex))
+                    request.TargetLegIndex);
+
+                if (RequiresCrewBeforeDeparture(catchUpSequence) && departure.Employees.Count == 0)
+                    return BadRequest("Для вылета назначьте хотя бы одного члена экипажа.");
+
+                foreach (FlightStatusId statusId in catchUpSequence)
                 {
                     AddDepartureStatus(departure, statusId);
                 }
@@ -929,6 +934,9 @@ namespace AirCharter.API.Controllers
 
             if (currentStatus.StatusId != request.StatusId)
             {
+                if (RequiresCrewBeforeDeparture(nextStatusId) && departure.Employees.Count == 0)
+                    return BadRequest("Для вылета назначьте хотя бы одного члена экипажа.");
+
                 AddDepartureStatus(departure, nextStatusId);
                 await _context.SaveChangesAsync(cancellationToken);
             }
@@ -2035,6 +2043,16 @@ namespace AirCharter.API.Controllers
                 FlightStatusId.Redirected or
                 FlightStatusId.Cancelled or
                 FlightStatusId.IntermediateStop;
+        }
+
+        private static bool RequiresCrewBeforeDeparture(FlightStatusId statusId)
+        {
+            return statusId is FlightStatusId.EnRoute;
+        }
+
+        private static bool RequiresCrewBeforeDeparture(IEnumerable<FlightStatusId> statusIds)
+        {
+            return statusIds.Any(RequiresCrewBeforeDeparture);
         }
 
         private static IReadOnlyCollection<FlightStatusId> BuildOperationalStatusCatchUpSequence(

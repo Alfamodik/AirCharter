@@ -995,6 +995,14 @@ export default function ManagementOrderRoutePage({
             return;
         }
 
+        if (
+            statusChangeRequiresCrew(statusId, includePreviousStatuses) &&
+            departure.employees.length === 0
+        ) {
+            setErrorMessage("Для вылета назначьте хотя бы одного члена экипажа.");
+            return;
+        }
+
         setIsActionLoading(true);
         setErrorMessage("");
 
@@ -1536,9 +1544,13 @@ export default function ManagementOrderRoutePage({
         const canChangeStatus = currentDeparture.canChangeStatus && !isActionLoading;
         const canDeleteLatestStatus = canChangeStatus && currentDeparture.currentStatusId > 4;
         const isCalculatedStatusCurrent = isCalculatedStatusAlreadyCurrent(currentDeparture, timing);
+        const hasAssignedCrew = currentDeparture.employees.length > 0;
+        const calculatedStatusRequiresCrew = statusChangeRequiresCrew(timing.statusId, true);
+        const nextStatusRequiresCrew = statusChangeRequiresCrew(nextStatus.id, false);
         const canApplyCalculatedStatus = canChangeStatus &&
             !isCalculatedStatusCurrent &&
-            !isStatusAheadOfCalculatedStatus(currentDeparture, timing);
+            !isStatusAheadOfCalculatedStatus(currentDeparture, timing) &&
+            (!calculatedStatusRequiresCrew || hasAssignedCrew);
         const isNextStatusCompletion = nextStatus.id === 14;
 
         return renderSectionCard(
@@ -1567,6 +1579,12 @@ export default function ManagementOrderRoutePage({
 
                 <FlightTimingTimeline departure={currentDeparture} />
 
+                {!hasAssignedCrew && (calculatedStatusRequiresCrew || nextStatusRequiresCrew) && (
+                    <p className="management-crew-warning">
+                        Для вылета назначьте хотя бы одного члена экипажа.
+                    </p>
+                )}
+
                 <div className="management-flight-status-actions">
                     <button
                         type="button"
@@ -1592,7 +1610,9 @@ export default function ManagementOrderRoutePage({
                         type="button"
                         className={`management-primary-button ${isNextStatusCompletion ? "management-complete-flight-button" : ""}`}
                         onClick={() => handleSetManagementStatus(nextStatus.id)}
-                        disabled={!canChangeStatus || currentDeparture.currentStatusId === nextStatus.id}
+                        disabled={!canChangeStatus ||
+                            currentDeparture.currentStatusId === nextStatus.id ||
+                            (nextStatusRequiresCrew && !hasAssignedCrew)}
                     >
                         {isNextStatusCompletion ? "Завершить вылет" : "Установить следующий статус"}
                     </button>
@@ -2315,6 +2335,14 @@ function isStatusAheadOfCalculatedStatus(
     const calculatedIndex = sequence.lastIndexOf(timing.statusId);
 
     return currentIndex >= 0 && calculatedIndex >= 0 && currentIndex > calculatedIndex;
+}
+
+function statusChangeRequiresCrew(statusId: number, includePreviousStatuses: boolean): boolean {
+    if (statusId === 13) {
+        return true;
+    }
+
+    return includePreviousStatuses && (statusId === 14 || statusId === 21);
 }
 
 function isCalculatedStatusAlreadyCurrent(
