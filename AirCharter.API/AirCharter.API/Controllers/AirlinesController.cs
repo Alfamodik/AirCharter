@@ -80,6 +80,12 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
         if (request.PassengerArrivalMinutesBeforeFlight is <= 0)
             return BadRequest("Время прибытия пассажиров должно быть больше 0.");
 
+        if (request.ServiceBaseCost is <= 0)
+            return BadRequest("Базовая стоимость обслуживания должна быть больше 0.");
+
+        if (request.TransferBaseCost is <= 0)
+            return BadRequest("Базовая стоимость пересадки должна быть больше 0.");
+
         Airline airline = new()
         {
             AirlineName = airlineName,
@@ -90,6 +96,8 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
             PostalAddress = NormalizeRequiredString(request.PostalAddress),
             PhoneNumber = NormalizeRequiredString(request.PhoneNumber),
             Email = NormalizeRequiredString(request.Email),
+            ServiceBaseCost = request.ServiceBaseCost ?? 0,
+            TransferBaseCost = request.TransferBaseCost ?? 0,
             BankName = NormalizeRequiredString(request.BankName),
             TaxpayerId = NormalizeRequiredString(request.TaxpayerId),
             TaxRegistrationReasonCode = NormalizeRequiredString(request.TaxRegistrationReasonCode),
@@ -247,6 +255,12 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
         if (request.PassengerArrivalMinutesBeforeFlight is <= 0)
             return BadRequest("Время прибытия пассажиров должно быть больше 0.");
 
+        if (request.ServiceBaseCost is <= 0)
+            return BadRequest("Базовая стоимость обслуживания должна быть больше 0.");
+
+        if (request.TransferBaseCost is <= 0)
+            return BadRequest("Базовая стоимость пересадки должна быть больше 0.");
+
         airline.AirlineName = NormalizeRequiredString(request.AirlineName);
         airline.OrganizationFullName = NormalizeRequiredString(request.OrganizationFullName);
         airline.OrganizationShortName = NormalizeRequiredString(request.OrganizationShortName);
@@ -254,6 +268,8 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
         airline.PostalAddress = NormalizeRequiredString(request.PostalAddress);
         airline.PhoneNumber = NormalizeRequiredString(request.PhoneNumber);
         airline.Email = NormalizeRequiredString(request.Email);
+        airline.ServiceBaseCost = request.ServiceBaseCost ?? 0;
+        airline.TransferBaseCost = request.TransferBaseCost ?? 0;
         airline.BankName = NormalizeRequiredString(request.BankName);
         airline.TaxpayerId = NormalizeRequiredString(request.TaxpayerId);
         airline.TaxRegistrationReasonCode = NormalizeRequiredString(request.TaxRegistrationReasonCode);
@@ -357,6 +373,8 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
             PostalAddress = airline.PostalAddress,
             PhoneNumber = airline.PhoneNumber,
             Email = airline.Email,
+            ServiceBaseCost = airline.ServiceBaseCost,
+            TransferBaseCost = airline.TransferBaseCost,
             BankName = airline.BankName,
             TaxpayerId = airline.TaxpayerId,
             TaxRegistrationReasonCode = airline.TaxRegistrationReasonCode,

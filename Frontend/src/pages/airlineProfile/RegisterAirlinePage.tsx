@@ -14,6 +14,8 @@ const emptyForm: RegisterAirlineRequest = {
     postalAddress: "",
     phoneNumber: "",
     email: "",
+    serviceBaseCost: null,
+    transferBaseCost: null,
     bankName: "",
     taxpayerId: "",
     taxRegistrationReasonCode: "",
@@ -95,6 +97,8 @@ export default function RegisterAirlinePage() {
                                 <InputField label="Краткое наименование" value={formData.organizationShortName} onChange={(value) => updateField("organizationShortName", value)} required />
                                 <InputField label="Email" type="email" value={formData.email} onChange={(value) => updateField("email", value)} required />
                                 <InputField label="Телефон" value={formData.phoneNumber} onChange={(value) => updateField("phoneNumber", value)} required />
+                                <InputField label="Базовая стоимость обслуживания" type="number" min="0.01" step="0.01" value={formData.serviceBaseCost?.toString() ?? ""} onChange={(value) => updateField("serviceBaseCost", value)} required />
+                                <InputField label="Базовая стоимость пересадки" type="number" min="0.01" step="0.01" value={formData.transferBaseCost?.toString() ?? ""} onChange={(value) => updateField("transferBaseCost", value)} required />
                             </div>
                         </section>
 
@@ -163,7 +167,9 @@ function sanitizeFormData(formData: RegisterAirlineRequest): RegisterAirlineRequ
 function isNumericField(name: keyof RegisterAirlineRequest): boolean {
     return name === "contractValidityDays" ||
         name === "paymentDeadlineDays" ||
-        name === "passengerArrivalMinutesBeforeFlight";
+        name === "passengerArrivalMinutesBeforeFlight" ||
+        name === "serviceBaseCost" ||
+        name === "transferBaseCost";
 }
 
 function getApiErrorMessage(error: unknown, fallback: string): string {

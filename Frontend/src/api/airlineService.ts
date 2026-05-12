@@ -9,6 +9,8 @@ export interface AirlineContractSettingsResponse {
     postalAddress: string;
     phoneNumber: string;
     email: string;
+    serviceBaseCost: number;
+    transferBaseCost: number;
     bankName: string;
     taxpayerId: string;
     taxRegistrationReasonCode: string;
@@ -32,6 +34,8 @@ export interface UpdateAirlineContractSettingsRequest {
     postalAddress: string;
     phoneNumber: string;
     email: string;
+    serviceBaseCost: number | null;
+    transferBaseCost: number | null;
     bankName: string;
     taxpayerId: string;
     taxRegistrationReasonCode: string;

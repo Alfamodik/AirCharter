@@ -16,6 +16,10 @@ public sealed class UpdateAirlineContractSettingsRequest
 
     public string Email { get; set; } = null!;
 
+    public decimal? ServiceBaseCost { get; set; }
+
+    public decimal? TransferBaseCost { get; set; }
+
     public string BankName { get; set; } = null!;
 
     public string TaxpayerId { get; set; } = null!;

@@ -13,6 +13,8 @@ public static class AirlineProfileCompleteness
         plane.Airline.PostalAddress != null && plane.Airline.PostalAddress != "" &&
         plane.Airline.PhoneNumber != null && plane.Airline.PhoneNumber != "" &&
         plane.Airline.Email != null && plane.Airline.Email != "" &&
+        plane.Airline.ServiceBaseCost > 0 &&
+        plane.Airline.TransferBaseCost > 0 &&
         plane.Airline.BankName != null && plane.Airline.BankName != "" &&
         plane.Airline.TaxpayerId != null && plane.Airline.TaxpayerId != "" &&
         plane.Airline.TaxRegistrationReasonCode != null && plane.Airline.TaxRegistrationReasonCode != "" &&
@@ -49,6 +51,12 @@ public static class AirlineProfileCompleteness
 
         if (IsBlank(airline.Email))
             return "Укажите email.";
+
+        if (airline.ServiceBaseCost <= 0)
+            return "Базовая стоимость обслуживания должна быть больше 0.";
+
+        if (airline.TransferBaseCost <= 0)
+            return "Базовая стоимость пересадки должна быть больше 0.";
 
         if (IsBlank(airline.BankName))
             return "Укажите банк.";

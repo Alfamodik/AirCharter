@@ -16,6 +16,10 @@ public sealed class RegisterAirlineRequest
 
     public string Email { get; set; } = string.Empty;
 
+    public decimal? ServiceBaseCost { get; set; }
+
+    public decimal? TransferBaseCost { get; set; }
+
     public string BankName { get; set; } = string.Empty;
 
     public string TaxpayerId { get; set; } = string.Empty;
