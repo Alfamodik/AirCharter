@@ -211,6 +211,7 @@ export default function ManagementOrderRoutePage({
         requestedTakeOffInput.trim() !== "" &&
         requestedTakeOffInput !== formatDateTimeLocalInput(departure.requestedTakeOffDateTime);
     const shouldValidateRequestedTakeOffDateTime = departure !== null &&
+        !isFlightManagementPage &&
         !isCompletedDepartureStatus(departure.currentStatusId);
     const isRequestedTakeOffTooEarly = shouldValidateRequestedTakeOffDateTime &&
         requestedTakeOffInput.trim() !== "" &&
@@ -1353,7 +1354,8 @@ export default function ManagementOrderRoutePage({
                 mode === "client" ||
                 (mode === "management" && currentDeparture.currentStatusId === 2)
             );
-        const isTakeOffDateTimeWarning = !isCompletedDepartureStatus(currentDeparture.currentStatusId) &&
+        const isOrderTakeOffDateTimeWarning = !isFlightManagementPage &&
+            !isCompletedDepartureStatus(currentDeparture.currentStatusId) &&
             (
                 canEditTakeOffDateTime
                     ? isRequestedTakeOffTooEarly
@@ -1422,14 +1424,14 @@ export default function ManagementOrderRoutePage({
                                 label="Дата и время вылета"
                                 value={requestedTakeOffInput}
                                 min={getTomorrowStartDateTimeLocalInput()}
-                                isWarning={isTakeOffDateTimeWarning}
+                                isWarning={isOrderTakeOffDateTimeWarning}
                                 onChange={setRequestedTakeOffInput}
                             />
                         ) : (
                             <InfoCell
                                 label="Дата и время вылета"
                                 value={formatDateTime(currentDeparture.requestedTakeOffDateTime)}
-                                isWarning={isTakeOffDateTimeWarning}
+                                isWarning={isOrderTakeOffDateTimeWarning}
                             />
                         )}
                         <InfoCell label="Дата и время прибытия" value={formatDateTime(currentDeparture.arrivalDateTime)} />

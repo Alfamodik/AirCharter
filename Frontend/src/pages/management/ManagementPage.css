@@ -45,6 +45,10 @@
 }
 
 .management-nav-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
     padding: 10px 12px;
     border-radius: 8px;
     color: var(--text-secondary);
@@ -64,6 +68,21 @@
 .management-nav-link.active {
     background: rgba(0, 122, 255, 0.12);
     color: var(--accent-blue);
+}
+
+.management-nav-badge {
+    min-width: 22px;
+    height: 22px;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: var(--accent-blue);
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
 }
 
 .management-empty-state {
@@ -112,6 +131,13 @@
 .management-card:hover,
 .management-card.expanded {
     border-color: var(--accent-soft);
+}
+
+.management-card.manager-action-required,
+.management-card.manager-action-required:hover,
+.management-card.manager-action-required.expanded {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 1px rgba(0, 122, 255, 0.55);
 }
 
 .management-card-summary {

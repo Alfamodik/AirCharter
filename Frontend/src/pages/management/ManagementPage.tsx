@@ -17,6 +17,10 @@ import type {
     ManagementRouteLegResponse
 } from "../../contracts/responses/departures/managementDepartureResponse";
 import "./ManagementPage.css";
+import {
+    isFlightBehindSchedule,
+    isOrderAwaitingManagerAction
+} from "./managementActionCounters";
 
 const managementNavigationItems: Array<{
     section: ManagementSection;
@@ -51,6 +55,10 @@ export default function ManagementPage() {
     const [isDeparturesLoading, setIsDeparturesLoading] = useState(true);
     const [actionDepartureId, setActionDepartureId] = useState<number | null>(null);
     const [errorMessage, setErrorMessage] = useState("");
+    const [actionCounts, setActionCounts] = useState<Record<"orders" | "flights", number>>({
+        orders: 0,
+        flights: 0
+    });
 
     const loadDepartures = useCallback(async (signal?: AbortSignal) => {
         setIsDeparturesLoading(true);
@@ -71,6 +79,27 @@ export default function ManagementPage() {
         }
     }, [currentSection]);
 
+    const loadActionCounts = useCallback(async (signal?: AbortSignal) => {
+        try {
+            const [orders, flights] = await Promise.all([
+                getManagementDepartures("orders", signal),
+                getManagementDepartures("flights", signal)
+            ]);
+
+            setActionCounts({
+                orders: orders.filter(isOrderAwaitingManagerAction).length,
+                flights: flights.filter(isFlightBehindSchedule).length
+            });
+        } catch {
+            if (!signal?.aborted) {
+                setActionCounts({
+                    orders: 0,
+                    flights: 0
+                });
+            }
+        }
+    }, []);
+
     useEffect(() => {
         if (isUserLoading || user === null || !hasManagementAccess(user.role?.name)) {
             return;
@@ -78,9 +107,10 @@ export default function ManagementPage() {
 
         const abortController = new AbortController();
         loadDepartures(abortController.signal);
+        loadActionCounts(abortController.signal);
 
         return () => abortController.abort();
-    }, [isUserLoading, loadDepartures, user]);
+    }, [isUserLoading, loadActionCounts, loadDepartures, user]);
 
     async function handleApprove(departureId: number) {
         const departure = departures.find((currentDeparture) => currentDeparture.id === departureId);
@@ -95,6 +125,7 @@ export default function ManagementPage() {
         try {
             await approveManagementDeparture(departureId);
             await loadDepartures();
+            await loadActionCounts();
         } catch {
             setErrorMessage("Не удалось одобрить заявку.");
         } finally {
@@ -109,6 +140,7 @@ export default function ManagementPage() {
         try {
             await rejectManagementDeparture(departureId);
             await loadDepartures();
+            await loadActionCounts();
         } catch {
             setErrorMessage("Не удалось отклонить заявку.");
         } finally {
@@ -140,6 +172,7 @@ export default function ManagementPage() {
         try {
             await confirmManagementDepartureContractDocument(departureId);
             await loadDepartures();
+            await loadActionCounts();
         } catch {
             setErrorMessage("Не удалось подтвердить подписанный договор.");
         } finally {
@@ -191,7 +224,12 @@ export default function ManagementPage() {
                     </div>
 
                     <nav className="management-nav" aria-label="Разделы управления">
-                        {managementNavigationItems.map((item) => (
+                        {managementNavigationItems.map((item) => {
+                            const actionCount = item.section === "completed"
+                                ? 0
+                                : actionCounts[item.section];
+
+                            return (
                             <NavLink
                                 key={item.section}
                                 to={item.path}
@@ -201,9 +239,13 @@ export default function ManagementPage() {
                                         : "management-nav-link"
                                 }
                             >
-                                {item.label}
+                                <span>{item.label}</span>
+                                {actionCount > 0 && (
+                                    <span className="management-nav-badge">{actionCount}</span>
+                                )}
                             </NavLink>
-                        ))}
+                            );
+                        })}
                     </nav>
                 </aside>
 
@@ -284,6 +326,9 @@ function ManagementDepartureCard({
     const isTakeOffDateTimeTooEarly = section === "orders" &&
         isDateTimeTodayOrEarlier(departure.requestedTakeOffDateTime);
     const canApproveDeparture = departure.canApprove && !isTakeOffDateTimeTooEarly;
+    const requiresManagerAction = section === "orders"
+        ? isOrderAwaitingManagerAction(departure)
+        : section === "flights" && isFlightBehindSchedule(departure);
     const routeTitle = `${buildAirportLabel(
         departure.takeOffAirportCity,
         departure.takeOffAirportName,
@@ -297,7 +342,7 @@ function ManagementDepartureCard({
     )}`;
 
     return (
-        <article className={`management-card ${isExpanded ? "expanded" : ""}`}>
+        <article className={`management-card ${isExpanded ? "expanded" : ""} ${requiresManagerAction ? "manager-action-required" : ""}`}>
             <button type="button" className="management-card-summary" onClick={onToggle}>
                 <span className={`management-card-chevron ${isExpanded ? "expanded" : ""}`}>
                 </span>
