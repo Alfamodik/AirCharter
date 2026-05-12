@@ -15,6 +15,14 @@ namespace AirCharter.API.Controllers
     public class PlanesController(AirCharterExtendedContext context) : ControllerBase
     {
         private const string AirlineEmployeeRoles = "Owner,Manager,Admin,GeneralDirector,Employee";
+        private const int MinimumMaxDistance = 1000;
+        private const int MaximumMaxDistance = 20000;
+        private const int MinimumPassengerCapacity = 1;
+        private const int MaximumPassengerCapacity = 400;
+        private const int MinimumCruisingSpeed = 200;
+        private const int MaximumCruisingSpeed = 2500;
+        private const decimal MinimumFlightHourCost = 10000;
+        private const decimal MaximumFlightHourCost = 50000000;
 
         private readonly AirCharterExtendedContext _context = context;
 
@@ -242,14 +250,26 @@ namespace AirCharter.API.Controllers
             if (request.MaxDistance <= 0)
                 return "Максимальная дальность должна быть больше 0.";
 
+            if (request.MaxDistance is < MinimumMaxDistance or > MaximumMaxDistance)
+                return $"Дальность должна быть от {MinimumMaxDistance} до {MaximumMaxDistance} км.";
+
             if (request.PassengerCapacity <= 0)
                 return "Пассажировместимость должна быть больше 0.";
+
+            if (request.PassengerCapacity is < MinimumPassengerCapacity or > MaximumPassengerCapacity)
+                return $"Пассажировместимость должна быть от {MinimumPassengerCapacity} до {MaximumPassengerCapacity}.";
 
             if (request.CruisingSpeed <= 0)
                 return "Крейсерская скорость должна быть больше 0.";
 
+            if (request.CruisingSpeed is < MinimumCruisingSpeed or > MaximumCruisingSpeed)
+                return $"Крейсерская скорость должна быть от {MinimumCruisingSpeed} до {MaximumCruisingSpeed} км/ч.";
+
             if (request.FlightHourCost <= 0)
                 return "Стоимость часа полета должна быть больше 0.";
+
+            if (request.FlightHourCost is < MinimumFlightHourCost or > MaximumFlightHourCost)
+                return $"Стоимость часа должна быть от {MinimumFlightHourCost:N0} до {MaximumFlightHourCost:N0} ₽.";
 
             return null;
         }

@@ -15,9 +15,11 @@ import type {
 } from "../../contracts/responses/planes/managementPlaneResponse";
 import {
     formatNumber,
+    formatPrice,
     getSafeDistance,
     rangeSafetyFactor
 } from "./ManagementPlanesPage";
+import { isInRange, planeSpecificationLimits } from "./planeSpecificationLimits";
 import "./ManagementPage.css";
 import "./ManagementPlanesPage.css";
 
@@ -166,8 +168,8 @@ export default function ManagementPlaneFormPage() {
             }
 
             navigate("/management/planes");
-        } catch {
-            setErrorMessage("Не удалось сохранить самолет. Проверьте поля формы.");
+        } catch (error: unknown) {
+            setErrorMessage(getApiErrorMessage(error, "Не удалось сохранить самолет. Проверьте поля формы."));
         } finally {
             setIsSaving(false);
         }
@@ -225,24 +227,32 @@ export default function ManagementPlaneFormPage() {
                                         value={formState.passengerCapacity}
                                         onChange={(value) => updateField("passengerCapacity", value)}
                                         type="number"
+                                        min={planeSpecificationLimits.passengerCapacity.min}
+                                        max={planeSpecificationLimits.passengerCapacity.max}
                                     />
                                     <FormField
                                         label="Крейсерская скорость, км/ч"
                                         value={formState.cruisingSpeed}
                                         onChange={(value) => updateField("cruisingSpeed", value)}
                                         type="number"
+                                        min={planeSpecificationLimits.cruisingSpeed.min}
+                                        max={planeSpecificationLimits.cruisingSpeed.max}
                                     />
                                     <FormField
                                         label="Стоимость часа, ₽"
                                         value={formState.flightHourCost}
                                         onChange={(value) => updateField("flightHourCost", value)}
                                         type="number"
+                                        min={planeSpecificationLimits.flightHourCost.min}
+                                        max={planeSpecificationLimits.flightHourCost.max}
                                     />
                                     <FormField
                                         label="Дальность, км"
                                         value={formState.maxDistance}
                                         onChange={(value) => updateField("maxDistance", value)}
                                         type="number"
+                                        min={planeSpecificationLimits.maxDistance.min}
+                                        max={planeSpecificationLimits.maxDistance.max}
                                     />
                                     <FormField
                                         label="Безопасная дальность"
@@ -296,7 +306,9 @@ function FormField({
     placeholder,
     type = "text",
     readOnly = false,
-    note
+    note,
+    min,
+    max
 }: {
     label: string;
     value: string;
@@ -305,13 +317,16 @@ function FormField({
     type?: string;
     readOnly?: boolean;
     note?: string;
+    min?: number;
+    max?: number;
 }) {
     return (
         <label className="management-plane-form-field">
             <span>{label}</span>
             <input
                 type={type}
-                min={type === "number" ? 1 : undefined}
+                min={type === "number" ? min ?? 1 : undefined}
+                max={type === "number" ? max : undefined}
                 value={value}
                 placeholder={placeholder}
                 readOnly={readOnly}
@@ -348,6 +363,34 @@ function buildSaveRequest(formState: PlaneFormState): SavePlaneRequest | string 
         return "Числовые характеристики должны быть больше 0.";
     }
 
+    if (!Number.isInteger(maxDistance)) {
+        return "Дальность должна быть целым числом.";
+    }
+
+    if (!isInRange(maxDistance, planeSpecificationLimits.maxDistance.min, planeSpecificationLimits.maxDistance.max)) {
+        return `Дальность должна быть от ${formatNumber(planeSpecificationLimits.maxDistance.min)} до ${formatNumber(planeSpecificationLimits.maxDistance.max)} км.`;
+    }
+
+    if (!Number.isInteger(passengerCapacity)) {
+        return "Пассажировместимость должна быть целым числом.";
+    }
+
+    if (!isInRange(passengerCapacity, planeSpecificationLimits.passengerCapacity.min, planeSpecificationLimits.passengerCapacity.max)) {
+        return `Пассажировместимость должна быть от ${planeSpecificationLimits.passengerCapacity.min} до ${planeSpecificationLimits.passengerCapacity.max}.`;
+    }
+
+    if (!Number.isInteger(cruisingSpeed)) {
+        return "Крейсерская скорость должна быть целым числом.";
+    }
+
+    if (!isInRange(cruisingSpeed, planeSpecificationLimits.cruisingSpeed.min, planeSpecificationLimits.cruisingSpeed.max)) {
+        return `Крейсерская скорость должна быть от ${formatNumber(planeSpecificationLimits.cruisingSpeed.min)} до ${formatNumber(planeSpecificationLimits.cruisingSpeed.max)} км/ч.`;
+    }
+
+    if (!isInRange(flightHourCost, planeSpecificationLimits.flightHourCost.min, planeSpecificationLimits.flightHourCost.max)) {
+        return `Стоимость часа должна быть от ${formatPrice(planeSpecificationLimits.flightHourCost.min)} до ${formatPrice(planeSpecificationLimits.flightHourCost.max)}.`;
+    }
+
     return {
         modelName,
         maxDistance,
@@ -376,4 +419,16 @@ function readFileAsDataUrl(file: File): Promise<string> {
         reader.onerror = () => reject(reader.error);
         reader.readAsDataURL(file);
     });
+}
+
+function getApiErrorMessage(error: unknown, fallback: string): string {
+    if (typeof error === "object" && error !== null && "message" in error) {
+        const message = error.message;
+
+        if (typeof message === "string" && message.trim() !== "") {
+            return message.trim();
+        }
+    }
+
+    return fallback;
 }
