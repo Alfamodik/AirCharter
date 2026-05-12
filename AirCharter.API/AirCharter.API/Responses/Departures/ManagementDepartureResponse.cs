@@ -87,6 +87,8 @@ namespace AirCharter.API.Responses.Departures
 
         public DateTime? ContractDocumentUploadedAt { get; set; }
 
+        public bool ContractDocumentUploadedByAirline { get; set; }
+
         public IReadOnlyCollection<ManagementPassengerResponse> Passengers { get; set; } =
             Array.Empty<ManagementPassengerResponse>();
 

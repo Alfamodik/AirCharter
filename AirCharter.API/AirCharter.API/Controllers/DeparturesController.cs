@@ -265,6 +265,10 @@ namespace AirCharter.API.Controllers
                         departure.ContractDocumentUploadedAt != null,
                     departure.ContractDocumentFileName,
                     departure.ContractDocumentUploadedAt,
+                    ContractDocumentUploadedByAirline = departure.ContractDocumentUploadedByUserId != null &&
+                        _context.Users.Any(user =>
+                            user.Id == departure.ContractDocumentUploadedByUserId &&
+                            user.AirlineId == departure.Plane.AirlineId),
                     PaymentDeadlineDays = departure.Plane.Airline.PaymentDeadlineDays
                 })
                 .ToListAsync(cancellationToken);
@@ -505,6 +509,7 @@ namespace AirCharter.API.Controllers
                         HasContractDocument = departure.HasContractDocument,
                         ContractDocumentFileName = departure.ContractDocumentFileName,
                         ContractDocumentUploadedAt = departure.ContractDocumentUploadedAt,
+                        ContractDocumentUploadedByAirline = departure.ContractDocumentUploadedByAirline,
 
                         Passengers = passengers,
                         Employees = employees,
@@ -817,6 +822,9 @@ namespace AirCharter.API.Controllers
 
             if (departure.ContractDocument is null || departure.ContractDocument.Length == 0)
                 return BadRequest("Подписанный договор ещё не загружен.");
+
+            if (!await IsContractDocumentUploadedByAirlineAsync(departure, cancellationToken))
+                return BadRequest("Перед подтверждением менеджер должен загрузить подписанный договор.");
 
             AddDepartureStatus(departure, FlightStatusId.AwaitingPayment);
             await _context.SaveChangesAsync(cancellationToken);
@@ -1483,6 +1491,7 @@ namespace AirCharter.API.Controllers
                 HasContractDocument = departure.ContractDocument != null && departure.ContractDocument.Length > 0,
                 ContractDocumentFileName = departure.ContractDocumentFileName,
                 ContractDocumentUploadedAt = departure.ContractDocumentUploadedAt,
+                ContractDocumentUploadedByAirline = IsContractDocumentUploadedByAirline(departure),
 
                 Passengers = departure.People
                     .OrderBy(person => person.LastName)
@@ -2215,6 +2224,26 @@ namespace AirCharter.API.Controllers
             return BuildPersonFullName(person.LastName, person.FirstName, person.Patronymic);
         }
 
+        private bool IsContractDocumentUploadedByAirline(Departure departure)
+        {
+            return departure.ContractDocumentUploadedByUserId.HasValue &&
+                _context.Users.Any(user =>
+                    user.Id == departure.ContractDocumentUploadedByUserId.Value &&
+                    user.AirlineId == departure.Plane.AirlineId);
+        }
+
+        private async Task<bool> IsContractDocumentUploadedByAirlineAsync(
+            Departure departure,
+            CancellationToken cancellationToken)
+        {
+            return departure.ContractDocumentUploadedByUserId.HasValue &&
+                await _context.Users.AnyAsync(
+                    user =>
+                        user.Id == departure.ContractDocumentUploadedByUserId.Value &&
+                        user.AirlineId == departure.Plane.AirlineId,
+                    cancellationToken);
+        }
+
         private static string BuildPersonFullName(
             string? lastName,
             string? firstName,
@@ -2421,6 +2450,14 @@ namespace AirCharter.API.Controllers
 
             if (isRequester && currentStatus?.StatusId != (int)FlightStatusId.AwaitingContractSigning)
                 return BadRequest("Договор можно загрузить только после одобрения заявки менеджером.");
+
+            if (isAirlineEmployee && currentStatus?.StatusId != (int)FlightStatusId.AwaitingContractSigning)
+                return BadRequest("Договор можно загрузить только в статусе ожидания подписания договора.");
+
+            if (isRequester &&
+                !isAirlineEmployee &&
+                await IsContractDocumentUploadedByAirlineAsync(departure, cancellationToken))
+                return BadRequest("Исполнитель уже загрузил подписанный договор. Новую копию загрузить нельзя.");
 
             if (file.Length == 0)
                 return BadRequest("Файл договора пустой.");

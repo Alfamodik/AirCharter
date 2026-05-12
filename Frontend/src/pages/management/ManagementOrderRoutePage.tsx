@@ -249,6 +249,12 @@ export default function ManagementOrderRoutePage({
             departure.canEditRoute ||
             departure.currentStatusId === 19
         );
+    const canUploadContractDocument = departure !== null &&
+        departure.currentStatusId === 19 &&
+        (
+            mode === "management" ||
+            (mode === "client" && !departure.contractDocumentUploadedByAirline)
+        );
     const canSaveDepartureChanges = departure !== null &&
         departure.canEditRoute &&
         hasUnsavedDepartureChanges;
@@ -1843,7 +1849,7 @@ export default function ManagementOrderRoutePage({
                                     Сохранить шаблон договора
                                     </button>
                                 )}
-                                {mode === "client" && departure.currentStatusId === 19 && (
+                                {canUploadContractDocument && (
                                     <>
                                         <input
                                             ref={contractFileInputRef}
@@ -1858,7 +1864,7 @@ export default function ManagementOrderRoutePage({
                                             onClick={() => contractFileInputRef.current?.click()}
                                             disabled={isActionLoading}
                                         >
-                                            Загрузить подписанный договор
+                                            {mode === "management" ? "Загрузить итоговый договор" : "Загрузить подписанный договор"}
                                         </button>
                                     </>
                                 )}
@@ -1882,7 +1888,7 @@ export default function ManagementOrderRoutePage({
                                         Скачать подписанный договор
                                     </button>
                                 )}
-                                {mode === "management" && departure.currentStatusId === 19 && departure.hasContractDocument && (
+                                {mode === "management" && departure.currentStatusId === 19 && departure.contractDocumentUploadedByAirline && (
                                     <button
                                         type="button"
                                         className="management-primary-button"

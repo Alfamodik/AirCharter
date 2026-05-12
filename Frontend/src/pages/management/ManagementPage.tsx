@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ChangeEvent, type ReactNode } from "react";
 import { NavLink, Navigate, useLocation, useNavigate } from "react-router-dom";
 import Header from "../../components/header/Header";
 import {
@@ -8,7 +8,7 @@ import {
     rejectManagementDeparture,
     type ManagementSection
 } from "../../api/managementService";
-import { downloadDepartureContractDocument } from "../../api/userService";
+import { downloadDepartureContractDocument, uploadDepartureContractDocument } from "../../api/userService";
 import { useUser } from "../../context/UserContext";
 import { hasAirlineProfileAccess, hasManagementAccess } from "../../api/utils/roleAccess";
 import type {
@@ -180,6 +180,21 @@ export default function ManagementPage() {
         }
     }
 
+    async function handleUploadContractDocument(departureId: number, file: File) {
+        setActionDepartureId(departureId);
+        setErrorMessage("");
+
+        try {
+            await uploadDepartureContractDocument(departureId, file);
+            await loadDepartures();
+            await loadActionCounts();
+        } catch {
+            setErrorMessage("Не удалось загрузить итоговый договор.");
+        } finally {
+            setActionDepartureId(null);
+        }
+    }
+
     if (!isUserLoading && (user === null || !hasManagementAccess(user.role?.name))) {
         return <Navigate to="/catalog" replace />;
     }
@@ -204,13 +219,15 @@ export default function ManagementPage() {
             <div className="catalog-layout">
                 <aside className="catalog-sidebar">
                     <div className="user-brief-info">
-                        <span className="user-email-label">
-                            {isUserLoading ? "Загрузка..." : user?.email}
-                        </span>
+                        <div className="user-brief-header">
+                            <span className="user-email-label">
+                                {isUserLoading ? "Загрузка..." : user?.email}
+                            </span>
 
-                        <span className="user-role-label">
-                            {isUserLoading ? "" : getRoleText(user?.role?.name)}
-                        </span>
+                            <span className="user-role-label">
+                                {isUserLoading ? "" : getRoleText(user?.role?.name)}
+                            </span>
+                        </div>
 
                         {!isUserLoading && hasAirlineProfileAccess(user?.role?.name) && (
                             <NavLink to="/airline-profile" className="profile-redirect-btn">
@@ -287,6 +304,7 @@ export default function ManagementPage() {
                                         onReject={() => handleReject(departure.id)}
                                         onDownloadContractDocument={() => handleDownloadContractDocument(departure)}
                                         onConfirmContractDocument={() => handleConfirmContractDocument(departure.id)}
+                                        onUploadContractDocument={(file) => handleUploadContractDocument(departure.id, file)}
                                     />
                                 ))}
                             </div>
@@ -309,7 +327,8 @@ function ManagementDepartureCard({
     onApprove,
     onReject,
     onDownloadContractDocument,
-    onConfirmContractDocument
+    onConfirmContractDocument,
+    onUploadContractDocument
 }: {
     departure: ManagementDepartureResponse;
     section: ManagementSection;
@@ -322,6 +341,7 @@ function ManagementDepartureCard({
     onReject: () => void;
     onDownloadContractDocument: () => void;
     onConfirmContractDocument: () => void;
+    onUploadContractDocument: (file: File) => void;
 }) {
     const isTakeOffDateTimeTooEarly = section === "orders" &&
         isDateTimeTodayOrEarlier(departure.requestedTakeOffDateTime);
@@ -340,6 +360,17 @@ function ManagementDepartureCard({
         departure.landingAirportIata,
         departure.landingAirportIcao
     )}`;
+
+    function handleContractDocumentChange(event: ChangeEvent<HTMLInputElement>) {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+
+        if (!file) {
+            return;
+        }
+
+        onUploadContractDocument(file);
+    }
 
     return (
         <article className={`management-card ${isExpanded ? "expanded" : ""} ${requiresManagerAction ? "manager-action-required" : ""}`}>
@@ -380,14 +411,16 @@ function ManagementDepartureCard({
 
                     {section === "orders" && (
                         <div className="management-card-actions">
-                            <button
-                                type="button"
-                                className="management-danger-button"
-                                onClick={onReject}
-                                disabled={isActionLoading || !departure.canApprove}
-                            >
-                                Отклонить
-                            </button>
+                            {departure.canApprove && (
+                                <button
+                                    type="button"
+                                    className="management-danger-button"
+                                    onClick={onReject}
+                                    disabled={isActionLoading}
+                                >
+                                    Отклонить
+                                </button>
+                            )}
 
                             <button
                                 type="button"
@@ -409,7 +442,20 @@ function ManagementDepartureCard({
                                 </button>
                             )}
 
-                            {departure.currentStatusId === 19 && departure.hasContractDocument ? (
+                            {departure.currentStatusId === 19 && (
+                                <label className="management-secondary-button">
+                                    Загрузить итоговый договор
+                                    <input
+                                        type="file"
+                                        className="management-hidden-file-input"
+                                        accept=".pdf,.doc,.docx,image/*"
+                                        onChange={handleContractDocumentChange}
+                                        disabled={isActionLoading}
+                                    />
+                                </label>
+                            )}
+
+                            {departure.currentStatusId === 19 && departure.contractDocumentUploadedByAirline ? (
                                 <button
                                     type="button"
                                     className="management-primary-button"
@@ -418,7 +464,7 @@ function ManagementDepartureCard({
                                 >
                                     Подтвердить договор
                                 </button>
-                            ) : (
+                            ) : departure.canApprove ? (
                                 <button
                                     type="button"
                                     className="management-primary-button"
@@ -427,7 +473,7 @@ function ManagementDepartureCard({
                                 >
                                     Одобрить
                                 </button>
-                            )}
+                            ) : null}
                         </div>
                     )}
 

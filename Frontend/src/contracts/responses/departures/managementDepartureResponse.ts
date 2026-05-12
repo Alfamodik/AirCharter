@@ -40,6 +40,7 @@ export interface ManagementDepartureResponse {
     hasContractDocument: boolean;
     contractDocumentFileName?: string | null;
     contractDocumentUploadedAt?: string | null;
+    contractDocumentUploadedByAirline: boolean;
     passengers: ManagementPassengerResponse[];
     employees: ManagementEmployeeResponse[];
     statusHistory: ManagementDepartureStatusResponse[];

@@ -129,6 +129,7 @@ export function ManagementSidebar({
     return (
         <aside className="catalog-sidebar">
             <div className="user-brief-info">
+                <div className="user-brief-header">
                 <span className="user-email-label">
                     {isUserLoading ? "Загрузка..." : email}
                 </span>
@@ -136,6 +137,8 @@ export function ManagementSidebar({
                 <span className="user-role-label">
                     {isUserLoading ? "" : getRoleText(roleName)}
                 </span>
+
+                </div>
 
                 {!isUserLoading && hasAirlineProfileAccess(roleName) && (
                     <NavLink to="/airline-profile" className="profile-redirect-btn">
