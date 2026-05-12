@@ -67,9 +67,16 @@ export async function registerAirline(data: RegisterAirlineRequest): Promise<Acc
     );
 }
 
-export async function getMyAirlineEmployees(signal?: AbortSignal): Promise<AirlineEmployeeResponse[]> {
+export async function getMyAirlineEmployees(
+    availableForDepartureId?: number,
+    signal?: AbortSignal
+): Promise<AirlineEmployeeResponse[]> {
+    const query = availableForDepartureId === undefined
+        ? ""
+        : `?availableForDepartureId=${availableForDepartureId}`;
+
     return await sendRequest<AirlineEmployeeResponse[]>(
-        "/airlines/my/employees",
+        `/airlines/my/employees${query}`,
         "GET",
         undefined,
         signal

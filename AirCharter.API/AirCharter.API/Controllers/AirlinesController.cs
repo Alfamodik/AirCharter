@@ -127,6 +127,7 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
     [HttpGet("my/employees")]
     [Authorize(Roles = AirlineEmployeeRoles)]
     public async Task<ActionResult<IEnumerable<AirlineEmployeeResponse>>> GetMyEmployees(
+        [FromQuery] int? availableForDepartureId,
         CancellationToken cancellationToken)
     {
         int? airlineId = await GetCurrentUserAirlineIdAsync(cancellationToken);
@@ -134,9 +135,26 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
         if (airlineId is null)
             return Forbid();
 
+        if (availableForDepartureId is not null)
+        {
+            bool departureBelongsToAirline = await _context.Departures
+                .AsNoTracking()
+                .AnyAsync(
+                    departure =>
+                        departure.Id == availableForDepartureId.Value &&
+                        departure.Plane.AirlineId == airlineId.Value,
+                    cancellationToken);
+
+            if (!departureBelongsToAirline)
+                return NotFound();
+        }
+
         AirlineEmployeeResponse[] employees = await _context.Users
             .AsNoTracking()
             .Where(user => user.AirlineId == airlineId.Value && user.IsActive)
+            .Where(user =>
+                availableForDepartureId == null ||
+                !user.DeparturesNavigation.Any(departure => departure.Id != availableForDepartureId.Value))
             .OrderBy(user => user.Person == null ? user.Email : user.Person.LastName)
             .ThenBy(user => user.Person == null ? user.Email : user.Person.FirstName)
             .Select(user => new AirlineEmployeeResponse

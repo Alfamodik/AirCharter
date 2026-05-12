@@ -1337,6 +1337,7 @@ namespace AirCharter.API.Controllers
 
             User[] employees = await _context.Users
                 .Include(user => user.Role)
+                .Include(user => user.DeparturesNavigation)
                 .Where(user =>
                     employeeIds.Contains(user.Id) &&
                     user.AirlineId == userAirlineId.Value &&
@@ -1348,6 +1349,9 @@ namespace AirCharter.API.Controllers
 
             if (employees.Any(employee => employee.Role.Name == "Client"))
                 return BadRequest("К вылету можно прикреплять только сотрудников авиакомпании.");
+
+            if (employees.Any(employee => employee.DeparturesNavigation.Any(employeeDeparture => employeeDeparture.Id != departureId)))
+                return BadRequest("Один или несколько сотрудников уже назначены на другой вылет.");
 
             departure.Employees.Clear();
 

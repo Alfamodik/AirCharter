@@ -323,7 +323,7 @@ export default function ManagementOrderRoutePage({
 
         async function loadEmployees() {
             try {
-                const response = await getMyAirlineEmployees(abortController.signal);
+                const response = await getMyAirlineEmployees(parsedDepartureId, abortController.signal);
                 setAvailableEmployees(response);
             } catch {
                 if (!abortController.signal.aborted) {
@@ -335,7 +335,7 @@ export default function ManagementOrderRoutePage({
         loadEmployees();
 
         return () => abortController.abort();
-    }, [isUserLoading, mode, user]);
+    }, [isUserLoading, mode, parsedDepartureId, user]);
 
     useEffect(() => {
         if (routeRequest === null || !hasRouteChanges || Number.isNaN(parsedDepartureId)) {
