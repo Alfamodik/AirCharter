@@ -190,3 +190,36 @@
     color: #7d8797;
     font-size: 13px;
 }
+
+.order-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.72);
+}
+
+.order-modal {
+    width: min(420px, 100%);
+    border: 1px solid #333;
+    border-radius: 12px;
+    background: #171717;
+    padding: 22px;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+}
+
+.order-modal h2 {
+    margin: 0 0 10px;
+    color: white;
+    font-size: 22px;
+}
+
+.order-modal p {
+    margin: 0 0 18px;
+    color: #b8c0cc;
+    font-size: 15px;
+    line-height: 1.5;
+}

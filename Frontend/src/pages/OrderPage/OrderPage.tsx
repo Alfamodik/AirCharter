@@ -164,6 +164,8 @@ export default function OrderPage() {
     const [statusMessage, setStatusMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isCalculatingFlight, setIsCalculatingFlight] = useState(false);
+    const [isOrderCreated, setIsOrderCreated] = useState(false);
+    const [isDraftCreatedModalOpen, setIsDraftCreatedModalOpen] = useState(false);
 
     const minimumDate = getTomorrowLocalDateString();
 
@@ -273,6 +275,10 @@ export default function OrderPage() {
     async function handleSubmitOrder(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
 
+        if (isSubmitting || isOrderCreated) {
+            return;
+        }
+
         if (!planeId || !orderFormData.takeOffAirportId || !orderFormData.landingAirportId || !orderFormData.departureDate) {
             setStatusMessage({ text: "Заполните все поля", type: "error" });
             return;
@@ -302,11 +308,8 @@ export default function OrderPage() {
                 requestedTakeOffDateTime
             });
 
-            setStatusMessage({ text: "Заявка успешно создана!", type: "success" });
-
-            window.setTimeout(() => {
-                navigate("/cabinet");
-            }, 1500);
+            setIsOrderCreated(true);
+            setIsDraftCreatedModalOpen(true);
         } catch {
             setStatusMessage({ text: "Ошибка при создании заявки", type: "error" });
         } finally {
@@ -477,13 +480,33 @@ export default function OrderPage() {
                         <button
                             type="submit"
                             className="auth-submit-button"
-                            disabled={isSubmitting || isCalculatingFlight}
+                            disabled={isSubmitting || isCalculatingFlight || isOrderCreated}
                         >
-                            {isSubmitting ? "Создание..." : "Создать заявку"}
+                            {isSubmitting ? "Создание..." : isOrderCreated ? "Черновик создан" : "Создать черновик заявки"}
                         </button>
+
                     </form>
                 </div>
             </div>
+
+            {isDraftCreatedModalOpen && (
+                <div className="order-modal-backdrop" role="dialog" aria-modal="true">
+                    <div className="order-modal">
+                        <h2>Черновик заявки создан</h2>
+                        <p>
+                            Чтобы отправить заявку менеджеру, откройте её в личном кабинете,
+                            проверьте пассажиров и нажмите «Отправить заявку».
+                        </p>
+                        <button
+                            type="button"
+                            className="auth-submit-button"
+                            onClick={() => navigate("/cabinet")}
+                        >
+                            Перейти в личный кабинет
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

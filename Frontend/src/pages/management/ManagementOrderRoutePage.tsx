@@ -294,8 +294,13 @@ export default function ManagementOrderRoutePage({
                 setRequestedTakeOffInput(formatDateTimeLocalInput(response.requestedTakeOffDateTime));
                 setRoutePoints(createInitialRoutePoints(response));
                 setGroundTimesMinutes(createInitialGroundTimes(response));
-            } catch {
+            } catch (error: unknown) {
                 if (!abortController.signal.aborted) {
+                    if (getApiStatus(error) === 404) {
+                        navigate(getBackTarget(location.state, location.pathname, mode), { replace: true });
+                        return;
+                    }
+
                     setErrorMessage("Не удалось загрузить заявку.");
                 }
             } finally {
@@ -1983,6 +1988,16 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
     }
 
     return fallback;
+}
+
+function getApiStatus(error: unknown): number | null {
+    if (typeof error !== "object" || error === null || !("status" in error)) {
+        return null;
+    }
+
+    const status = Number((error as { status?: unknown }).status);
+
+    return Number.isNaN(status) ? null : status;
 }
 
 function getBackTarget(
