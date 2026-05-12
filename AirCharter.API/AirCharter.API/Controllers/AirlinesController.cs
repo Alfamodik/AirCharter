@@ -50,22 +50,16 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
             return BadRequest("Роль владельца авиакомпании не найдена.");
 
         string airlineName = NormalizeRequiredString(request.AirlineName);
-        string organizationFullName = NormalizeRequiredString(request.OrganizationFullName);
-        string organizationShortName = NormalizeRequiredString(request.OrganizationShortName);
+        string organizationType = NormalizeRequiredString(request.OrganizationType);
 
         if (string.IsNullOrWhiteSpace(airlineName))
             return BadRequest("Укажите название авиакомпании.");
 
-        if (string.IsNullOrWhiteSpace(organizationFullName))
-            return BadRequest("Укажите полное наименование организации.");
-
-        if (string.IsNullOrWhiteSpace(organizationShortName))
-            return BadRequest("Укажите краткое наименование организации.");
+        if (!AirlineOrganizationTypes.TryGet(organizationType, out AirlineOrganizationTypeInfo organizationTypeInfo))
+            return BadRequest("Укажите тип организации.");
 
         bool duplicateExists = await _context.Airlines.AnyAsync(airline =>
-            airline.AirlineName == airlineName ||
-            airline.OrganizationFullName == organizationFullName ||
-            airline.OrganizationShortName == organizationShortName,
+            airline.AirlineName == airlineName,
             cancellationToken);
 
         if (duplicateExists)
@@ -90,8 +84,8 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
         {
             AirlineName = airlineName,
             CreationDate = DateOnly.FromDateTime(DateTime.UtcNow),
-            OrganizationFullName = organizationFullName,
-            OrganizationShortName = organizationShortName,
+            OrganizationFullName = organizationTypeInfo.FullName,
+            OrganizationShortName = organizationTypeInfo.Code,
             LegalAddress = NormalizeRequiredString(request.LegalAddress),
             PostalAddress = NormalizeRequiredString(request.PostalAddress),
             PhoneNumber = NormalizeRequiredString(request.PhoneNumber),
@@ -261,9 +255,12 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
         if (request.TransferBaseCost is <= 0)
             return BadRequest("Базовая стоимость пересадки должна быть больше 0.");
 
+        if (!AirlineOrganizationTypes.TryGet(request.OrganizationType, out AirlineOrganizationTypeInfo organizationTypeInfo))
+            return BadRequest("Укажите тип организации.");
+
         airline.AirlineName = NormalizeRequiredString(request.AirlineName);
-        airline.OrganizationFullName = NormalizeRequiredString(request.OrganizationFullName);
-        airline.OrganizationShortName = NormalizeRequiredString(request.OrganizationShortName);
+        airline.OrganizationFullName = organizationTypeInfo.FullName;
+        airline.OrganizationShortName = organizationTypeInfo.Code;
         airline.LegalAddress = NormalizeRequiredString(request.LegalAddress);
         airline.PostalAddress = NormalizeRequiredString(request.PostalAddress);
         airline.PhoneNumber = NormalizeRequiredString(request.PhoneNumber);
@@ -367,8 +364,9 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
         {
             Id = airline.Id,
             AirlineName = airline.AirlineName,
-            OrganizationFullName = airline.OrganizationFullName,
-            OrganizationShortName = airline.OrganizationShortName,
+            OrganizationType = AirlineOrganizationTypes.Resolve(airline)?.Code ?? airline.OrganizationShortName,
+            OrganizationFullName = AirlineOrganizationTypes.BuildFullOrganizationName(airline),
+            OrganizationShortName = AirlineOrganizationTypes.BuildShortOrganizationName(airline),
             LegalAddress = airline.LegalAddress,
             PostalAddress = airline.PostalAddress,
             PhoneNumber = airline.PhoneNumber,

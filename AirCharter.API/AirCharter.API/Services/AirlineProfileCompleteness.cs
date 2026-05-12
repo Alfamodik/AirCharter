@@ -34,11 +34,8 @@ public static class AirlineProfileCompleteness
         if (IsBlank(airline.AirlineName))
             return "Укажите название авиакомпании.";
 
-        if (IsBlank(airline.OrganizationFullName))
-            return "Укажите полное наименование организации.";
-
-        if (IsBlank(airline.OrganizationShortName))
-            return "Укажите краткое наименование организации.";
+        if (AirlineOrganizationTypes.Resolve(airline) is null)
+            return "Укажите тип организации.";
 
         if (IsBlank(airline.LegalAddress))
             return "Укажите юридический адрес.";

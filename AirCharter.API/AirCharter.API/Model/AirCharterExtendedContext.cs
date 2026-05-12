@@ -54,10 +54,6 @@ public partial class AirCharterExtendedContext : DbContext
 
             entity.HasIndex(e => e.AirlineName, "airline_name").IsUnique();
 
-            entity.HasIndex(e => e.OrganizationFullName, "organization_full_name").IsUnique();
-
-            entity.HasIndex(e => e.OrganizationShortName, "organization_short_name").IsUnique();
-
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.AirlineName)
                 .HasMaxLength(45)

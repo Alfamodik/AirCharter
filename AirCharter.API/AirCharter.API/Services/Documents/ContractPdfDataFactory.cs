@@ -31,8 +31,8 @@ public sealed class ContractPdfDataFactory
             missingFields);
         string cateringClass = RequireValue(airline.CateringClass, "класс бортпитания в профиле авиакомпании", missingFields);
 
-        string executorFullName = RequireValue(airline.OrganizationFullName, "полное наименование авиакомпании", missingFields);
-        string executorShortName = RequireValue(airline.OrganizationShortName, "краткое наименование авиакомпании", missingFields);
+        string executorFullName = RequireValue(AirlineOrganizationTypes.BuildFullOrganizationName(airline), "полное наименование авиакомпании", missingFields);
+        string executorShortName = RequireValue(AirlineOrganizationTypes.BuildShortOrganizationName(airline), "краткое наименование авиакомпании", missingFields);
         string executorLegalAddress = RequireValue(airline.LegalAddress, "юридический адрес авиакомпании", missingFields);
         string executorPostalAddress = RequireValue(airline.PostalAddress, "почтовый адрес авиакомпании", missingFields);
         string executorTaxpayerId = RequireValue(airline.TaxpayerId, "ИНН авиакомпании", missingFields);

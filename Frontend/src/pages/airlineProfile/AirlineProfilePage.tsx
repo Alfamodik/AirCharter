@@ -12,11 +12,11 @@ import Header from "../../components/header/Header";
 import InputField from "../../components/inputField/InputField";
 import { useUser } from "../../context/UserContext";
 import "./AirlineProfilePage.css";
+import { inferOrganizationType, organizationTypeOptions } from "./organizationTypes";
 
 const emptyAirlineFormData: UpdateAirlineContractSettingsRequest = {
     airlineName: "",
-    organizationFullName: "",
-    organizationShortName: "",
+    organizationType: "",
     legalAddress: "",
     postalAddress: "",
     phoneNumber: "",
@@ -202,8 +202,7 @@ export default function AirlineProfilePage() {
                                 <h2>Основное</h2>
                                 <div className="airline-profile-grid">
                                     <InputField label="Название" value={formData.airlineName} onChange={(value) => updateField("airlineName", value)} required />
-                                    <InputField label="Полное наименование" value={formData.organizationFullName} onChange={(value) => updateField("organizationFullName", value)} required />
-                                    <InputField label="Краткое наименование" value={formData.organizationShortName} onChange={(value) => updateField("organizationShortName", value)} required />
+                                    <OrganizationTypeSelect value={formData.organizationType} onChange={(value) => updateField("organizationType", value)} />
                                     <InputField label="Email" type="email" value={formData.email} onChange={(value) => updateField("email", value)} required />
                                     <InputField label="Телефон" value={formData.phoneNumber} onChange={(value) => updateField("phoneNumber", value)} required />
                                     <InputField label="Базовая стоимость обслуживания" type="number" min="0.01" step="0.01" value={formData.serviceBaseCost?.toString() ?? ""} onChange={(value) => updateField("serviceBaseCost", value)} required />
@@ -263,8 +262,7 @@ export default function AirlineProfilePage() {
 function createFormData(settings: AirlineContractSettingsResponse): UpdateAirlineContractSettingsRequest {
     return {
         airlineName: settings.airlineName ?? "",
-        organizationFullName: settings.organizationFullName ?? "",
-        organizationShortName: settings.organizationShortName ?? "",
+        organizationType: settings.organizationType ?? inferOrganizationType(settings.organizationShortName, settings.organizationFullName),
         legalAddress: settings.legalAddress ?? "",
         postalAddress: settings.postalAddress ?? "",
         phoneNumber: settings.phoneNumber ?? "",
@@ -290,8 +288,7 @@ function sanitizeFormData(formData: UpdateAirlineContractSettingsRequest): Updat
     return {
         ...formData,
         airlineName: formData.airlineName.trim(),
-        organizationFullName: formData.organizationFullName.trim(),
-        organizationShortName: formData.organizationShortName.trim(),
+        organizationType: formData.organizationType.trim(),
         legalAddress: formData.legalAddress.trim(),
         postalAddress: formData.postalAddress.trim(),
         phoneNumber: formData.phoneNumber.trim(),
@@ -306,6 +303,38 @@ function sanitizeFormData(formData: UpdateAirlineContractSettingsRequest): Updat
         contractCity: formData.contractCity?.trim() || null,
         cateringClass: formData.cateringClass?.trim() || null
     };
+}
+
+function OrganizationTypeSelect({
+    value,
+    onChange
+}: {
+    value: string;
+    onChange: (value: string) => void;
+}) {
+    return (
+        <div className="input-field">
+            <label className="input-field-label" htmlFor="airline-organization-type">
+                Тип организации
+            </label>
+            <div className="input-field-control">
+                <select
+                    id="airline-organization-type"
+                    className="input-field-select"
+                    value={value}
+                    onChange={(event) => onChange(event.target.value)}
+                    required
+                >
+                    <option value="" disabled>Выберите тип</option>
+                    {organizationTypeOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                            {option.label}
+                        </option>
+                    ))}
+                </select>
+            </div>
+        </div>
+    );
 }
 
 function isNumericField(name: keyof UpdateAirlineContractSettingsRequest): boolean {

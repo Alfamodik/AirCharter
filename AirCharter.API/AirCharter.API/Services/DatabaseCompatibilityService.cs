@@ -76,6 +76,14 @@ public sealed class DatabaseCompatibilityService(AirCharterExtendedContext conte
             "passenger_arrival_minutes_before_flight",
             "int NULL",
             cancellationToken);
+        await DropIndexIfExistsAsync(
+            "airlines",
+            "organization_full_name",
+            cancellationToken);
+        await DropIndexIfExistsAsync(
+            "airlines",
+            "organization_short_name",
+            cancellationToken);
 
         await EnsureColumnAsync(
             "departures",
@@ -171,6 +179,21 @@ public sealed class DatabaseCompatibilityService(AirCharterExtendedContext conte
         await alterCommand.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    private async Task DropIndexIfExistsAsync(
+        string tableName,
+        string indexName,
+        CancellationToken cancellationToken)
+    {
+        if (!await IndexExistsAsync(tableName, indexName, cancellationToken))
+            return;
+
+        DbConnection connection = _context.Database.GetDbConnection();
+
+        await using DbCommand alterCommand = connection.CreateCommand();
+        alterCommand.CommandText = $"ALTER TABLE `{tableName}` DROP INDEX `{indexName}`";
+        await alterCommand.ExecuteNonQueryAsync(cancellationToken);
+    }
+
     private async Task<bool> ColumnExistsAsync(
         string tableName,
         string columnName,
@@ -193,6 +216,34 @@ public sealed class DatabaseCompatibilityService(AirCharterExtendedContext conte
 
         AddParameter(checkCommand, "@tableName", tableName);
         AddParameter(checkCommand, "@columnName", columnName);
+
+        object? result = await checkCommand.ExecuteScalarAsync(cancellationToken);
+
+        return Convert.ToInt32(result) > 0;
+    }
+
+    private async Task<bool> IndexExistsAsync(
+        string tableName,
+        string indexName,
+        CancellationToken cancellationToken)
+    {
+        DbConnection connection = _context.Database.GetDbConnection();
+
+        if (connection.State != System.Data.ConnectionState.Open)
+            await connection.OpenAsync(cancellationToken);
+
+        await using DbCommand checkCommand = connection.CreateCommand();
+        checkCommand.CommandText =
+            """
+            SELECT COUNT(*)
+            FROM information_schema.statistics
+            WHERE table_schema = DATABASE()
+                AND table_name = @tableName
+                AND index_name = @indexName
+            """;
+
+        AddParameter(checkCommand, "@tableName", tableName);
+        AddParameter(checkCommand, "@indexName", indexName);
 
         object? result = await checkCommand.ExecuteScalarAsync(cancellationToken);
 

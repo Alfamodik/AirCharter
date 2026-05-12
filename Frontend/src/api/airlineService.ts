@@ -3,6 +3,7 @@ import { sendRequest } from "./sendRequest";
 export interface AirlineContractSettingsResponse {
     id: number;
     airlineName: string;
+    organizationType: string;
     organizationFullName: string;
     organizationShortName: string;
     legalAddress: string;
@@ -28,8 +29,7 @@ export interface AirlineContractSettingsResponse {
 
 export interface UpdateAirlineContractSettingsRequest {
     airlineName: string;
-    organizationFullName: string;
-    organizationShortName: string;
+    organizationType: string;
     legalAddress: string;
     postalAddress: string;
     phoneNumber: string;

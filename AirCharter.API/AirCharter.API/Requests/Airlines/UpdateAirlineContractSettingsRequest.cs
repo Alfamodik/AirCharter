@@ -4,9 +4,7 @@ public sealed class UpdateAirlineContractSettingsRequest
 {
     public string AirlineName { get; set; } = null!;
 
-    public string OrganizationFullName { get; set; } = null!;
-
-    public string OrganizationShortName { get; set; } = null!;
+    public string OrganizationType { get; set; } = null!;
 
     public string LegalAddress { get; set; } = null!;
 

@@ -4,9 +4,7 @@ public sealed class RegisterAirlineRequest
 {
     public string AirlineName { get; set; } = string.Empty;
 
-    public string OrganizationFullName { get; set; } = string.Empty;
-
-    public string OrganizationShortName { get; set; } = string.Empty;
+    public string OrganizationType { get; set; } = string.Empty;
 
     public string LegalAddress { get; set; } = string.Empty;
 
