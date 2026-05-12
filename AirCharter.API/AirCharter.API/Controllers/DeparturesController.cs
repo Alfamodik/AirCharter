@@ -1350,7 +1350,13 @@ namespace AirCharter.API.Controllers
             if (employees.Any(employee => employee.Role.Name == "Client"))
                 return BadRequest("К вылету можно прикреплять только сотрудников авиакомпании.");
 
-            if (employees.Any(employee => employee.DeparturesNavigation.Any(employeeDeparture => employeeDeparture.Id != departureId)))
+            DateTime departureStart = departure.RequestedTakeOffDateTime;
+            DateTime departureEnd = departureStart.Add(departure.FlightTime);
+
+            if (employees.Any(employee => employee.DeparturesNavigation.Any(employeeDeparture =>
+                employeeDeparture.Id != departureId &&
+                employeeDeparture.RequestedTakeOffDateTime < departureEnd &&
+                departureStart < employeeDeparture.RequestedTakeOffDateTime.Add(employeeDeparture.FlightTime))))
                 return BadRequest("Один или несколько сотрудников уже назначены на другой вылет.");
 
             departure.Employees.Clear();

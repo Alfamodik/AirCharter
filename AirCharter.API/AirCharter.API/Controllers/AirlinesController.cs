@@ -135,26 +135,53 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
         if (airlineId is null)
             return Forbid();
 
+        DateTime? availableDepartureStart = null;
+        DateTime? availableDepartureEnd = null;
+
         if (availableForDepartureId is not null)
         {
-            bool departureBelongsToAirline = await _context.Departures
+            var availableDeparture = await _context.Departures
                 .AsNoTracking()
-                .AnyAsync(
+                .Where(
                     departure =>
                         departure.Id == availableForDepartureId.Value &&
-                        departure.Plane.AirlineId == airlineId.Value,
-                    cancellationToken);
+                        departure.Plane.AirlineId == airlineId.Value)
+                .Select(departure => new
+                {
+                    Start = departure.RequestedTakeOffDateTime,
+                    departure.FlightTime
+                })
+                .FirstOrDefaultAsync(cancellationToken);
 
-            if (!departureBelongsToAirline)
+            if (availableDeparture is null)
                 return NotFound();
+
+            availableDepartureStart = availableDeparture.Start;
+            availableDepartureEnd = availableDeparture.Start.Add(availableDeparture.FlightTime);
         }
 
-        AirlineEmployeeResponse[] employees = await _context.Users
+        User[] employees = await _context.Users
             .AsNoTracking()
+            .Include(user => user.Person)
+            .Include(user => user.Role)
+            .Include(user => user.DeparturesNavigation)
             .Where(user => user.AirlineId == airlineId.Value && user.IsActive)
-            .Where(user =>
-                availableForDepartureId == null ||
-                !user.DeparturesNavigation.Any(departure => departure.Id != availableForDepartureId.Value))
+            .ToArrayAsync(cancellationToken);
+
+        if (availableForDepartureId is not null)
+        {
+            employees = employees
+                .Where(user => !user.DeparturesNavigation.Any(departure =>
+                    departure.Id != availableForDepartureId.Value &&
+                    DoDepartureIntervalsOverlap(
+                        availableDepartureStart!.Value,
+                        availableDepartureEnd!.Value,
+                        departure.RequestedTakeOffDateTime,
+                        departure.RequestedTakeOffDateTime.Add(departure.FlightTime))))
+                .ToArray();
+        }
+
+        AirlineEmployeeResponse[] response = employees
             .OrderBy(user => user.Person == null ? user.Email : user.Person.LastName)
             .ThenBy(user => user.Person == null ? user.Email : user.Person.FirstName)
             .Select(user => new AirlineEmployeeResponse
@@ -169,9 +196,9 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
                         user.Person.FirstName,
                         user.Person.Patronymic)
             })
-            .ToArrayAsync(cancellationToken);
+            .ToArray();
 
-        return Ok(employees);
+        return Ok(response);
     }
 
     [HttpGet("my/contract-settings")]
@@ -354,6 +381,15 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
     private static string NormalizeRequiredString(string? value)
     {
         return value?.Trim() ?? string.Empty;
+    }
+
+    private static bool DoDepartureIntervalsOverlap(
+        DateTime leftStart,
+        DateTime leftEnd,
+        DateTime rightStart,
+        DateTime rightEnd)
+    {
+        return rightStart < leftEnd && leftStart < rightEnd;
     }
 
     private static string BuildPersonFullName(
