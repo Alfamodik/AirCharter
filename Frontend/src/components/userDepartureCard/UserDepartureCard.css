@@ -188,7 +188,7 @@ departure-airline-badge img {
 
 .status-active {
     background: rgba(33, 150, 243, 0.15);
-    color: var(--accent-soft);
+    color: var(--accent-blue);
 }
 
 .status-completed {

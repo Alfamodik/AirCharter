@@ -28,18 +28,28 @@ function isDeparturePlanned(statusId?: number | null): boolean {
 }
 
 export default function UserDepartureCard({ departure, onClick }: UserDepartureCardProps) {
+    const getStatusClassById = (statusId?: number | null): string | null => {
+        if (statusId === undefined || statusId === null) return null;
+        if (statusId === 1) return "status-draft";
+        if (statusId === 2 || statusId === 19 || statusId === 20) return "status-pending";
+        if (statusId === 14) return "status-completed";
+        if (statusId === 17 || statusId === 18) return "status-cancelled";
+        if (statusId === 15) return "status-delayed";
+        return "status-active";
+    };
+
     const getStatusClass = (status: string): string => {
         const s = status.toLowerCase();
         if (s.includes("ожидает") || s.includes("ожидание")) return "status-pending";
-        if (s.includes("создании") || s.includes("планируется")) return "status-draft";
+        if (s.includes("создании") || s.includes("планируется") || s.includes("запланирован")) return "status-draft";
         if (s.includes("пути") || s.includes("посадка") || s.includes("открыт")) return "status-active";
-        if (s.includes("завершен") || s.includes("приземлился")) return "status-completed";
-        if (s.includes("отменен") || s.includes("отклонен")) return "status-cancelled";
+        if (s.includes("завершен") || s.includes("завершён") || s.includes("приземлился")) return "status-completed";
+        if (s.includes("отменен") || s.includes("отменён") || s.includes("отклонен") || s.includes("отклонён")) return "status-cancelled";
         if (s.includes("задержан")) return "status-delayed";
         return "status-default";
     };
 
-    const statusClass = getStatusClass(departure.status);
+    const statusClass = getStatusClassById(departure.currentStatusId) ?? getStatusClass(departure.status);
     const showTakeOffDate = isDeparturePlanned(departure.currentStatusId);
     const dateLabel = showTakeOffDate ? "Дата вылета" : "Дата создания";
     const dateValue = showTakeOffDate ? departure.takeOffDateTime : departure.createdAt;

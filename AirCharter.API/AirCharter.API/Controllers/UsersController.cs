@@ -86,10 +86,12 @@ public sealed class UsersController(AirCharterExtendedContext context) : Control
                     .FirstOrDefault(),
                 CurrentStatusId = departure.DepartureStatuses
                     .OrderByDescending(departureStatus => departureStatus.StatusSettingDateTime)
+                    .ThenByDescending(departureStatus => departureStatus.Id)
                     .Select(departureStatus => (int?)departureStatus.StatusId)
                     .FirstOrDefault(),
                 Status = departure.DepartureStatuses
                     .OrderByDescending(departureStatus => departureStatus.StatusSettingDateTime)
+                    .ThenByDescending(departureStatus => departureStatus.Id)
                     .Select(departureStatus => departureStatus.Status.Status1)
                     .FirstOrDefault() ?? string.Empty,
                 Price = departure.Price,

@@ -235,7 +235,7 @@ export default function ManagementPage() {
                                                 currentValue === departure.id ? null : departure.id
                                             )
                                         }
-                                        onEditRoute={() => navigate(`/management/orders/${departure.id}`, {
+                                        onEditRoute={() => navigate(getDepartureDetailsPath(currentSection, departure.id), {
                                             state: { backTo: location.pathname }
                                         })}
                                         onManageFlight={() => navigate(`/management/flights/${departure.id}`, {
@@ -398,10 +398,35 @@ function ManagementDepartureCard({
                             </button>
                         </div>
                     )}
+
+                    {section === "completed" && (
+                        <div className="management-card-actions">
+                            <button
+                                type="button"
+                                className="management-secondary-button"
+                                onClick={onEditRoute}
+                                disabled={isActionLoading}
+                            >
+                                Открыть заявку
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
         </article>
     );
+}
+
+function getDepartureDetailsPath(section: ManagementSection, departureId: number): string {
+    switch (section) {
+        case "flights":
+            return `/management/flights/${departureId}`;
+        case "completed":
+            return `/management/completed/${departureId}`;
+        case "orders":
+        default:
+            return `/management/orders/${departureId}`;
+    }
 }
 
 function downloadBlob(blob: Blob, fileName: string) {

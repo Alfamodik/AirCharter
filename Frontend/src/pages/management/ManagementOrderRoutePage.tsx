@@ -210,7 +210,10 @@ export default function ManagementOrderRoutePage({
     const hasTakeOffDateTimeChanges = departure !== null &&
         requestedTakeOffInput.trim() !== "" &&
         requestedTakeOffInput !== formatDateTimeLocalInput(departure.requestedTakeOffDateTime);
-    const isRequestedTakeOffTooEarly = requestedTakeOffInput.trim() !== "" &&
+    const shouldValidateRequestedTakeOffDateTime = departure !== null &&
+        !isCompletedDepartureStatus(departure.currentStatusId);
+    const isRequestedTakeOffTooEarly = shouldValidateRequestedTakeOffDateTime &&
+        requestedTakeOffInput.trim() !== "" &&
         requestedTakeOffInput < getTomorrowStartDateTimeLocalInput();
     const requestedTakeOffDateTimeError = isRequestedTakeOffTooEarly
         ? "Дата и время вылета должны быть не раньше завтрашнего дня."
@@ -1350,9 +1353,12 @@ export default function ManagementOrderRoutePage({
                 mode === "client" ||
                 (mode === "management" && currentDeparture.currentStatusId === 2)
             );
-        const isTakeOffDateTimeWarning = canEditTakeOffDateTime
-            ? isRequestedTakeOffTooEarly
-            : formatDateTimeLocalInput(currentDeparture.requestedTakeOffDateTime) < getTomorrowStartDateTimeLocalInput();
+        const isTakeOffDateTimeWarning = !isCompletedDepartureStatus(currentDeparture.currentStatusId) &&
+            (
+                canEditTakeOffDateTime
+                    ? isRequestedTakeOffTooEarly
+                    : formatDateTimeLocalInput(currentDeparture.requestedTakeOffDateTime) < getTomorrowStartDateTimeLocalInput()
+            );
 
         return (
             <section className="management-card management-flight-overview">
@@ -1996,9 +2002,15 @@ function getBackTarget(
         return "/cabinet";
     }
 
-    return pathname.includes("/management/flights/")
-        ? "/management/flights"
-        : "/management/orders";
+    if (pathname.includes("/management/flights/")) {
+        return "/management/flights";
+    }
+
+    if (pathname.includes("/management/completed/")) {
+        return "/management/completed";
+    }
+
+    return "/management/orders";
 }
 
 function hasUnsavedRouteChanges(
@@ -2583,6 +2595,10 @@ function getRouteStatusClassName(statusId: number): string {
     }
 
     return "active";
+}
+
+function isCompletedDepartureStatus(statusId: number): boolean {
+    return statusId === 14 || statusId === 17 || statusId === 18;
 }
 
 function PassengerSearchInput({

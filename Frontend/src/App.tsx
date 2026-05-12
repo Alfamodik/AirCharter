@@ -46,6 +46,7 @@ export default function App() {
                     <Route path="/management/flights" element={<ManagementPage />} />
                     <Route path="/management/flights/:departureId" element={<ManagementOrderRoutePage />} />
                     <Route path="/management/completed" element={<ManagementPage />} />
+                    <Route path="/management/completed/:departureId" element={<ManagementOrderRoutePage />} />
                     <Route path="/management/planes" element={<ManagementPlanesPage />} />
                     <Route path="/management/planes/new" element={<ManagementPlaneFormPage />} />
                     <Route path="/management/planes/:planeId" element={<ManagementPlaneFormPage />} />
