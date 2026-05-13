@@ -81,11 +81,28 @@ public sealed class DatabaseCompatibilityService(AirCharterExtendedContext conte
             "is_catalog_visible",
             "tinyint(1) NOT NULL DEFAULT 1",
             cancellationToken);
+
+        await EnsureColumnAsync(
+            "airlines",
+            "organization_type",
+            "varchar(32) NOT NULL DEFAULT 'Ooo'",
+            cancellationToken);
+
+        await BackfillAirlineOrganizationTypeAsync(cancellationToken);
+
         await DropIndexIfExistsAsync(
             "airlines",
             "organization_full_name",
             cancellationToken);
         await DropIndexIfExistsAsync(
+            "airlines",
+            "organization_short_name",
+            cancellationToken);
+        await DropColumnIfExistsAsync(
+            "airlines",
+            "organization_full_name",
+            cancellationToken);
+        await DropColumnIfExistsAsync(
             "airlines",
             "organization_short_name",
             cancellationToken);
@@ -182,6 +199,39 @@ public sealed class DatabaseCompatibilityService(AirCharterExtendedContext conte
         await using DbCommand alterCommand = connection.CreateCommand();
         alterCommand.CommandText = $"ALTER TABLE `{tableName}` DROP COLUMN `{columnName}`";
         await alterCommand.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private async Task DropColumnIfExistsAsync(
+        string tableName,
+        string columnName,
+        CancellationToken cancellationToken)
+    {
+        if (!await ColumnExistsAsync(tableName, columnName, cancellationToken))
+            return;
+
+        await DropColumnAsync(tableName, columnName, cancellationToken);
+    }
+
+    private async Task BackfillAirlineOrganizationTypeAsync(CancellationToken cancellationToken)
+    {
+        if (!await ColumnExistsAsync("airlines", "organization_full_name", cancellationToken) &&
+            !await ColumnExistsAsync("airlines", "organization_short_name", cancellationToken))
+            return;
+
+        await _context.Database.ExecuteSqlRawAsync(
+            """
+            UPDATE airlines
+            SET organization_type = CASE
+                WHEN organization_short_name = 'ООО' OR organization_full_name LIKE 'Общество с ограниченной ответственностью%' THEN 'Ooo'
+                WHEN organization_short_name = 'ПАО' OR organization_full_name LIKE 'Публичное акционерное общество%' THEN 'Pao'
+                WHEN organization_short_name = 'АО' OR organization_full_name LIKE 'Акционерное общество%' THEN 'Ao'
+                WHEN organization_short_name = 'ЗАО' OR organization_full_name LIKE 'Закрытое акционерное общество%' THEN 'Zao'
+                WHEN organization_short_name = 'ОАО' OR organization_full_name LIKE 'Открытое акционерное общество%' THEN 'Oao'
+                WHEN organization_short_name = 'ИП' OR organization_full_name LIKE 'Индивидуальный предприниматель%' THEN 'Ip'
+                ELSE 'Ooo'
+            END
+            """,
+            cancellationToken);
     }
 
     private async Task DropIndexIfExistsAsync(

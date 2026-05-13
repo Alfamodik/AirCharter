@@ -50,18 +50,14 @@ public static class AirlineOrganizationTypes
 
     public static AirlineOrganizationTypeInfo? Resolve(Airline airline)
     {
-        if (TryGet(airline.OrganizationShortName, out AirlineOrganizationTypeInfo byShortName))
-            return byShortName;
+        return Resolve(airline.OrganizationType);
+    }
 
-        if (TryGet(airline.OrganizationFullName, out AirlineOrganizationTypeInfo byFullName))
-            return byFullName;
-
-        string normalizedShortName = Normalize(airline.OrganizationShortName);
-        string normalizedFullName = Normalize(airline.OrganizationFullName);
-
-        return All.FirstOrDefault(type =>
-            normalizedShortName.StartsWith(Normalize(type.Code), StringComparison.Ordinal) ||
-            normalizedFullName.StartsWith(Normalize(type.FullName), StringComparison.Ordinal));
+    public static AirlineOrganizationTypeInfo? Resolve(string? organizationType)
+    {
+        return TryGet(organizationType, out AirlineOrganizationTypeInfo info)
+            ? info
+            : null;
     }
 
     public static string BuildFullOrganizationName(Airline airline)
@@ -69,7 +65,7 @@ public static class AirlineOrganizationTypes
         AirlineOrganizationTypeInfo? type = Resolve(airline);
 
         return type is null
-            ? airline.OrganizationFullName
+            ? airline.AirlineName
             : $"{type.FullName} {Quote(airline.AirlineName)}";
     }
 
@@ -78,7 +74,7 @@ public static class AirlineOrganizationTypes
         AirlineOrganizationTypeInfo? type = Resolve(airline);
 
         return type is null
-            ? airline.OrganizationShortName
+            ? airline.AirlineName
             : $"{type.Code} {Quote(airline.AirlineName)}";
     }
 

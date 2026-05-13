@@ -4,8 +4,6 @@ export interface AirlineContractSettingsResponse {
     id: number;
     airlineName: string;
     organizationType: string;
-    organizationFullName: string;
-    organizationShortName: string;
     legalAddress: string;
     postalAddress: string;
     phoneNumber: string;

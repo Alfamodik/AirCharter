@@ -85,8 +85,7 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
             AirlineName = airlineName,
             CreationDate = DateOnly.FromDateTime(DateTime.UtcNow),
             IsCatalogVisible = true,
-            OrganizationFullName = organizationTypeInfo.FullName,
-            OrganizationShortName = organizationTypeInfo.Code,
+            OrganizationType = organizationTypeInfo.Type.ToString(),
             LegalAddress = NormalizeRequiredString(request.LegalAddress),
             PostalAddress = NormalizeRequiredString(request.PostalAddress),
             PhoneNumber = NormalizeRequiredString(request.PhoneNumber),
@@ -262,8 +261,7 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
             return BadRequest("Укажите тип организации.");
 
         airline.AirlineName = NormalizeRequiredString(request.AirlineName);
-        airline.OrganizationFullName = organizationTypeInfo.FullName;
-        airline.OrganizationShortName = organizationTypeInfo.Code;
+        airline.OrganizationType = organizationTypeInfo.Type.ToString();
         airline.LegalAddress = NormalizeRequiredString(request.LegalAddress);
         airline.PostalAddress = NormalizeRequiredString(request.PostalAddress);
         airline.PhoneNumber = NormalizeRequiredString(request.PhoneNumber);
@@ -448,9 +446,7 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
         {
             Id = airline.Id,
             AirlineName = airline.AirlineName,
-            OrganizationType = AirlineOrganizationTypes.Resolve(airline)?.Code ?? airline.OrganizationShortName,
-            OrganizationFullName = AirlineOrganizationTypes.BuildFullOrganizationName(airline),
-            OrganizationShortName = AirlineOrganizationTypes.BuildShortOrganizationName(airline),
+            OrganizationType = AirlineOrganizationTypes.Resolve(airline)?.Code ?? string.Empty,
             LegalAddress = airline.LegalAddress,
             PostalAddress = airline.PostalAddress,
             PhoneNumber = airline.PhoneNumber,

@@ -24,13 +24,3 @@ export const organizationTypeOptions = [
         label: "ИП - Индивидуальный предприниматель"
     }
 ];
-
-export function inferOrganizationType(shortName?: string | null, fullName?: string | null): string {
-    const normalizedShortName = shortName?.trim().toUpperCase() ?? "";
-    const normalizedFullName = fullName?.trim().toUpperCase() ?? "";
-
-    return organizationTypeOptions.find((option) =>
-        normalizedShortName.startsWith(option.value) ||
-        normalizedFullName.startsWith(option.label.split(" - ")[1].toUpperCase())
-    )?.value ?? "";
-}

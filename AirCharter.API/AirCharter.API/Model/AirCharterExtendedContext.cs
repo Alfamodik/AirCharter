@@ -89,12 +89,9 @@ public partial class AirCharterExtendedContext : DbContext
             entity.Property(e => e.LegalAddress)
                 .HasMaxLength(255)
                 .HasColumnName("legal_address");
-            entity.Property(e => e.OrganizationFullName)
-                .HasMaxLength(100)
-                .HasColumnName("organization_full_name");
-            entity.Property(e => e.OrganizationShortName)
-                .HasMaxLength(100)
-                .HasColumnName("organization_short_name");
+            entity.Property(e => e.OrganizationType)
+                .HasMaxLength(32)
+                .HasColumnName("organization_type");
             entity.Property(e => e.PhoneNumber)
                 .HasMaxLength(20)
                 .HasColumnName("phone_number");

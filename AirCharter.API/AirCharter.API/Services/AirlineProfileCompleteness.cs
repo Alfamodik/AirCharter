@@ -8,8 +8,7 @@ public static class AirlineProfileCompleteness
     public static Expression<Func<Plane, bool>> PlaneHasCatalogVisibleAirline => plane =>
         plane.Airline.IsCatalogVisible &&
         plane.Airline.AirlineName != null && plane.Airline.AirlineName != "" &&
-        plane.Airline.OrganizationFullName != null && plane.Airline.OrganizationFullName != "" &&
-        plane.Airline.OrganizationShortName != null && plane.Airline.OrganizationShortName != "" &&
+        plane.Airline.OrganizationType != null && plane.Airline.OrganizationType != "" &&
         plane.Airline.LegalAddress != null && plane.Airline.LegalAddress != "" &&
         plane.Airline.PostalAddress != null && plane.Airline.PostalAddress != "" &&
         plane.Airline.PhoneNumber != null && plane.Airline.PhoneNumber != "" &&

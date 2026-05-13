@@ -8,10 +8,6 @@ public sealed class AirlineContractSettingsResponse
 
     public string OrganizationType { get; set; } = string.Empty;
 
-    public string OrganizationFullName { get; set; } = string.Empty;
-
-    public string OrganizationShortName { get; set; } = string.Empty;
-
     public string LegalAddress { get; set; } = string.Empty;
 
     public string PostalAddress { get; set; } = string.Empty;

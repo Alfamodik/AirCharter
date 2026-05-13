@@ -15,7 +15,7 @@ import InputField from "../../components/inputField/InputField";
 import { useUser } from "../../context/UserContext";
 import { validateImageAspectRatio } from "../../utils/imageAspectRatio";
 import "./AirlineProfilePage.css";
-import { inferOrganizationType, organizationTypeOptions } from "./organizationTypes";
+import { organizationTypeOptions } from "./organizationTypes";
 
 const emptyAirlineFormData: UpdateAirlineContractSettingsRequest = {
     airlineName: "",
@@ -360,7 +360,7 @@ export default function AirlineProfilePage() {
 function createFormData(settings: AirlineContractSettingsResponse): UpdateAirlineContractSettingsRequest {
     return {
         airlineName: settings.airlineName ?? "",
-        organizationType: settings.organizationType ?? inferOrganizationType(settings.organizationShortName, settings.organizationFullName),
+        organizationType: settings.organizationType ?? "",
         legalAddress: settings.legalAddress ?? "",
         postalAddress: settings.postalAddress ?? "",
         phoneNumber: settings.phoneNumber ?? "",
