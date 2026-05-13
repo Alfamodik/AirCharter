@@ -1379,6 +1379,9 @@ namespace AirCharter.API.Controllers
                 departureStart < employeeDeparture.RequestedTakeOffDateTime.Add(employeeDeparture.FlightTime))))
                 return BadRequest("Один или несколько сотрудников уже назначены на другой вылет.");
 
+            if (HasDepartureStarted(departure) && employeeIds.Length == 0)
+                return BadRequest("После вылета должен остаться хотя бы один член экипажа.");
+
             departure.Employees.Clear();
 
             foreach (User employee in employees)
@@ -2062,6 +2065,12 @@ namespace AirCharter.API.Controllers
         private static bool RequiresCrewBeforeDeparture(IEnumerable<FlightStatusId> statusIds)
         {
             return statusIds.Any(RequiresCrewBeforeDeparture);
+        }
+
+        private static bool HasDepartureStarted(Departure departure)
+        {
+            return departure.DepartureStatuses.Any(departureStatus =>
+                departureStatus.StatusId == (int)FlightStatusId.EnRoute);
         }
 
         private static IReadOnlyCollection<FlightStatusId> BuildOperationalStatusCatchUpSequence(

@@ -1725,6 +1725,8 @@ export default function ManagementOrderRoutePage({
 
     function renderEmployeeSection(currentDeparture: ManagementDepartureResponse) {
         const selectedEmployeeIdSet = new Set(selectedEmployeeIds);
+        const shouldLockLastSelectedEmployee = hasDepartureStarted(currentDeparture) &&
+            selectedEmployeeIds.length === 1;
         const displayedEmployees = [...availableEmployees].sort((leftEmployee, rightEmployee) =>
             compareEmployeesForAssignment(leftEmployee, rightEmployee, selectedEmployeeIdSet)
         );
@@ -1737,13 +1739,17 @@ export default function ManagementOrderRoutePage({
                     <p className="management-muted-text">Сотрудники авиакомпании не найдены.</p>
                 ) : (
                     <div className="management-passenger-list">
-                        {displayedEmployees.map((employee) => (
+                        {displayedEmployees.map((employee) => {
+                            const isLastSelectedEmployeeLocked = shouldLockLastSelectedEmployee &&
+                                selectedEmployeeIdSet.has(employee.id);
+
+                            return (
                             <label key={employee.id} className="management-passenger-row management-employee-row">
                                 <span>
                                     <input
                                         type="checkbox"
                                         checked={selectedEmployeeIdSet.has(employee.id)}
-                                        disabled={isActionLoading}
+                                        disabled={isActionLoading || isLastSelectedEmployeeLocked}
                                         onChange={(event) => {
                                             setSelectedEmployeeIds((currentIds) =>
                                                 event.target.checked
@@ -1756,7 +1762,8 @@ export default function ManagementOrderRoutePage({
                                 </span>
                                 <span>{employee.roleName}</span>
                             </label>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </>,
@@ -4034,6 +4041,10 @@ function areNumberArraysEqual(left: number[], right: number[]): boolean {
     const sortedRight = [...right].sort((a, b) => a - b);
 
     return sortedLeft.every((value, index) => value === sortedRight[index]);
+}
+
+function hasDepartureStarted(departure: ManagementDepartureResponse): boolean {
+    return departure.statusHistory.some((status) => status.id === 13);
 }
 
 function compareEmployeesForAssignment(
