@@ -48,5 +48,9 @@ public sealed class AirlineContractSettingsResponse
 
     public int? PassengerArrivalMinutesBeforeFlight { get; set; }
 
+    public bool IsCatalogVisible { get; set; }
+
+    public bool HasDepartures { get; set; }
+
     public string? ImageBase64 { get; set; }
 }

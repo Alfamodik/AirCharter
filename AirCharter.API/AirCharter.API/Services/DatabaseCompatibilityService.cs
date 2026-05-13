@@ -76,6 +76,11 @@ public sealed class DatabaseCompatibilityService(AirCharterExtendedContext conte
             "passenger_arrival_minutes_before_flight",
             "int NULL",
             cancellationToken);
+        await EnsureColumnAsync(
+            "airlines",
+            "is_catalog_visible",
+            "tinyint(1) NOT NULL DEFAULT 1",
+            cancellationToken);
         await DropIndexIfExistsAsync(
             "airlines",
             "organization_full_name",

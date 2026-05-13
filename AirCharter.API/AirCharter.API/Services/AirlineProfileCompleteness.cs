@@ -6,6 +6,7 @@ namespace AirCharter.API.Services;
 public static class AirlineProfileCompleteness
 {
     public static Expression<Func<Plane, bool>> PlaneHasCatalogVisibleAirline => plane =>
+        plane.Airline.IsCatalogVisible &&
         plane.Airline.AirlineName != null && plane.Airline.AirlineName != "" &&
         plane.Airline.OrganizationFullName != null && plane.Airline.OrganizationFullName != "" &&
         plane.Airline.OrganizationShortName != null && plane.Airline.OrganizationShortName != "" &&

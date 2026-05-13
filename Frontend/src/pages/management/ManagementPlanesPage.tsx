@@ -2,7 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { NavLink, Navigate, useNavigate } from "react-router-dom";
 import Header from "../../components/header/Header";
 import { getMyPlanes } from "../../api/planesService";
-import { hasAirlineProfileAccess, hasManagementAccess } from "../../api/utils/roleAccess";
+import {
+    hasAirlineProfileAccess,
+    hasOrderManagementAccess,
+    hasPlaneManagementAccess
+} from "../../api/utils/roleAccess";
 import { useUser } from "../../context/UserContext";
 import type { ManagementPlaneResponse } from "../../contracts/responses/planes/managementPlaneResponse";
 import "./ManagementPage.css";
@@ -40,7 +44,7 @@ export default function ManagementPlanesPage() {
     }, []);
 
     useEffect(() => {
-        if (isUserLoading || user === null || !hasManagementAccess(user.role?.name)) {
+        if (isUserLoading || user === null || !hasPlaneManagementAccess(user.role?.name)) {
             return;
         }
 
@@ -50,7 +54,7 @@ export default function ManagementPlanesPage() {
         return () => abortController.abort();
     }, [isUserLoading, loadPlanes, user]);
 
-    if (!isUserLoading && (user === null || !hasManagementAccess(user.role?.name))) {
+    if (!isUserLoading && (user === null || !hasPlaneManagementAccess(user.role?.name))) {
         return <Navigate to="/catalog" replace />;
     }
 
@@ -126,6 +130,11 @@ export function ManagementSidebar({
     roleName?: string | null;
     isUserLoading: boolean;
 }) {
+    const canManageOrders = hasOrderManagementAccess(roleName);
+    const visibleNavigationItems = managementNavigationItems.filter((item) =>
+        item.path !== "/management/orders" || canManageOrders
+    );
+
     return (
         <aside className="catalog-sidebar">
             <div className="user-brief-info">
@@ -146,13 +155,15 @@ export function ManagementSidebar({
                     </NavLink>
                 )}
 
+                {!isUserLoading && hasPlaneManagementAccess(roleName) && (
                 <NavLink to="/management/planes" className="profile-redirect-btn">
                     Самолеты
                 </NavLink>
+                )}
             </div>
 
             <nav className="management-nav" aria-label="Разделы управления">
-                {managementNavigationItems.map((item) => (
+                {visibleNavigationItems.map((item) => (
                     <NavLink
                         key={item.path}
                         to={item.path}

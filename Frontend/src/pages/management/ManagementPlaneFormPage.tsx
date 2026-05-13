@@ -6,7 +6,7 @@ import {
     getMyPlane,
     updateMyPlane
 } from "../../api/planesService";
-import { hasManagementAccess } from "../../api/utils/roleAccess";
+import { hasPlaneManagementAccess } from "../../api/utils/roleAccess";
 import { useUser } from "../../context/UserContext";
 import { validateImageAspectRatio } from "../../utils/imageAspectRatio";
 import type {
@@ -57,7 +57,7 @@ export default function ManagementPlaneFormPage() {
             isCreateMode ||
             isUserLoading ||
             user === null ||
-            !hasManagementAccess(user.role?.name) ||
+            !hasPlaneManagementAccess(user.role?.name) ||
             parsedPlaneId === null ||
             Number.isNaN(parsedPlaneId)
         ) {
@@ -99,7 +99,7 @@ export default function ManagementPlaneFormPage() {
         return `${formatNumber(getSafeDistance(maxDistance))} км`;
     }, [formState.maxDistance]);
 
-    if (!isUserLoading && (user === null || !hasManagementAccess(user.role?.name))) {
+    if (!isUserLoading && (user === null || !hasPlaneManagementAccess(user.role?.name))) {
         return <Navigate to="/catalog" replace />;
     }
 

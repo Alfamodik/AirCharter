@@ -79,6 +79,11 @@
     cursor: not-allowed;
 }
 
+.secondary-button.danger {
+    border-color: #ef4444;
+    color: #fca5a5;
+}
+
 .airline-profile-form {
     display: flex;
     flex-direction: column;
@@ -104,7 +109,9 @@
 
 .airline-profile-actions {
     display: flex;
+    gap: 12px;
     justify-content: flex-end;
+    flex-wrap: wrap;
 }
 
 @media (max-width: 980px) {

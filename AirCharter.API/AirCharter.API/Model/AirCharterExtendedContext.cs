@@ -83,6 +83,9 @@ public partial class AirCharterExtendedContext : DbContext
                 .HasMaxLength(255)
                 .HasColumnName("email");
             entity.Property(e => e.Image).HasColumnName("image");
+            entity.Property(e => e.IsCatalogVisible)
+                .HasDefaultValueSql("'1'")
+                .HasColumnName("is_catalog_visible");
             entity.Property(e => e.LegalAddress)
                 .HasMaxLength(255)
                 .HasColumnName("legal_address");

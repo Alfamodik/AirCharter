@@ -16,7 +16,7 @@ namespace AirCharter.API.Controllers;
 public sealed class AirlinesController(AirCharterExtendedContext context, JwtService jwtService) : ControllerBase
 {
     private const string AirlineProfileRoles = "Owner,GeneralDirector";
-    private const string AirlineEmployeeRoles = "Owner,Manager,Admin,GeneralDirector,Employee";
+    private const string AirlineEmployeeManagementRoles = "Owner,Manager,Admin,GeneralDirector";
 
     private readonly AirCharterExtendedContext _context = context;
     private readonly JwtService _jwtService = jwtService;
@@ -84,6 +84,7 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
         {
             AirlineName = airlineName,
             CreationDate = DateOnly.FromDateTime(DateTime.UtcNow),
+            IsCatalogVisible = true,
             OrganizationFullName = organizationTypeInfo.FullName,
             OrganizationShortName = organizationTypeInfo.Code,
             LegalAddress = NormalizeRequiredString(request.LegalAddress),
@@ -127,7 +128,7 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
     }
 
     [HttpGet("my/employees")]
-    [Authorize(Roles = AirlineEmployeeRoles)]
+    [Authorize(Roles = AirlineEmployeeManagementRoles)]
     public async Task<ActionResult<IEnumerable<AirlineEmployeeResponse>>> GetMyEmployees(
         [FromQuery] int? availableForDepartureId,
         CancellationToken cancellationToken)
@@ -220,7 +221,9 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
         if (airline == null)
             return NotFound();
 
-        return Ok(CreateResponse(airline));
+        bool hasDepartures = await HasAirlineDeparturesAsync(airline.Id, cancellationToken);
+
+        return Ok(CreateResponse(airline, hasDepartures));
     }
 
     [HttpPut("my/contract-settings")]
@@ -287,7 +290,76 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        return Ok(CreateResponse(airline));
+        bool hasDepartures = await HasAirlineDeparturesAsync(airline.Id, cancellationToken);
+
+        return Ok(CreateResponse(airline, hasDepartures));
+    }
+
+    [HttpDelete("my")]
+    [Authorize(Roles = "Owner")]
+    public async Task<IActionResult> DeleteMyAirline(CancellationToken cancellationToken)
+    {
+        int? airlineId = await GetCurrentUserAirlineIdAsync(cancellationToken);
+
+        if (airlineId is null)
+            return Forbid();
+
+        if (await HasAirlineDeparturesAsync(airlineId.Value, cancellationToken))
+            return BadRequest("Авиакомпанию можно удалить только если по её самолётам ещё нет вылетов.");
+
+        Airline? airline = await _context.Airlines
+            .Include(airline => airline.Planes)
+            .Include(airline => airline.Users)
+            .FirstOrDefaultAsync(airline => airline.Id == airlineId.Value, cancellationToken);
+
+        if (airline is null)
+            return NotFound();
+
+        int clientRoleId = await _context.Roles
+            .Where(role => role.Name == "Client")
+            .Select(role => role.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (clientRoleId == 0)
+            return BadRequest("Роль клиента не найдена.");
+
+        foreach (User user in airline.Users)
+        {
+            user.AirlineId = null;
+            user.RoleId = clientRoleId;
+        }
+
+        _context.Planes.RemoveRange(airline.Planes);
+        _context.Airlines.Remove(airline);
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
+    }
+
+    [HttpPut("my/catalog-visibility")]
+    [Authorize(Roles = "Owner")]
+    public async Task<ActionResult<AirlineContractSettingsResponse>> UpdateMyCatalogVisibility(
+        [FromBody] UpdateAirlineCatalogVisibilityRequest request,
+        CancellationToken cancellationToken)
+    {
+        int? airlineId = await GetCurrentUserAirlineIdAsync(cancellationToken);
+
+        if (airlineId is null)
+            return Forbid();
+
+        Airline? airline = await _context.Airlines
+            .FirstOrDefaultAsync(airline => airline.Id == airlineId.Value, cancellationToken);
+
+        if (airline is null)
+            return NotFound();
+
+        airline.IsCatalogVisible = request.IsCatalogVisible;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        bool hasDepartures = await HasAirlineDeparturesAsync(airline.Id, cancellationToken);
+
+        return Ok(CreateResponse(airline, hasDepartures));
     }
 
     [HttpPut("my/image")]
@@ -363,7 +435,14 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
         return userId;
     }
 
-    private static AirlineContractSettingsResponse CreateResponse(Airline airline)
+    private async Task<bool> HasAirlineDeparturesAsync(int airlineId, CancellationToken cancellationToken)
+    {
+        return await _context.Departures
+            .AsNoTracking()
+            .AnyAsync(departure => departure.Plane.AirlineId == airlineId, cancellationToken);
+    }
+
+    private static AirlineContractSettingsResponse CreateResponse(Airline airline, bool hasDepartures)
     {
         return new AirlineContractSettingsResponse
         {
@@ -390,6 +469,8 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
             PaymentDeadlineDays = airline.PaymentDeadlineDays,
             CateringClass = airline.CateringClass,
             PassengerArrivalMinutesBeforeFlight = airline.PassengerArrivalMinutesBeforeFlight,
+            IsCatalogVisible = airline.IsCatalogVisible,
+            HasDepartures = hasDepartures,
             ImageBase64 = airline.Image == null ? null : Convert.ToBase64String(airline.Image)
         };
     }

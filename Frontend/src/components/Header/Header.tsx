@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useUser } from "../../context/UserContext";
+import { hasManagementAccess } from "../../api/utils/roleAccess";
 import { ThemeToggle } from "../toggleTheme/ToggleThemeButton";
 import "./Header.css";
 
@@ -61,7 +62,7 @@ export default function Header({
                                 <Link to="/cabinet" className="navbar-link management-link">
                                     Личный кабинет
                                 </Link>
-                                {user.airlineId && (
+                                {user.airlineId && hasManagementAccess(user.role?.name) && (
                                     <>
                                         <Link to="/management" className="navbar-link management-link">
                                             Управление вылетами

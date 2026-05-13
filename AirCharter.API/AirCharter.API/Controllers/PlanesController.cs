@@ -14,7 +14,7 @@ namespace AirCharter.API.Controllers
     [Route("planes")]
     public class PlanesController(AirCharterExtendedContext context) : ControllerBase
     {
-        private const string AirlineEmployeeRoles = "Owner,Manager,Admin,GeneralDirector,Employee";
+        private const string PlaneManagementRoles = "Owner,Admin,GeneralDirector";
         private const int MinimumMaxDistance = 1000;
         private const int MaximumMaxDistance = 20000;
         private const int MinimumPassengerCapacity = 1;
@@ -58,7 +58,7 @@ namespace AirCharter.API.Controllers
         }
 
         [HttpGet("my")]
-        [Authorize(Roles = AirlineEmployeeRoles)]
+        [Authorize(Roles = PlaneManagementRoles)]
         public async Task<ActionResult<IEnumerable<ManagementPlaneResponse>>> GetMyPlanes(CancellationToken cancellationToken)
         {
             int? airlineId = await GetCurrentUserAirlineIdAsync(cancellationToken);
@@ -86,7 +86,7 @@ namespace AirCharter.API.Controllers
         }
 
         [HttpGet("my/{planeId:int}")]
-        [Authorize(Roles = AirlineEmployeeRoles)]
+        [Authorize(Roles = PlaneManagementRoles)]
         public async Task<ActionResult<ManagementPlaneResponse>> GetMyPlane(
             int planeId,
             CancellationToken cancellationToken)
@@ -109,7 +109,7 @@ namespace AirCharter.API.Controllers
         }
 
         [HttpPost("my")]
-        [Authorize(Roles = AirlineEmployeeRoles)]
+        [Authorize(Roles = PlaneManagementRoles)]
         public async Task<ActionResult<ManagementPlaneResponse>> CreateMyPlane(
             SavePlaneRequest request,
             CancellationToken cancellationToken)
@@ -144,7 +144,7 @@ namespace AirCharter.API.Controllers
         }
 
         [HttpPut("my/{planeId:int}")]
-        [Authorize(Roles = AirlineEmployeeRoles)]
+        [Authorize(Roles = PlaneManagementRoles)]
         public async Task<ActionResult<ManagementPlaneResponse>> UpdateMyPlane(
             int planeId,
             SavePlaneRequest request,

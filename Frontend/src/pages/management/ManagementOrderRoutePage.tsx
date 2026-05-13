@@ -21,7 +21,7 @@ import {
     type ManagementRoutePreviewResponse,
     type UpdateDepartureRouteRequest
 } from "../../api/managementService";
-import { hasManagementAccess } from "../../api/utils/roleAccess";
+import { hasManagementAccess, hasManagementEditAccess } from "../../api/utils/roleAccess";
 import {
     addUserDeparturePassenger,
     deleteUserDeparture,
@@ -244,7 +244,13 @@ export default function ManagementOrderRoutePage({
     const unsavedDepartureChangesMessage = hasUnsavedDepartureChanges
         ? "Есть несохраненные изменения. Нажмите «Сохранить», чтобы применить их."
         : "";
+    const canEditManagementDeparture = mode === "management" &&
+        hasManagementEditAccess(user?.role?.name);
     const canDownloadContractTemplate = departure !== null &&
+        (
+            mode === "client" ||
+            canEditManagementDeparture
+        ) &&
         (
             departure.canEditRoute ||
             departure.currentStatusId === 19
@@ -252,8 +258,14 @@ export default function ManagementOrderRoutePage({
     const canUploadContractDocument = departure !== null &&
         departure.currentStatusId === 19 &&
         (
-            mode === "management" ||
+            canEditManagementDeparture ||
             (mode === "client" && !departure.contractDocumentUploadedByAirline)
+        );
+    const canDownloadContractDocument = departure !== null &&
+        departure.hasContractDocument &&
+        (
+            mode === "client" ||
+            canEditManagementDeparture
         );
     const canSaveDepartureChanges = departure !== null &&
         departure.canEditRoute &&
@@ -326,7 +338,7 @@ export default function ManagementOrderRoutePage({
             isUserLoading ||
             user === null ||
             mode !== "management" ||
-            !hasManagementAccess(user.role?.name)
+            !hasManagementEditAccess(user.role?.name)
         ) {
             return;
         }
@@ -1591,6 +1603,7 @@ export default function ManagementOrderRoutePage({
                     </p>
                 )}
 
+                {canEditManagementDeparture && (
                 <div className="management-flight-status-actions">
                     <button
                         type="button"
@@ -1623,6 +1636,7 @@ export default function ManagementOrderRoutePage({
                         {isNextStatusCompletion ? "Завершить вылет" : "Установить следующий статус"}
                     </button>
                 </div>
+                )}
             </>,
             <span className={`status-badge ${getRouteStatusClassName(currentDeparture.currentStatusId)}`}>
                 {currentDeparture.statusName}
@@ -1724,6 +1738,26 @@ export default function ManagementOrderRoutePage({
     }
 
     function renderEmployeeSection(currentDeparture: ManagementDepartureResponse) {
+        if (!canEditManagementDeparture) {
+            return renderSectionCard(
+                "employees",
+                "Сотрудники вылета",
+                currentDeparture.employees.length === 0 ? (
+                    <p className="management-muted-text">Сотрудники не назначены.</p>
+                ) : (
+                    <div className="management-passenger-list">
+                        {currentDeparture.employees.map((employee) => (
+                            <div key={employee.id} className="management-passenger-row management-employee-row">
+                                <span>{employee.fullName || employee.email}</span>
+                                <span>{employee.roleName}</span>
+                            </div>
+                        ))}
+                    </div>
+                ),
+                <span>{currentDeparture.employees.length} назначено</span>
+            );
+        }
+
         const selectedEmployeeIdSet = new Set(selectedEmployeeIds);
         const shouldLockLastSelectedEmployee = hasDepartureStarted(currentDeparture) &&
             selectedEmployeeIds.length === 1;
@@ -1885,7 +1919,7 @@ export default function ManagementOrderRoutePage({
                                         Оплатить
                                     </button>
                                 )}
-                                {departure.hasContractDocument && (
+                                {canDownloadContractDocument && (
                                     <button
                                         type="button"
                                         className="management-secondary-button management-contract-document-button"

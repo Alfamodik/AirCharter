@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import {
+    deleteMyAirline,
     getMyAirlineContractSettings,
+    updateMyAirlineCatalogVisibility,
     updateMyAirlineContractSettings,
     updateMyAirlineImage,
     type AirlineContractSettingsResponse,
@@ -40,7 +42,7 @@ const emptyAirlineFormData: UpdateAirlineContractSettingsRequest = {
 
 export default function AirlineProfilePage() {
     const navigate = useNavigate();
-    const { user, isLoading: isUserLoading } = useUser();
+    const { user, isLoading: isUserLoading, refreshUser } = useUser();
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     const [initialData, setInitialData] = useState<UpdateAirlineContractSettingsRequest | null>(null);
@@ -49,6 +51,7 @@ export default function AirlineProfilePage() {
     const [pendingImageBase64, setPendingImageBase64] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [settingsMeta, setSettingsMeta] = useState<Pick<AirlineContractSettingsResponse, "hasDepartures" | "isCatalogVisible"> | null>(null);
     const [statusMessage, setStatusMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
     const canOpenPage = !isUserLoading && hasAirlineProfileAccess(user?.role?.name) && user?.airlineId;
@@ -78,6 +81,10 @@ export default function AirlineProfilePage() {
             setInitialData(data);
             setImageBase64(settings.imageBase64 ?? null);
             setPendingImageBase64(null);
+            setSettingsMeta({
+                hasDepartures: settings.hasDepartures,
+                isCatalogVisible: settings.isCatalogVisible
+            });
         } catch {
             setStatusMessage({ text: "Не удалось загрузить профиль авиакомпании", type: "error" });
         } finally {
@@ -116,9 +123,63 @@ export default function AirlineProfilePage() {
             setInitialData(savedData);
             setImageBase64(pendingImageBase64 ?? response.imageBase64 ?? imageBase64);
             setPendingImageBase64(null);
+            setSettingsMeta({
+                hasDepartures: response.hasDepartures,
+                isCatalogVisible: response.isCatalogVisible
+            });
             setStatusMessage({ text: "Информация обновлена", type: "success" });
         } catch (error: unknown) {
             setStatusMessage({ text: getApiErrorMessage(error, "Не удалось сохранить профиль авиакомпании"), type: "error" });
+        } finally {
+            setIsSaving(false);
+        }
+    }
+
+    async function handleDeleteAirline() {
+        if (isSaving || settingsMeta?.hasDepartures) {
+            return;
+        }
+
+        if (!window.confirm("Удалить авиакомпанию? Это действие нельзя отменить.")) {
+            return;
+        }
+
+        setIsSaving(true);
+        setStatusMessage(null);
+
+        try {
+            await deleteMyAirline();
+            await refreshUser();
+            navigate("/profile", { replace: true });
+        } catch (error: unknown) {
+            setStatusMessage({ text: getApiErrorMessage(error, "Не удалось удалить авиакомпанию."), type: "error" });
+        } finally {
+            setIsSaving(false);
+        }
+    }
+
+    async function handleCatalogVisibilityToggle() {
+        if (isSaving || settingsMeta === null) {
+            return;
+        }
+
+        setIsSaving(true);
+        setStatusMessage(null);
+
+        try {
+            const response = await updateMyAirlineCatalogVisibility(!settingsMeta.isCatalogVisible);
+            setSettingsMeta({
+                hasDepartures: response.hasDepartures,
+                isCatalogVisible: response.isCatalogVisible
+            });
+            setStatusMessage({
+                text: response.isCatalogVisible
+                    ? "Авиакомпания отображается в каталоге."
+                    : "Авиакомпания скрыта из каталога.",
+                type: "success"
+            });
+        } catch (error: unknown) {
+            setStatusMessage({ text: getApiErrorMessage(error, "Не удалось изменить видимость в каталоге."), type: "error" });
         } finally {
             setIsSaving(false);
         }
@@ -259,6 +320,27 @@ export default function AirlineProfilePage() {
                             )}
 
                             <div className="airline-profile-actions">
+                                {user?.role?.name === "Owner" && settingsMeta !== null && (
+                                    settingsMeta.hasDepartures ? (
+                                        <button
+                                            type="button"
+                                            className="secondary-button"
+                                            onClick={handleCatalogVisibilityToggle}
+                                            disabled={isSaving}
+                                        >
+                                            {settingsMeta.isCatalogVisible ? "Скрыть из каталога" : "Показывать в каталоге"}
+                                        </button>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            className="secondary-button danger"
+                                            onClick={handleDeleteAirline}
+                                            disabled={isSaving}
+                                        >
+                                            Удалить авиакомпанию
+                                        </button>
+                                    )
+                                )}
                                 <button
                                     type="submit"
                                     className="auth-submit-button"

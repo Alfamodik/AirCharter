@@ -27,7 +27,7 @@ namespace AirCharter.API.Controllers
         EmailService emailService) : ControllerBase
     {
         private const string ManagementViewerRoles = "Owner,Manager,Admin,GeneralDirector,Employee";
-        private const string ManagementEditorRoles = ManagementViewerRoles;
+        private const string ManagementEditorRoles = "Owner,Manager,Admin,GeneralDirector";
         private static readonly TimeSpan BaseOperationalDuration = TimeSpan.FromMinutes(30);
 
         private readonly AirCharterExtendedContext _context = context;
@@ -195,9 +195,16 @@ namespace AirCharter.API.Controllers
                 return Forbid();
             }
 
+            bool employeeOnlyAccess = IsCurrentUserEmployeeOnly();
+
+            if (employeeOnlyAccess && managementSection == ManagementDepartureSection.Orders)
+                return Ok(Array.Empty<ManagementDepartureResponse>());
+
             var departureRows = await _context.Departures
                 .AsNoTracking()
                 .Where(departure => departure.Plane.AirlineId == userAirlineId.Value)
+                .Where(departure => !employeeOnlyAccess ||
+                    departure.Employees.Any(employee => employee.Id == userId))
                 .OrderByDescending(departure => departure.RequestedTakeOffDateTime)
                 .Select(departure => new
                 {
@@ -530,15 +537,20 @@ namespace AirCharter.API.Controllers
             CancellationToken cancellationToken)
         {
             int? userAirlineId = await GetCurrentUserAirlineIdAsync(cancellationToken);
+            int? userId = GetCurrentUserId();
 
-            if (userAirlineId is null)
+            if (userAirlineId is null || userId is null)
                 return Forbid();
+
+            bool employeeOnlyAccess = IsCurrentUserEmployeeOnly();
 
             Departure? departure = await GetManagementDepartureQuery()
                 .AsNoTracking()
                 .FirstOrDefaultAsync(
                     departure => departure.Id == departureId
-                        && departure.Plane.AirlineId == userAirlineId.Value,
+                        && departure.Plane.AirlineId == userAirlineId.Value
+                        && (!employeeOnlyAccess ||
+                            departure.Employees.Any(employee => employee.Id == userId.Value)),
                     cancellationToken);
 
             if (departure is null)
@@ -547,6 +559,10 @@ namespace AirCharter.API.Controllers
             DepartureStatus? currentStatus = GetCurrentStatus(departure);
 
             if (currentStatus is null)
+                return NotFound();
+
+            if (employeeOnlyAccess &&
+                IsDepartureInManagementSection(currentStatus.StatusId, ManagementDepartureSection.Orders))
                 return NotFound();
 
             return Ok(CreateManagementDepartureResponse(
@@ -1530,8 +1546,24 @@ namespace AirCharter.API.Controllers
             return User.IsInRole("Owner") ||
                 User.IsInRole("Manager") ||
                 User.IsInRole("Admin") ||
-                User.IsInRole("GeneralDirector") ||
-                User.IsInRole("Employee");
+                User.IsInRole("GeneralDirector");
+        }
+
+        private bool IsCurrentUserEmployeeOnly()
+        {
+            return User.IsInRole("Employee") && !CanCurrentUserEditManagementDepartures();
+        }
+
+        private bool CanCurrentUserAccessAirlineDeparture(
+            Departure departure,
+            int userId,
+            int? userAirlineId)
+        {
+            if (userAirlineId is null || departure.Plane.AirlineId != userAirlineId.Value)
+                return false;
+
+            return !IsCurrentUserEmployeeOnly() ||
+                departure.Employees.Any(employee => employee.Id == userId);
         }
 
         private static IReadOnlyCollection<AirportSearchResponse> CreateRouteAirportResponses(Departure departure)
@@ -2337,6 +2369,7 @@ namespace AirCharter.API.Controllers
                     .ThenInclude(plane => plane.Airline)
                 .Include(departure => departure.TakeOffAirport)
                 .Include(departure => departure.LandingAirport)
+                .Include(departure => departure.Employees)
                 .Include(departure => departure.People)
                 .FirstOrDefaultAsync(
                     departure => departure.Id == departureId,
@@ -2347,10 +2380,13 @@ namespace AirCharter.API.Controllers
 
             int? userAirlineId = await GetCurrentUserAirlineIdAsync(cancellationToken);
             bool isRequester = departure.CharterRequesterId == userId;
-            bool isAirlineEmployee = userAirlineId is not null &&
-                departure.Plane.AirlineId == userAirlineId.Value;
+            bool isAirlineEmployee = CanCurrentUserAccessAirlineDeparture(
+                departure,
+                userId,
+                userAirlineId);
+            bool canDownloadAsAirline = isAirlineEmployee && CanCurrentUserEditManagementDepartures();
 
-            if (!isRequester && !isAirlineEmployee)
+            if (!isRequester && !canDownloadAsAirline)
                 return Forbid();
 
             DeparturePdfData departurePdfData = _departurePdfDataFactory.Create(departure);
@@ -2381,6 +2417,7 @@ namespace AirCharter.API.Controllers
                 .Include(departure => departure.TakeOffAirport)
                 .Include(departure => departure.LandingAirport)
                 .Include(departure => departure.People)
+                .Include(departure => departure.Employees)
                 .Include(departure => departure.DepartureStatuses)
                 .Include(departure => departure.DepartureRouteLegs)
                     .ThenInclude(routeLeg => routeLeg.FromAirport)
@@ -2395,10 +2432,13 @@ namespace AirCharter.API.Controllers
 
             int? userAirlineId = await GetCurrentUserAirlineIdAsync(cancellationToken);
             bool isRequester = departure.CharterRequesterId == userId.Value;
-            bool isAirlineEmployee = userAirlineId is not null &&
-                departure.Plane.AirlineId == userAirlineId.Value;
+            bool isAirlineEmployee = CanCurrentUserAccessAirlineDeparture(
+                departure,
+                userId.Value,
+                userAirlineId);
+            bool canDownloadAsAirline = isAirlineEmployee && CanCurrentUserEditManagementDepartures();
 
-            if (!isRequester && !isAirlineEmployee)
+            if (!isRequester && !canDownloadAsAirline)
                 return Forbid();
 
             User? signingUser = departure.Plane.Airline.Users
@@ -2441,6 +2481,7 @@ namespace AirCharter.API.Controllers
 
             Departure? departure = await _context.Departures
                 .Include(departure => departure.Plane)
+                .Include(departure => departure.Employees)
                 .Include(departure => departure.DepartureStatuses)
                 .FirstOrDefaultAsync(departure => departure.Id == departureId, cancellationToken);
 
@@ -2449,10 +2490,13 @@ namespace AirCharter.API.Controllers
 
             int? userAirlineId = await GetCurrentUserAirlineIdAsync(cancellationToken);
             bool isRequester = departure.CharterRequesterId == userId.Value;
-            bool isAirlineEmployee = userAirlineId is not null &&
-                departure.Plane.AirlineId == userAirlineId.Value;
+            bool isAirlineEmployee = CanCurrentUserAccessAirlineDeparture(
+                departure,
+                userId.Value,
+                userAirlineId);
+            bool canUploadAsAirline = isAirlineEmployee && CanCurrentUserEditManagementDepartures();
 
-            if (!isRequester && !isAirlineEmployee)
+            if (!isRequester && !canUploadAsAirline)
                 return Forbid();
 
             DepartureStatus? currentStatus = GetCurrentStatus(departure);
@@ -2460,11 +2504,11 @@ namespace AirCharter.API.Controllers
             if (isRequester && currentStatus?.StatusId != (int)FlightStatusId.AwaitingContractSigning)
                 return BadRequest("Договор можно загрузить только после одобрения заявки менеджером.");
 
-            if (isAirlineEmployee && currentStatus?.StatusId != (int)FlightStatusId.AwaitingContractSigning)
+            if (canUploadAsAirline && currentStatus?.StatusId != (int)FlightStatusId.AwaitingContractSigning)
                 return BadRequest("Договор можно загрузить только в статусе ожидания подписания договора.");
 
             if (isRequester &&
-                !isAirlineEmployee &&
+                !canUploadAsAirline &&
                 await IsContractDocumentUploadedByAirlineAsync(departure, cancellationToken))
                 return BadRequest("Исполнитель уже загрузил подписанный договор. Новую копию загрузить нельзя.");
 
@@ -2500,6 +2544,7 @@ namespace AirCharter.API.Controllers
             Departure? departure = await _context.Departures
                 .AsNoTracking()
                 .Include(departure => departure.Plane)
+                .Include(departure => departure.Employees)
                 .FirstOrDefaultAsync(departure => departure.Id == departureId, cancellationToken);
 
             if (departure is null)
@@ -2507,10 +2552,13 @@ namespace AirCharter.API.Controllers
 
             int? userAirlineId = await GetCurrentUserAirlineIdAsync(cancellationToken);
             bool isRequester = departure.CharterRequesterId == userId.Value;
-            bool isAirlineEmployee = userAirlineId is not null &&
-                departure.Plane.AirlineId == userAirlineId.Value;
+            bool isAirlineEmployee = CanCurrentUserAccessAirlineDeparture(
+                departure,
+                userId.Value,
+                userAirlineId);
+            bool canDownloadAsAirline = isAirlineEmployee && CanCurrentUserEditManagementDepartures();
 
-            if (!isRequester && !isAirlineEmployee)
+            if (!isRequester && !canDownloadAsAirline)
                 return Forbid();
 
             if (departure.ContractDocument is null || departure.ContractDocument.Length == 0)

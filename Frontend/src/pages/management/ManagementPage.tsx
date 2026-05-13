@@ -10,7 +10,13 @@ import {
 } from "../../api/managementService";
 import { downloadDepartureContractDocument, uploadDepartureContractDocument } from "../../api/userService";
 import { useUser } from "../../context/UserContext";
-import { hasAirlineProfileAccess, hasManagementAccess } from "../../api/utils/roleAccess";
+import {
+    hasAirlineProfileAccess,
+    hasManagementEditAccess,
+    hasManagementAccess,
+    hasOrderManagementAccess,
+    hasPlaneManagementAccess
+} from "../../api/utils/roleAccess";
 import type {
     ManagementDepartureResponse,
     ManagementRouteAirportResponse,
@@ -50,6 +56,11 @@ export default function ManagementPage() {
     const { user, isLoading: isUserLoading } = useUser();
 
     const currentSection = getCurrentSection(location.pathname);
+    const canManageOrders = hasOrderManagementAccess(user?.role?.name);
+    const canEditManagement = hasManagementEditAccess(user?.role?.name);
+    const visibleNavigationItems = managementNavigationItems.filter((item) =>
+        item.section !== "orders" || canManageOrders
+    );
     const [departures, setDepartures] = useState<ManagementDepartureResponse[]>([]);
     const [expandedDepartureId, setExpandedDepartureId] = useState<number | null>(null);
     const [isDeparturesLoading, setIsDeparturesLoading] = useState(true);
@@ -105,12 +116,22 @@ export default function ManagementPage() {
             return;
         }
 
+        if (currentSection === "orders" && !hasOrderManagementAccess(user.role?.name)) {
+            navigate("/management/flights", { replace: true });
+            return;
+        }
+
         const abortController = new AbortController();
         loadDepartures(abortController.signal);
-        loadActionCounts(abortController.signal);
+
+        if (hasManagementEditAccess(user.role?.name)) {
+            loadActionCounts(abortController.signal);
+        } else {
+            setActionCounts({ orders: 0, flights: 0 });
+        }
 
         return () => abortController.abort();
-    }, [isUserLoading, loadActionCounts, loadDepartures, user]);
+    }, [currentSection, isUserLoading, loadActionCounts, loadDepartures, navigate, user]);
 
     async function handleApprove(departureId: number) {
         const departure = departures.find((currentDeparture) => currentDeparture.id === departureId);
@@ -235,13 +256,15 @@ export default function ManagementPage() {
                             </NavLink>
                         )}
 
+                        {!isUserLoading && hasPlaneManagementAccess(user?.role?.name) && (
                         <NavLink to="/management/planes" className="profile-redirect-btn">
                             Самолеты
                         </NavLink>
+                        )}
                     </div>
 
                     <nav className="management-nav" aria-label="Разделы управления">
-                        {managementNavigationItems.map((item) => {
+                        {visibleNavigationItems.map((item) => {
                             const actionCount = item.section === "completed"
                                 ? 0
                                 : actionCounts[item.section];
@@ -289,6 +312,7 @@ export default function ManagementPage() {
                                         section={currentSection}
                                         isExpanded={expandedDepartureId === departure.id}
                                         isActionLoading={actionDepartureId === departure.id}
+                                        canEditManagement={canEditManagement}
                                         onToggle={() =>
                                             setExpandedDepartureId((currentValue) =>
                                                 currentValue === departure.id ? null : departure.id
@@ -321,6 +345,7 @@ function ManagementDepartureCard({
     section,
     isExpanded,
     isActionLoading,
+    canEditManagement,
     onToggle,
     onEditRoute,
     onManageFlight,
@@ -334,6 +359,7 @@ function ManagementDepartureCard({
     section: ManagementSection;
     isExpanded: boolean;
     isActionLoading: boolean;
+    canEditManagement: boolean;
     onToggle: () => void;
     onEditRoute: () => void;
     onManageFlight: () => void;
@@ -485,6 +511,7 @@ function ManagementDepartureCard({
                                 className="management-primary-button"
                                 onClick={onManageFlight}
                                 disabled={isActionLoading}
+                                title={canEditManagement ? undefined : "Просмотр вылета"}
                             >
                                 Управление вылетом
                             </button>

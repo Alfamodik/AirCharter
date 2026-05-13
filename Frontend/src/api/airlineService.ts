@@ -24,6 +24,8 @@ export interface AirlineContractSettingsResponse {
     paymentDeadlineDays?: number | null;
     cateringClass?: string | null;
     passengerArrivalMinutesBeforeFlight?: number | null;
+    isCatalogVisible: boolean;
+    hasDepartures: boolean;
     imageBase64?: string | null;
 }
 
@@ -109,5 +111,19 @@ export async function updateMyAirlineImage(imageBase64: string | null): Promise<
         "/airlines/my/image",
         "PUT",
         { imageBase64 }
+    );
+}
+
+export async function deleteMyAirline(): Promise<void> {
+    await sendRequest<void>("/airlines/my", "DELETE");
+}
+
+export async function updateMyAirlineCatalogVisibility(
+    isCatalogVisible: boolean
+): Promise<AirlineContractSettingsResponse> {
+    return await sendRequest<AirlineContractSettingsResponse>(
+        "/airlines/my/catalog-visibility",
+        "PUT",
+        { isCatalogVisible }
     );
 }
