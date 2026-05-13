@@ -873,6 +873,26 @@
     gap: 8px;
 }
 
+.management-flight-operation-panel.current {
+    border-color: rgba(0, 123, 255, 0.45);
+    background: rgba(0, 123, 255, 0.12);
+}
+
+.management-flight-operation-panel.current span {
+    color: var(--accent-blue);
+}
+
+.management-flight-operation-panel.calculated,
+.management-flight-operation-panel.next {
+    border-color: rgba(77, 191, 128, 0.38);
+    background: rgba(77, 191, 128, 0.1);
+}
+
+.management-flight-operation-panel.calculated span,
+.management-flight-operation-panel.next span {
+    color: #9be7b3;
+}
+
 .management-flight-operation-panel span {
     color: var(--text-secondary);
     font-size: 13px;

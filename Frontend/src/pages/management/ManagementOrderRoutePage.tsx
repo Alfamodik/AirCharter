@@ -1564,19 +1564,19 @@ export default function ManagementOrderRoutePage({
             "Управление статусом",
             <>
                 <div className="management-flight-operation-grid">
-                    <div className="management-flight-operation-panel">
+                    <div className="management-flight-operation-panel calculated">
                         <span>Расчётный статус: {timing.statusText}</span>
                         <p className="management-flight-operation-route">{timing.locationText}</p>
                         <p>{timing.timeWindowText}</p>
                     </div>
 
-                    <div className="management-flight-operation-panel">
+                    <div className="management-flight-operation-panel current">
                         <span>Фактическое состояние: {actualState.statusText}</span>
                         <p className="management-flight-operation-route">{actualState.locationText}</p>
                         <p>Установлено {formatDateTime(currentDeparture.currentStatusSetAt)}.</p>
                     </div>
 
-                    <div className="management-flight-operation-panel">
+                    <div className="management-flight-operation-panel next">
                         <span>Следующий статус</span>
                         <strong>{nextStatus.name}</strong>
                         <p>Предложение построено по маршруту и пересадкам.</p>
