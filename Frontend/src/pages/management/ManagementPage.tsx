@@ -344,6 +344,7 @@ function ManagementDepartureCard({
     onUploadContractDocument: (file: File) => void;
 }) {
     const isTakeOffDateTimeTooEarly = section === "orders" &&
+        departure.canApprove &&
         isDateTimeTodayOrEarlier(departure.requestedTakeOffDateTime);
     const canApproveDeparture = departure.canApprove && !isTakeOffDateTimeTooEarly;
     const requiresManagerAction = section === "orders"

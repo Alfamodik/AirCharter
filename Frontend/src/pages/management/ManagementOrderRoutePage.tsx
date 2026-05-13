@@ -212,7 +212,7 @@ export default function ManagementOrderRoutePage({
         requestedTakeOffInput !== formatDateTimeLocalInput(departure.requestedTakeOffDateTime);
     const shouldValidateRequestedTakeOffDateTime = departure !== null &&
         !isFlightManagementPage &&
-        !isCompletedDepartureStatus(departure.currentStatusId);
+        (departure.currentStatusId === 1 || departure.currentStatusId === 2);
     const isRequestedTakeOffTooEarly = shouldValidateRequestedTakeOffDateTime &&
         requestedTakeOffInput.trim() !== "" &&
         requestedTakeOffInput < getTomorrowStartDateTimeLocalInput();
@@ -1374,7 +1374,7 @@ export default function ManagementOrderRoutePage({
                 (mode === "management" && currentDeparture.currentStatusId === 2)
             );
         const isOrderTakeOffDateTimeWarning = !isFlightManagementPage &&
-            !isCompletedDepartureStatus(currentDeparture.currentStatusId) &&
+            (currentDeparture.currentStatusId === 1 || currentDeparture.currentStatusId === 2) &&
             (
                 canEditTakeOffDateTime
                     ? isRequestedTakeOffTooEarly
@@ -2662,10 +2662,6 @@ function getRouteStatusClassName(statusId: number): string {
     }
 
     return "active";
-}
-
-function isCompletedDepartureStatus(statusId: number): boolean {
-    return statusId === 14 || statusId === 17 || statusId === 18;
 }
 
 function PassengerSearchInput({
