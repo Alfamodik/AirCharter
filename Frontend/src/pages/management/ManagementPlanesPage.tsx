@@ -4,6 +4,7 @@ import Header from "../../components/header/Header";
 import { getMyPlanes } from "../../api/planesService";
 import {
     hasAirlineProfileAccess,
+    hasManagementAccess,
     hasOrderManagementAccess,
     hasPlaneManagementAccess
 } from "../../api/utils/roleAccess";
@@ -158,6 +159,12 @@ export function ManagementSidebar({
                 {!isUserLoading && hasPlaneManagementAccess(roleName) && (
                 <NavLink to="/management/planes" className="profile-redirect-btn">
                     Самолеты
+                </NavLink>
+                )}
+
+                {!isUserLoading && hasManagementAccess(roleName) && (
+                <NavLink to="/management/analytics" className="profile-redirect-btn">
+                    Аналитика
                 </NavLink>
                 )}
             </div>

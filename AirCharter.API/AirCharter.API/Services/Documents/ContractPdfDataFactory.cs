@@ -45,16 +45,16 @@ public sealed class ContractPdfDataFactory
         string executorEmail = RequireValue(airline.Email, "email авиакомпании", missingFields);
         string executorPhoneNumber = RequireValue(airline.PhoneNumber, "телефон авиакомпании", missingFields);
 
-        string customerRegistrationAddress = RequireValue(customer.RegistrationAddress, "адрес регистрации заказчика", missingFields);
-        string customerActualAddress = RequireValue(customer.ActualAddress, "фактический адрес заказчика", missingFields);
+        string customerRegistrationAddress = RequireValue(customer.RegistrationAddress, "адрес регистрации", missingFields);
+        string customerActualAddress = RequireValue(customer.ActualAddress, "фактический адрес", missingFields);
         string customerPassportSeries = RequireValue(customer.PassportSeries, "серия паспорта заказчика", missingFields);
         string customerPassportNumber = RequireValue(customer.PassportNumber, "номер паспорта заказчика", missingFields);
-        string customerTaxpayerId = RequireValue(customer.TaxpayerId, "ИНН заказчика", missingFields);
-        string customerBankName = RequireValue(customer.BankName, "банк заказчика", missingFields);
-        string customerCurrentAccountNumber = RequireValue(customer.CurrentAccountNumber, "счёт заказчика", missingFields);
-        string customerBankIdentifierCode = RequireValue(customer.BankIdentifierCode, "БИК банка заказчика", missingFields);
+        string customerTaxpayerId = RequireValue(customer.TaxpayerId, "ИНН", missingFields);
+        string customerBankName = RequireValue(customer.BankName, "банк", missingFields);
+        string customerCurrentAccountNumber = RequireValue(customer.CurrentAccountNumber, "счёт", missingFields);
+        string customerBankIdentifierCode = RequireValue(customer.BankIdentifierCode, "БИК банка", missingFields);
         string customerEmail = RequireValue(GetCustomerEmail(departure.CharterRequester, customer), "email заказчика", missingFields);
-        string customerPhoneNumber = RequireValue(customer.PhoneNumber, "телефон заказчика", missingFields);
+        string customerPhoneNumber = RequireValue(customer.PhoneNumber, "телефон", missingFields);
 
         DateTime contractDate = GetSubmittedAt(departure) ?? GetCreatedAt(departure) ?? DateTime.UtcNow;
 

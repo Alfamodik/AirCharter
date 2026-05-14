@@ -261,6 +261,12 @@ export default function ManagementPage() {
                             Самолеты
                         </NavLink>
                         )}
+
+                        {!isUserLoading && hasManagementAccess(user?.role?.name) && (
+                        <NavLink to="/management/analytics" className="profile-redirect-btn">
+                            Аналитика
+                        </NavLink>
+                        )}
                     </div>
 
                     <nav className="management-nav" aria-label="Разделы управления">

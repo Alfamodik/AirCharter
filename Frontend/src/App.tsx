@@ -19,6 +19,7 @@ import ManagementPage from "./pages/management/ManagementPage";
 import ManagementOrderRoutePage from "./pages/management/ManagementOrderRoutePage";
 import ManagementPlanesPage from "./pages/management/ManagementPlanesPage";
 import ManagementPlaneFormPage from "./pages/management/ManagementPlaneFormPage";
+import ManagementAnalyticsPage from "./pages/management/ManagementAnalyticsPage";
 import { useUser } from "./context/UserContext";
 
 export default function App() {
@@ -50,6 +51,7 @@ export default function App() {
                     <Route path="/management/planes" element={<ManagementPlanesPage />} />
                     <Route path="/management/planes/new" element={<ManagementPlaneFormPage />} />
                     <Route path="/management/planes/:planeId" element={<ManagementPlaneFormPage />} />
+                    <Route path="/management/analytics" element={<ManagementAnalyticsPage />} />
                 </Route>
             </Routes>
         </BrowserRouter>

@@ -122,7 +122,8 @@ namespace AirCharter.API.Controllers
                 StatusSettingDateTime = DateTime.UtcNow
             });
 
-            departure.People.Add(user.Person!);
+            if (user.Person is not null)
+                departure.People.Add(user.Person);
 
             _context.Departures.Add(departure);
             await _context.SaveChangesAsync(cancellationToken);
