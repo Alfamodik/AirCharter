@@ -7,6 +7,8 @@ import type { MyDepartureResponse } from "../../contracts/responses/users/myDepa
 import "./CabinetPage.css";
 import { useNavigate } from "react-router-dom";
 
+const completedStatusIds = new Set<number>([14, 17, 18]);
+
 export default function CabinetPage() {
     const navigate = useNavigate();
     const { user, isLoading: isUserLoading } = useUser();
@@ -17,7 +19,7 @@ export default function CabinetPage() {
         const fetchOrders = async () => {
             try {
                 const data = await getUserDepartures();
-                setOrders(data);
+                setOrders(sortDepartures(data));
             } catch (error) {
                 console.error("Failed to fetch departures:", error);
             } finally {
@@ -86,4 +88,35 @@ export default function CabinetPage() {
             </div>
         </div>
     );
+}
+
+function sortDepartures(departures: MyDepartureResponse[]): MyDepartureResponse[] {
+    return [...departures].sort((firstDeparture, secondDeparture) => {
+        const firstIsCompleted = isCompletedDeparture(firstDeparture);
+        const secondIsCompleted = isCompletedDeparture(secondDeparture);
+        const firstDate = getDepartureSortTime(firstDeparture);
+        const secondDate = getDepartureSortTime(secondDeparture);
+
+        if (firstIsCompleted !== secondIsCompleted) {
+            return firstIsCompleted ? 1 : -1;
+        }
+
+        if (firstIsCompleted) {
+            return secondDate - firstDate;
+        }
+
+        return firstDate - secondDate;
+    });
+}
+
+function isCompletedDeparture(departure: MyDepartureResponse): boolean {
+    return departure.currentStatusId !== undefined &&
+        departure.currentStatusId !== null &&
+        completedStatusIds.has(departure.currentStatusId);
+}
+
+function getDepartureSortTime(departure: MyDepartureResponse): number {
+    const date = new Date(departure.takeOffDateTime);
+
+    return Number.isNaN(date.getTime()) ? Number.MAX_SAFE_INTEGER : date.getTime();
 }

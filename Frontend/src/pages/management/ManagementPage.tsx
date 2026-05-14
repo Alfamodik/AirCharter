@@ -78,7 +78,7 @@ export default function ManagementPage() {
 
         try {
             const response = await getManagementDepartures(currentSection, signal);
-            setDepartures(response);
+            setDepartures(sortManagementDepartures(response, currentSection));
         } catch {
             if (!signal?.aborted) {
                 setErrorMessage("Не удалось загрузить вылеты.");
@@ -338,6 +338,26 @@ export default function ManagementPage() {
             </div>
         </div>
     );
+}
+
+function sortManagementDepartures(
+    departures: ManagementDepartureResponse[],
+    section: ManagementSection
+): ManagementDepartureResponse[] {
+    if (section !== "flights") {
+        return departures;
+    }
+
+    return [...departures].sort((firstDeparture, secondDeparture) =>
+        getDateTimeValue(firstDeparture.requestedTakeOffDateTime) -
+        getDateTimeValue(secondDeparture.requestedTakeOffDateTime)
+    );
+}
+
+function getDateTimeValue(value: string): number {
+    const date = new Date(value);
+
+    return Number.isNaN(date.getTime()) ? Number.MAX_SAFE_INTEGER : date.getTime();
 }
 
 function ManagementDepartureCard({

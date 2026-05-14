@@ -10,6 +10,7 @@
         public DateTime? CreatedAt { get; set; }
         public int? CurrentStatusId { get; set; }
         public string Status { get; set; } = string.Empty;
+        public bool HasContractDocument { get; set; }
         public decimal Price { get; set; }
         public TimeSpan FlightTime { get; set; }
         public int Distance { get; set; }

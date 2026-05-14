@@ -23,6 +23,16 @@
     box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
 }
 
+.departure-card.user-action-required,
+.departure-card.user-action-required:hover {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 1px rgba(0, 122, 255, 0.55);
+}
+
+.departure-card.user-action-required:hover {
+    box-shadow: 0 0 0 1px rgba(0, 122, 255, 0.55), 0 12px 30px rgba(0, 0, 0, 0.2);
+}
+
 .departure-image-section {
     position: relative;
     width: 320px;
@@ -158,6 +168,10 @@ departure-airline-badge img {
     font-size: 14px;
     font-weight: 600;
     color: var(--text-primary);
+}
+
+.departure-date-past {
+    color: #ff6b6b;
 }
 
 .price-item {

@@ -24,7 +24,27 @@ function formatFlightDurationClock(value: string): string {
 function isDeparturePlanned(statusId?: number | null): boolean {
     return statusId !== undefined &&
         statusId !== null &&
-        ![1, 2, 18, 19].includes(statusId);
+        statusId !== 1;
+}
+
+function isUserActionRequired(departure: MyDepartureResponse): boolean {
+    return departure.currentStatusId === 1 ||
+        departure.currentStatusId === 20 ||
+        (departure.currentStatusId === 19 && !departure.hasContractDocument);
+}
+
+function isPastDate(value?: string | null): boolean {
+    if (!value) {
+        return false;
+    }
+
+    const date = new Date(value);
+
+    return !Number.isNaN(date.getTime()) && date < new Date();
+}
+
+function shouldHighlightPastTakeOffDate(statusId?: number | null): boolean {
+    return statusId === 2 || statusId === 19 || statusId === 20;
 }
 
 export default function UserDepartureCard({ departure, onClick }: UserDepartureCardProps) {
@@ -50,12 +70,20 @@ export default function UserDepartureCard({ departure, onClick }: UserDepartureC
     };
 
     const statusClass = getStatusClassById(departure.currentStatusId) ?? getStatusClass(departure.status);
+    const requiresUserAction = isUserActionRequired(departure);
     const showTakeOffDate = isDeparturePlanned(departure.currentStatusId);
     const dateLabel = showTakeOffDate ? "Дата вылета" : "Дата создания";
     const dateValue = showTakeOffDate ? departure.takeOffDateTime : departure.createdAt;
+    const isTakeOffDatePast = showTakeOffDate &&
+        shouldHighlightPastTakeOffDate(departure.currentStatusId) &&
+        isPastDate(departure.takeOffDateTime);
 
     return (
-        <button type="button" className="departure-card departure-card-button" onClick={onClick}>
+        <button
+            type="button"
+            className={`departure-card departure-card-button ${requiresUserAction ? "user-action-required" : ""}`}
+            onClick={onClick}
+        >
             <div className="departure-image-section">
                 <img 
                     src={departure.planeImage ? `data:image/png;base64,${departure.planeImage}` : "/placeholder-plane.png"} 
@@ -100,7 +128,7 @@ export default function UserDepartureCard({ departure, onClick }: UserDepartureC
                     {dateValue && (
                         <div className="info-item">
                             <span className="info-label">{dateLabel}</span>
-                            <span className="info-value">
+                            <span className={`info-value ${isTakeOffDatePast ? "departure-date-past" : ""}`}>
                                 {new Date(dateValue).toLocaleString('ru-RU', {
                                     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
                                 })}

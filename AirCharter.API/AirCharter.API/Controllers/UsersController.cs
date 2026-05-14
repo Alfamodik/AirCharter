@@ -94,6 +94,7 @@ public sealed class UsersController(AirCharterExtendedContext context) : Control
                     .ThenByDescending(departureStatus => departureStatus.Id)
                     .Select(departureStatus => departureStatus.Status.Status1)
                     .FirstOrDefault() ?? string.Empty,
+                HasContractDocument = departure.ContractDocument != null && departure.ContractDocument.Length > 0,
                 Price = departure.Price,
                 FlightTime = departure.FlightTime,
                 Distance = departure.Distance,

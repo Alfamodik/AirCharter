@@ -7,6 +7,7 @@ export interface MyDepartureResponse {
     createdAt?: string | null;
     currentStatusId?: number | null;
     status: string;
+    hasContractDocument: boolean;
     price: number;
     flightTime: string;
     distance: number;
