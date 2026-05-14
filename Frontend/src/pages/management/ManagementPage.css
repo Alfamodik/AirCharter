@@ -517,6 +517,42 @@
     grid-template-columns: repeat(2, minmax(0, 220px));
 }
 
+.management-payment-modal-grid {
+    display: grid;
+    grid-template-columns: 1fr 120px;
+    gap: 12px;
+}
+
+.management-payment-modal {
+    width: min(460px, 100%);
+}
+
+.management-payment-modal-grid .input-field:first-child {
+    grid-column: 1 / -1;
+}
+
+.management-payment-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 12px;
+}
+
+.management-payment-summary span {
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.management-payment-summary strong {
+    color: var(--text-primary);
+    font-size: 16px;
+}
+
 .management-passenger-modal-actions {
     display: flex;
     justify-content: space-between;
@@ -1459,8 +1495,13 @@
 
     .management-passenger-add-row,
     .management-passenger-dropdown li,
-    .management-passenger-modal-grid {
+    .management-passenger-modal-grid,
+    .management-payment-modal-grid {
         grid-template-columns: 1fr;
+    }
+
+    .management-payment-modal-grid .input-field:first-child {
+        grid-column: auto;
     }
 
     .management-passenger-modal-grid.compact {

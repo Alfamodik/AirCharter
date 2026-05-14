@@ -166,6 +166,7 @@ export default function ManagementOrderRoutePage({
     const [expandedSections, setExpandedSections] = useState<Set<DepartureSectionKey>>(() => new Set(["operations"]));
     const [pendingCompletionStatus, setPendingCompletionStatus] = useState<PendingManagementStatusChange | null>(null);
     const [isDeleteDepartureConfirmOpen, setIsDeleteDepartureConfirmOpen] = useState(false);
+    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const isFlightManagementPage = mode === "management" && location.pathname.includes("/management/flights/");
 
     const invalidSameAirportLegIndexes = useMemo(() => {
@@ -958,6 +959,7 @@ export default function ManagementOrderRoutePage({
         try {
             await payUserDeparture(departure.id);
             await refreshDeparture();
+            setIsPaymentModalOpen(false);
         } catch (error: unknown) {
             setErrorMessage(getApiErrorMessage(error, "Не удалось оплатить вылет."));
         } finally {
@@ -1913,10 +1915,10 @@ export default function ManagementOrderRoutePage({
                                     <button
                                         type="button"
                                         className="management-primary-button management-pay-button"
-                                        onClick={handlePayDeparture}
+                                        onClick={() => setIsPaymentModalOpen(true)}
                                         disabled={isActionLoading}
                                     >
-                                        Оплатить
+                                        Перейти к оплате
                                     </button>
                                 )}
                                 {canDownloadContractDocument && (
@@ -2020,6 +2022,15 @@ export default function ManagementOrderRoutePage({
                     isLoading={isActionLoading}
                     onClose={() => setIsDeleteDepartureConfirmOpen(false)}
                     onConfirm={handleDeleteDeparture}
+                />
+            )}
+
+            {isPaymentModalOpen && departure !== null && (
+                <PaymentModal
+                    departure={departure}
+                    isLoading={isActionLoading}
+                    onClose={() => setIsPaymentModalOpen(false)}
+                    onSubmit={handlePayDeparture}
                 />
             )}
             </div>
@@ -2136,6 +2147,24 @@ function downloadBlob(blob: Blob, fileName: string) {
     link.click();
     link.remove();
     URL.revokeObjectURL(objectUrl);
+}
+
+function formatCardNumberInput(value: string): string {
+    return value
+        .replace(/\D/g, "")
+        .slice(0, 16)
+        .replace(/(.{4})/g, "$1 ")
+        .trim();
+}
+
+function formatCardExpirationInput(value: string): string {
+    const digits = value.replace(/\D/g, "").slice(0, 4);
+
+    if (digits.length <= 2) {
+        return digits;
+    }
+
+    return `${digits.slice(0, 2)}/${digits.slice(2)}`;
 }
 
 function formatCustomerInfo(departure: ManagementDepartureResponse): string {
@@ -2921,6 +2950,103 @@ function DeleteDepartureConfirmModal({
                     </button>
                 </div>
             </section>
+        </div>
+    );
+}
+
+function PaymentModal({
+    departure,
+    isLoading,
+    onClose,
+    onSubmit
+}: {
+    departure: ManagementDepartureResponse;
+    isLoading: boolean;
+    onClose: () => void;
+    onSubmit: () => void;
+}) {
+    const [cardNumber, setCardNumber] = useState("");
+    const [cardCvc, setCardCvc] = useState("");
+    const [expirationDate, setExpirationDate] = useState("");
+
+    function handleSubmit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        onSubmit();
+    }
+
+    return (
+        <div className="management-modal-backdrop" role="presentation" onMouseDown={onClose}>
+            <form
+                className="management-passenger-modal management-confirm-modal management-payment-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="departure-payment-title"
+                onSubmit={handleSubmit}
+                onMouseDown={(event) => event.stopPropagation()}
+            >
+                <div className="management-passenger-modal-header">
+                    <div>
+                        <h3 id="departure-payment-title">Оплата вылета</h3>
+                        <span>{getDepartureRouteTitleFromAirports(departure)}</span>
+                    </div>
+                    <button type="button" onClick={onClose} disabled={isLoading} aria-label="Закрыть">
+                        ×
+                    </button>
+                </div>
+
+                <div className="management-payment-modal-grid">
+                    <InputField
+                        label="Номер карты"
+                        value={cardNumber}
+                        onChange={(value) => setCardNumber(formatCardNumberInput(value))}
+                        placeholder="0000 0000 0000 0000"
+                        maxLength={19}
+                        autoComplete="cc-number"
+                        required
+                    />
+                    <InputField
+                        label="CVC"
+                        value={cardCvc}
+                        onChange={(value) => setCardCvc(value.replace(/\D/g, "").slice(0, 3))}
+                        placeholder="000"
+                        maxLength={3}
+                        autoComplete="cc-csc"
+                        required
+                    />
+                    <InputField
+                        label="Действует до"
+                        value={expirationDate}
+                        onChange={(value) => setExpirationDate(formatCardExpirationInput(value))}
+                        placeholder="ММ/ГГ"
+                        maxLength={5}
+                        autoComplete="cc-exp"
+                        required
+                    />
+                </div>
+
+                <div className="management-payment-summary">
+                    <span>Сумма к оплате</span>
+                    <strong>{formatPrice(departure.price)}</strong>
+                </div>
+
+                <div className="management-passenger-modal-actions">
+                    <button
+                        type="button"
+                        className="management-secondary-button"
+                        onClick={onClose}
+                        disabled={isLoading}
+                    >
+                        Отмена
+                    </button>
+                    <button
+                        type="submit"
+                        className="management-primary-button management-pay-button"
+                        disabled={isLoading}
+                    >
+                        Оплатить
+                    </button>
+                </div>
+            </form>
         </div>
     );
 }
