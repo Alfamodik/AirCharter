@@ -4240,13 +4240,16 @@ function getEmployeeRoleRank(roleName: string): number {
         case "Manager":
             return 1;
 
-        case "GeneralDirector":
+        case "Admin":
             return 2;
 
-        case "Owner":
+        case "GeneralDirector":
             return 3;
 
-        default:
+        case "Owner":
             return 4;
+
+        default:
+            return 5;
     }
 }
