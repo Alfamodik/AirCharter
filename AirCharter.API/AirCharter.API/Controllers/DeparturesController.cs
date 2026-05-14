@@ -2029,6 +2029,10 @@ namespace AirCharter.API.Controllers
                     managementSection = ManagementDepartureSection.Completed;
                     return true;
 
+                case "analytics":
+                    managementSection = ManagementDepartureSection.Analytics;
+                    return true;
+
                 default:
                     managementSection = ManagementDepartureSection.Orders;
                     return false;
@@ -2054,6 +2058,8 @@ namespace AirCharter.API.Controllers
                         (int)FlightStatusId.Landed or
                         (int)FlightStatusId.Cancelled or
                         (int)FlightStatusId.Denied,
+
+                ManagementDepartureSection.Analytics => true,
 
                 _ => false
             };
@@ -2580,7 +2586,8 @@ namespace AirCharter.API.Controllers
         {
             Orders,
             Flights,
-            Completed
+            Completed,
+            Analytics
         }
 
         private sealed class ManagementDepartureRouteLegListItem

@@ -3,6 +3,7 @@ import type { ManagementDepartureResponse } from "../contracts/responses/departu
 import type { AirportSearchResponse } from "../contracts/responses/airports/airportSearchResponse";
 
 export type ManagementSection = "orders" | "flights" | "completed";
+type ManagementDepartureQuerySection = ManagementSection | "analytics";
 
 export interface UpdateDepartureRouteRequest {
     airportIds: number[];
@@ -40,7 +41,7 @@ export interface ManagementRouteCandidateResponse extends AirportSearchResponse 
 }
 
 export async function getManagementDepartures(
-    section: ManagementSection,
+    section: ManagementDepartureQuerySection,
     signal?: AbortSignal
 ): Promise<ManagementDepartureResponse[]> {
     const searchParameters = new URLSearchParams({

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { NavLink, Navigate, useNavigate } from "react-router-dom";
 import Header from "../../components/header/Header";
+import { getManagementDepartures } from "../../api/managementService";
 import { getMyPlanes } from "../../api/planesService";
 import {
     hasAirlineProfileAccess,
@@ -10,6 +11,10 @@ import {
 } from "../../api/utils/roleAccess";
 import { useUser } from "../../context/UserContext";
 import type { ManagementPlaneResponse } from "../../contracts/responses/planes/managementPlaneResponse";
+import {
+    isFlightBehindSchedule,
+    isOrderAwaitingManagerAction
+} from "./managementActionCounters";
 import "./ManagementPage.css";
 import "./ManagementPlanesPage.css";
 
@@ -135,6 +140,43 @@ export function ManagementSidebar({
     const visibleNavigationItems = managementNavigationItems.filter((item) =>
         item.path !== "/management/orders" || canManageOrders
     );
+    const canShowActionCounts = !isUserLoading && hasManagementAccess(roleName);
+    const [actionCounts, setActionCounts] = useState<Record<"orders" | "flights", number>>({
+        orders: 0,
+        flights: 0
+    });
+
+    useEffect(() => {
+        if (isUserLoading || !hasManagementAccess(roleName)) {
+            return;
+        }
+
+        const abortController = new AbortController();
+
+        async function loadActionCounts() {
+            try {
+                const [orders, flights] = await Promise.all([
+                    canManageOrders
+                        ? getManagementDepartures("orders", abortController.signal)
+                        : Promise.resolve([]),
+                    getManagementDepartures("flights", abortController.signal)
+                ]);
+
+                setActionCounts({
+                    orders: orders.filter(isOrderAwaitingManagerAction).length,
+                    flights: flights.filter(isFlightBehindSchedule).length
+                });
+            } catch {
+                if (!abortController.signal.aborted) {
+                    setActionCounts({ orders: 0, flights: 0 });
+                }
+            }
+        }
+
+        loadActionCounts();
+
+        return () => abortController.abort();
+    }, [canManageOrders, isUserLoading, roleName]);
 
     return (
         <aside className="catalog-sidebar">
@@ -170,7 +212,14 @@ export function ManagementSidebar({
             </div>
 
             <nav className="management-nav" aria-label="Разделы управления">
-                {visibleNavigationItems.map((item) => (
+                {visibleNavigationItems.map((item) => {
+                    const actionCount = item.path === "/management/orders"
+                        ? actionCounts.orders
+                        : item.path === "/management/flights"
+                            ? actionCounts.flights
+                            : 0;
+
+                    return (
                     <NavLink
                         key={item.path}
                         to={item.path}
@@ -178,9 +227,13 @@ export function ManagementSidebar({
                             isActive ? "management-nav-link active" : "management-nav-link"
                         }
                     >
-                        {item.label}
+                        <span>{item.label}</span>
+                        {canShowActionCounts && actionCount > 0 && (
+                            <span className="management-nav-badge">{actionCount}</span>
+                        )}
                     </NavLink>
-                ))}
+                    );
+                })}
             </nav>
         </aside>
     );
