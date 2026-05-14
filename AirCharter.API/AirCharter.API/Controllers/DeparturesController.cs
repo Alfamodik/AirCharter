@@ -1367,6 +1367,11 @@ namespace AirCharter.API.Controllers
             if (departure.Plane.AirlineId != userAirlineId.Value)
                 return Forbid();
 
+            DepartureStatus? currentStatus = GetCurrentStatus(departure);
+
+            if (currentStatus?.StatusId == (int)FlightStatusId.Cancelled)
+                return BadRequest("Отменённый вылет нельзя редактировать.");
+
             int[] employeeIds = request.EmployeeIds
                 .Distinct()
                 .ToArray();

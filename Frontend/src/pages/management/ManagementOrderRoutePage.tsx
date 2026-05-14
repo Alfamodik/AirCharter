@@ -116,6 +116,34 @@ type PendingManagementStatusChange = {
     targetLegIndex?: number | null;
 };
 
+type AdditionalFlightStatusAction = {
+    statusId: number;
+    name: string;
+    description: string;
+    tone: "warning" | "info" | "danger";
+};
+
+const additionalFlightStatusActions: AdditionalFlightStatusAction[] = [
+    {
+        statusId: 15,
+        name: "Задержан",
+        description: "Зафиксировать задержку без изменения маршрута.",
+        tone: "warning"
+    },
+    {
+        statusId: 16,
+        name: "Перенаправлен",
+        description: "Отметить отклонение от текущего маршрута.",
+        tone: "info"
+    },
+    {
+        statusId: 17,
+        name: "Отменён",
+        description: "Отменить вылет и завершить управление им.",
+        tone: "danger"
+    }
+];
+
 const emptyPassengerForm: ProfileFormData = {
     firstName: "",
     lastName: "",
@@ -164,7 +192,9 @@ export default function ManagementOrderRoutePage({
     const contractFileInputRef = useRef<HTMLInputElement | null>(null);
     const [routeChooserElement, setRouteChooserElement] = useState<HTMLDivElement | null>(null);
     const [expandedSections, setExpandedSections] = useState<Set<DepartureSectionKey>>(() => new Set(["operations"]));
+    const [isAdditionalStatusesExpanded, setIsAdditionalStatusesExpanded] = useState(false);
     const [pendingCompletionStatus, setPendingCompletionStatus] = useState<PendingManagementStatusChange | null>(null);
+    const [pendingCancellationStatus, setPendingCancellationStatus] = useState<PendingManagementStatusChange | null>(null);
     const [isDeleteDepartureConfirmOpen, setIsDeleteDepartureConfirmOpen] = useState(false);
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const isFlightManagementPage = mode === "management" && location.pathname.includes("/management/flights/");
@@ -1003,6 +1033,15 @@ export default function ManagementOrderRoutePage({
             return;
         }
 
+        if (statusId === 17) {
+            setPendingCancellationStatus({
+                statusId,
+                includePreviousStatuses,
+                targetLegIndex
+            });
+            return;
+        }
+
         await applyManagementStatus(statusId, includePreviousStatuses, targetLegIndex);
     }
 
@@ -1049,6 +1088,21 @@ export default function ManagementOrderRoutePage({
         const statusChange = pendingCompletionStatus;
 
         setPendingCompletionStatus(null);
+        await applyManagementStatus(
+            statusChange.statusId,
+            statusChange.includePreviousStatuses,
+            statusChange.targetLegIndex
+        );
+    }
+
+    async function handleConfirmCancellationStatus() {
+        if (pendingCancellationStatus === null) {
+            return;
+        }
+
+        const statusChange = pendingCancellationStatus;
+
+        setPendingCancellationStatus(null);
         await applyManagementStatus(
             statusChange.statusId,
             statusChange.includePreviousStatuses,
@@ -1562,6 +1616,7 @@ export default function ManagementOrderRoutePage({
         const actualState = getActualFlightState(currentDeparture);
         const nextStatus = getSuggestedNextFlightStatus(currentDeparture, timing);
         const canChangeStatus = currentDeparture.canChangeStatus && !isActionLoading;
+        const canShowStatusActions = canEditManagementDeparture && currentDeparture.canChangeStatus;
         const canDeleteLatestStatus = canChangeStatus && currentDeparture.currentStatusId > 4;
         const isCalculatedStatusCurrent = isCalculatedStatusAlreadyCurrent(currentDeparture, timing);
         const hasAssignedCrew = currentDeparture.employees.length > 0;
@@ -1599,13 +1654,44 @@ export default function ManagementOrderRoutePage({
 
                 <FlightTimingTimeline departure={currentDeparture} />
 
+                {canShowStatusActions && (
+                    <div className={`management-additional-status-panel ${isAdditionalStatusesExpanded ? "expanded" : ""}`}>
+                        <button
+                            type="button"
+                            className="management-additional-status-toggle"
+                            onClick={() => setIsAdditionalStatusesExpanded((isExpanded) => !isExpanded)}
+                            aria-expanded={isAdditionalStatusesExpanded}
+                        >
+                            <span className={`management-card-chevron ${isAdditionalStatusesExpanded ? "expanded" : ""}`}></span>
+                            <span>Дополнительные статусы</span>
+                        </button>
+
+                        {isAdditionalStatusesExpanded && (
+                            <div className="management-additional-status-grid">
+                                {additionalFlightStatusActions.map((action) => (
+                                    <button
+                                        key={action.statusId}
+                                        type="button"
+                                        className={`management-additional-status-button ${action.tone}`}
+                                        onClick={() => handleSetManagementStatus(action.statusId)}
+                                        disabled={!canChangeStatus || currentDeparture.currentStatusId === action.statusId}
+                                    >
+                                        <span>{action.name}</span>
+                                        <small>{action.description}</small>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {!hasAssignedCrew && (calculatedStatusRequiresCrew || nextStatusRequiresCrew) && (
                     <p className="management-crew-warning">
                         Для вылета назначьте хотя бы одного члена экипажа.
                     </p>
                 )}
 
-                {canEditManagementDeparture && (
+                {canShowStatusActions && (
                 <div className="management-flight-status-actions">
                     <button
                         type="button"
@@ -1740,7 +1826,9 @@ export default function ManagementOrderRoutePage({
     }
 
     function renderEmployeeSection(currentDeparture: ManagementDepartureResponse) {
-        if (!canEditManagementDeparture) {
+        const canEditEmployees = canEditManagementDeparture && currentDeparture.currentStatusId !== 17;
+
+        if (!canEditEmployees) {
             return renderSectionCard(
                 "employees",
                 "Сотрудники вылета",
@@ -2013,6 +2101,15 @@ export default function ManagementOrderRoutePage({
                     isLoading={isActionLoading}
                     onClose={() => setPendingCompletionStatus(null)}
                     onConfirm={handleConfirmCompletionStatus}
+                />
+            )}
+
+            {pendingCancellationStatus !== null && departure !== null && (
+                <FlightCancellationConfirmModal
+                    departure={departure}
+                    isLoading={isActionLoading}
+                    onClose={() => setPendingCancellationStatus(null)}
+                    onConfirm={handleConfirmCancellationStatus}
                 />
             )}
 
@@ -2883,6 +2980,71 @@ function FlightCompletionConfirmModal({
                         disabled={isLoading}
                     >
                         Завершить вылет
+                    </button>
+                </div>
+            </section>
+        </div>
+    );
+}
+
+function FlightCancellationConfirmModal({
+    departure,
+    isLoading,
+    onClose,
+    onConfirm
+}: {
+    departure: ManagementDepartureResponse;
+    isLoading: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+}) {
+    return (
+        <div className="management-modal-backdrop" role="presentation" onMouseDown={onClose}>
+            <section
+                className="management-passenger-modal management-confirm-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="flight-cancellation-title"
+                onMouseDown={(event) => event.stopPropagation()}
+            >
+                <div className="management-passenger-modal-header">
+                    <div>
+                        <h3 id="flight-cancellation-title">Отменить вылет?</h3>
+                        <span>{getDepartureRouteTitleFromAirports(departure)}</span>
+                    </div>
+                    <button type="button" onClick={onClose} disabled={isLoading} aria-label="Закрыть">
+                        ×
+                    </button>
+                </div>
+
+                <p className="management-passenger-modal-note">
+                    Будет установлен статус «Отменён», а вылет перейдёт из текущих в завершённые.
+                    Используйте это действие только если рейс действительно больше не должен выполняться.
+                </p>
+
+                <div className="management-confirm-summary">
+                    <span>Текущий статус</span>
+                    <strong>{departure.statusName}</strong>
+                    <span>Дата и время вылета</span>
+                    <strong>{formatDateTime(departure.requestedTakeOffDateTime)}</strong>
+                </div>
+
+                <div className="management-passenger-modal-actions">
+                    <button
+                        type="button"
+                        className="management-secondary-button"
+                        onClick={onClose}
+                        disabled={isLoading}
+                    >
+                        Отмена
+                    </button>
+                    <button
+                        type="button"
+                        className="management-danger-button"
+                        onClick={onConfirm}
+                        disabled={isLoading}
+                    >
+                        Отменить вылет
                     </button>
                 </div>
             </section>
