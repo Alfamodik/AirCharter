@@ -903,6 +903,40 @@ namespace AirCharter.API.Controllers
             return NoContent();
         }
 
+        [HttpPost("my/{departureId:int}/cancel")]
+        public async Task<IActionResult> CancelMyDeparture(
+            int departureId,
+            CancellationToken cancellationToken)
+        {
+            int? userId = GetCurrentUserId();
+
+            if (userId is null)
+                return Unauthorized();
+
+            Departure? departure = await GetManagementDepartureQuery()
+                .FirstOrDefaultAsync(
+                    departure => departure.Id == departureId &&
+                        departure.CharterRequesterId == userId.Value,
+                    cancellationToken);
+
+            if (departure is null)
+                return NotFound();
+
+            DepartureStatus? currentStatus = GetCurrentStatus(departure);
+
+            if (currentStatus?.StatusId != (int)FlightStatusId.AwaitingContractSigning)
+                return BadRequest("Отказаться от вылета можно только до подписания договора.");
+
+            if (departure.ContractDocument is not null && departure.ContractDocument.Length > 0)
+                return BadRequest("После загрузки подписанного договора отказаться от вылета нельзя.");
+
+            AddDepartureStatus(departure, FlightStatusId.Cancelled);
+            AddDepartureStatusChangedNotification(departure, FlightStatusId.Cancelled);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return NoContent();
+        }
+
         [HttpPost("management/{departureId:int}/status")]
         [Authorize(Roles = ManagementEditorRoles)]
         public async Task<IActionResult> UpdateManagementDepartureStatus(

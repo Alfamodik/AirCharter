@@ -24,6 +24,7 @@ import {
 import { hasManagementAccess, hasManagementEditAccess } from "../../api/utils/roleAccess";
 import {
     addUserDeparturePassenger,
+    cancelUserDeparture,
     deleteUserDeparture,
     getUserDeparture,
     getUserRouteCandidates,
@@ -196,6 +197,7 @@ export default function ManagementOrderRoutePage({
     const [pendingCompletionStatus, setPendingCompletionStatus] = useState<PendingManagementStatusChange | null>(null);
     const [pendingCancellationStatus, setPendingCancellationStatus] = useState<PendingManagementStatusChange | null>(null);
     const [isDeleteDepartureConfirmOpen, setIsDeleteDepartureConfirmOpen] = useState(false);
+    const [isCancelDepartureConfirmOpen, setIsCancelDepartureConfirmOpen] = useState(false);
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const isFlightManagementPage = mode === "management" && location.pathname.includes("/management/flights/");
 
@@ -304,6 +306,10 @@ export default function ManagementOrderRoutePage({
     const canDeleteDeparture = departure !== null &&
         mode === "client" &&
         (departure.canDelete || departure.currentStatusId === 1 || departure.currentStatusId === 2);
+    const canCancelApprovedDeparture = departure !== null &&
+        mode === "client" &&
+        departure.currentStatusId === 19 &&
+        !departure.hasContractDocument;
     const canApproveDeparture = departure !== null &&
         mode === "management" &&
         departure.canApprove &&
@@ -676,6 +682,28 @@ export default function ManagementOrderRoutePage({
         } finally {
             setIsActionLoading(false);
             setIsDeleteDepartureConfirmOpen(false);
+        }
+    }
+
+    async function handleCancelApprovedDeparture() {
+        if (!canCancelApprovedDeparture || departure === null) {
+            return;
+        }
+
+        setIsActionLoading(true);
+        setErrorMessage("");
+
+        try {
+            await cancelUserDeparture(departure.id);
+            await refreshDeparture();
+        } catch (error: unknown) {
+            setErrorMessage(getApiErrorMessage(
+                error,
+                "Не удалось отказаться от вылета. Отказ доступен только до подписания договора."
+            ));
+        } finally {
+            setIsActionLoading(false);
+            setIsCancelDepartureConfirmOpen(false);
         }
     }
 
@@ -1949,6 +1977,17 @@ export default function ManagementOrderRoutePage({
                                     </button>
                                 )}
 
+                                {canCancelApprovedDeparture && (
+                                    <button
+                                        type="button"
+                                        className="management-danger-button"
+                                        onClick={() => setIsCancelDepartureConfirmOpen(true)}
+                                        disabled={isActionLoading}
+                                    >
+                                        Отказаться от вылета
+                                    </button>
+                                )}
+
                                 {mode === "management" && departure.canApprove && (
                                     <button
                                         type="button"
@@ -2119,6 +2158,15 @@ export default function ManagementOrderRoutePage({
                     isLoading={isActionLoading}
                     onClose={() => setIsDeleteDepartureConfirmOpen(false)}
                     onConfirm={handleDeleteDeparture}
+                />
+            )}
+
+            {isCancelDepartureConfirmOpen && departure !== null && (
+                <CancelDepartureConfirmModal
+                    departure={departure}
+                    isLoading={isActionLoading}
+                    onClose={() => setIsCancelDepartureConfirmOpen(false)}
+                    onConfirm={handleCancelApprovedDeparture}
                 />
             )}
 
@@ -3109,6 +3157,70 @@ function DeleteDepartureConfirmModal({
                         disabled={isLoading}
                     >
                         Удалить заявку
+                    </button>
+                </div>
+            </section>
+        </div>
+    );
+}
+
+function CancelDepartureConfirmModal({
+    departure,
+    isLoading,
+    onClose,
+    onConfirm
+}: {
+    departure: ManagementDepartureResponse;
+    isLoading: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+}) {
+    return (
+        <div className="management-modal-backdrop" role="presentation" onMouseDown={onClose}>
+            <section
+                className="management-passenger-modal management-confirm-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="departure-cancel-title"
+                onMouseDown={(event) => event.stopPropagation()}
+            >
+                <div className="management-passenger-modal-header">
+                    <div>
+                        <h3 id="departure-cancel-title">Отказаться от вылета?</h3>
+                        <span>{getDepartureRouteTitleFromAirports(departure)}</span>
+                    </div>
+                    <button type="button" onClick={onClose} disabled={isLoading} aria-label="Закрыть">
+                        ×
+                    </button>
+                </div>
+
+                <p className="management-passenger-modal-note">
+                    Вылет будет переведён в статус «Отменён». Это действие доступно только до загрузки подписанного договора.
+                </p>
+
+                <div className="management-confirm-summary">
+                    <span>Текущий статус</span>
+                    <strong>{departure.statusName}</strong>
+                    <span>Дата вылета</span>
+                    <strong>{formatDateTime(departure.requestedTakeOffDateTime)}</strong>
+                </div>
+
+                <div className="management-passenger-modal-actions">
+                    <button
+                        type="button"
+                        className="management-secondary-button"
+                        onClick={onClose}
+                        disabled={isLoading}
+                    >
+                        Оставить вылет
+                    </button>
+                    <button
+                        type="button"
+                        className="management-danger-button"
+                        onClick={onConfirm}
+                        disabled={isLoading}
+                    >
+                        Отказаться от вылета
                     </button>
                 </div>
             </section>

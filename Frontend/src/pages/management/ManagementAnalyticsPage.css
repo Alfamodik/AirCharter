@@ -233,6 +233,11 @@
     z-index: 2;
 }
 
+.management-help-tooltip:hover,
+.management-help-tooltip:focus-within {
+    z-index: 60;
+}
+
 .management-help-icon {
     width: 20px;
     height: 20px;
@@ -260,6 +265,7 @@
 
 .management-help-popup {
     position: absolute;
+    z-index: 1;
     left: 50%;
     bottom: calc(100% + 8px);
     width: min(280px, calc(100vw - 40px));

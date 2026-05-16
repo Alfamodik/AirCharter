@@ -1065,7 +1065,7 @@ function buildTopRoutes(departures: ManagementDepartureResponse[]): RankedStat[]
 
     return [...routeMap.values()]
         .sort((first, second) => second.count - first.count || second.value - first.value)
-        .slice(0, 6);
+        .slice(0, 5);
 }
 
 function buildTopPlanes(departures: ManagementDepartureResponse[]): RankedStat[] {
@@ -1087,7 +1087,7 @@ function buildTopPlanes(departures: ManagementDepartureResponse[]): RankedStat[]
 
     return [...planeMap.values()]
         .sort((first, second) => second.count - first.count || second.value - first.value)
-        .slice(0, 6);
+        .slice(0, 5);
 }
 
 function countRepeatCustomers(
