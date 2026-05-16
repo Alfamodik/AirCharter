@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type ReactNode } from "react";
 import { NavLink, Navigate, useLocation, useNavigate } from "react-router-dom";
 import Header from "../../components/header/Header";
+import { resignFromMyAirline } from "../../api/airlineService";
 import {
     approveManagementDeparture,
     confirmManagementDepartureContractDocument,
@@ -12,6 +13,7 @@ import { downloadDepartureContractDocument, uploadDepartureContractDocument } fr
 import { useUser } from "../../context/UserContext";
 import {
     hasAirlineProfileAccess,
+    hasAirlineStaffAdministrationAccess,
     hasManagementEditAccess,
     hasManagementAccess,
     hasOrderManagementAccess,
@@ -53,7 +55,7 @@ const managementNavigationItems: Array<{
 export default function ManagementPage() {
     const navigate = useNavigate();
     const location = useLocation();
-    const { user, isLoading: isUserLoading } = useUser();
+    const { user, isLoading: isUserLoading, refreshUser } = useUser();
 
     const currentSection = getCurrentSection(location.pathname);
     const canManageOrders = hasOrderManagementAccess(user?.role?.name);
@@ -70,6 +72,8 @@ export default function ManagementPage() {
         orders: 0,
         flights: 0
     });
+    const [isResignModalOpen, setIsResignModalOpen] = useState(false);
+    const [isResigning, setIsResigning] = useState(false);
 
     const loadDepartures = useCallback(async (signal?: AbortSignal) => {
         setIsDeparturesLoading(true);
@@ -93,7 +97,9 @@ export default function ManagementPage() {
     const loadActionCounts = useCallback(async (signal?: AbortSignal) => {
         try {
             const [orders, flights] = await Promise.all([
-                getManagementDepartures("orders", signal),
+                canManageOrders
+                    ? getManagementDepartures("orders", signal)
+                    : Promise.resolve([]),
                 getManagementDepartures("flights", signal)
             ]);
 
@@ -109,7 +115,7 @@ export default function ManagementPage() {
                 });
             }
         }
-    }, []);
+    }, [canManageOrders]);
 
     useEffect(() => {
         if (isUserLoading || user === null || !hasManagementAccess(user.role?.name)) {
@@ -124,14 +130,27 @@ export default function ManagementPage() {
         const abortController = new AbortController();
         loadDepartures(abortController.signal);
 
-        if (hasManagementEditAccess(user.role?.name)) {
-            loadActionCounts(abortController.signal);
-        } else {
-            setActionCounts({ orders: 0, flights: 0 });
-        }
+        loadActionCounts(abortController.signal);
 
         return () => abortController.abort();
     }, [currentSection, isUserLoading, loadActionCounts, loadDepartures, navigate, user]);
+
+    async function handleResign() {
+        if (isResigning) {
+            return;
+        }
+
+        setIsResigning(true);
+
+        try {
+            await resignFromMyAirline();
+            await refreshUser();
+            setIsResignModalOpen(false);
+            navigate("/cabinet", { replace: true });
+        } finally {
+            setIsResigning(false);
+        }
+    }
 
     async function handleApprove(departureId: number) {
         const departure = departures.find((currentDeparture) => currentDeparture.id === departureId);
@@ -263,10 +282,23 @@ export default function ManagementPage() {
                         )}
 
                         {!isUserLoading && hasManagementAccess(user?.role?.name) && (
+                        <NavLink to="/airline-notifications" className="profile-redirect-btn">
+                            Уведомления
+                        </NavLink>
+                        )}
+
+                        {!isUserLoading && hasAirlineStaffAdministrationAccess(user?.role?.name) && (
+                        <NavLink to="/airline-employees" className="profile-redirect-btn">
+                            Сотрудники
+                        </NavLink>
+                        )}
+
+                        {!isUserLoading && hasManagementAccess(user?.role?.name) && (
                         <NavLink to="/management/analytics" className="profile-redirect-btn">
                             Аналитика
                         </NavLink>
                         )}
+
                     </div>
 
                     <nav className="management-nav" aria-label="Разделы управления">
@@ -293,6 +325,38 @@ export default function ManagementPage() {
                             );
                         })}
                     </nav>
+
+                    {!isUserLoading && user?.role?.name !== "Owner" && hasManagementAccess(user?.role?.name) && (
+                    <button
+                        type="button"
+                        className="profile-redirect-btn management-resign-link"
+                        onClick={() => setIsResignModalOpen(true)}
+                    >
+                        Уволиться
+                    </button>
+                    )}
+
+                    {isResignModalOpen && (
+                        <div className="management-modal-backdrop" role="presentation">
+                            <div className="management-passenger-modal management-confirm-modal" role="dialog" aria-modal="true">
+                                <div className="management-passenger-modal-header">
+                                    <h3>Уволиться из авиакомпании?</h3>
+                                    <button type="button" onClick={() => setIsResignModalOpen(false)}>×</button>
+                                </div>
+                                <p className="management-passenger-modal-note">
+                                    После подтверждения вы потеряете доступ к панели управления авиакомпанией.
+                                </p>
+                                <div className="management-passenger-modal-actions">
+                                    <button type="button" className="management-secondary-button" onClick={() => setIsResignModalOpen(false)}>
+                                        Отмена
+                                    </button>
+                                    <button type="button" className="management-danger-button" onClick={handleResign} disabled={isResigning}>
+                                        Уволиться
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </aside>
 
                 <main className="catalog-main">

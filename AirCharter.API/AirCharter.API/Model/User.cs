@@ -31,6 +31,8 @@ public partial class User
 
     public virtual Person? Person { get; set; }
 
+    public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();
+
     public virtual Role Role { get; set; } = null!;
 
     public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();

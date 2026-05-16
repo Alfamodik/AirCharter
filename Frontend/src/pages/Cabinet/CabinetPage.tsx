@@ -3,9 +3,11 @@ import Header from "../../components/header/Header";
 import UserDepartureCard from "../../components/userDepartureCard/UserDepartureCard";
 import { useUser } from "../../context/UserContext";
 import { getUserDepartures } from "../../api/userService";
+import { getMyNotifications } from "../../api/notificationService";
 import type { MyDepartureResponse } from "../../contracts/responses/users/myDepartureResponse";
 import "./CabinetPage.css";
 import { useNavigate } from "react-router-dom";
+import { hasAirlineProfileAccess } from "../../api/utils/roleAccess";
 
 const completedStatusIds = new Set<number>([14, 17, 18]);
 
@@ -14,20 +16,45 @@ export default function CabinetPage() {
     const { user, isLoading: isUserLoading } = useUser();
     const [orders, setOrders] = useState<MyDepartureResponse[]>([]);
     const [isOrdersLoading, setIsOrdersLoading] = useState<boolean>(true);
+    const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
     useEffect(() => {
+        let isMounted = true;
+
         const fetchOrders = async () => {
             try {
                 const data = await getUserDepartures();
-                setOrders(sortDepartures(data));
+                if (isMounted) {
+                    setOrders(sortDepartures(data));
+                }
             } catch (error) {
                 console.error("Failed to fetch departures:", error);
             } finally {
-                setIsOrdersLoading(false);
+                if (isMounted) {
+                    setIsOrdersLoading(false);
+                }
             }
         };
 
-        fetchOrders();
+        const fetchNotifications = async () => {
+            try {
+                const data = await getMyNotifications();
+                if (isMounted) {
+                    setUnreadNotificationCount(data.filter((notification) => !notification.readAtUtc).length);
+                }
+            } catch {
+                if (isMounted) {
+                    setUnreadNotificationCount(0);
+                }
+            }
+        };
+
+        void fetchOrders();
+        void fetchNotifications();
+
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     const showLoading = isUserLoading || isOrdersLoading;
@@ -56,6 +83,25 @@ export default function CabinetPage() {
                         <a href="/profile" className="profile-redirect-btn">
                             Профиль
                         </a>
+                        <button
+                            type="button"
+                            className="profile-redirect-btn"
+                            onClick={() => navigate("/notifications")}
+                        >
+                            <span>Уведомления</span>
+                            {unreadNotificationCount > 0 && (
+                                <span className="cabinet-notification-badge">{unreadNotificationCount}</span>
+                            )}
+                        </button>
+                        {!isUserLoading && user?.airlineId && hasAirlineProfileAccess(user.role?.name) && (
+                            <button
+                                type="button"
+                                className="profile-redirect-btn"
+                                onClick={() => navigate("/airline-profile")}
+                            >
+                                Профиль авиакомпании
+                            </button>
+                        )}
                         {!isUserLoading && !user?.airlineId && (
                             <button
                                 type="button"

@@ -20,6 +20,9 @@ import ManagementOrderRoutePage from "./pages/management/ManagementOrderRoutePag
 import ManagementPlanesPage from "./pages/management/ManagementPlanesPage";
 import ManagementPlaneFormPage from "./pages/management/ManagementPlaneFormPage";
 import ManagementAnalyticsPage from "./pages/management/ManagementAnalyticsPage";
+import NotificationsPage from "./pages/notifications/NotificationsPage";
+import AirlineNotificationsPage from "./pages/airlineNotifications/AirlineNotificationsPage";
+import AirlineEmployeesPage from "./pages/airlineEmployees/AirlineEmployeesPage";
 import { useUser } from "./context/UserContext";
 
 export default function App() {
@@ -37,8 +40,11 @@ export default function App() {
                 <Route path="/cabinet" element={<ProtectedRoute><CabinetPage/></ProtectedRoute>} />
                 <Route path="/cabinet/departures/:departureId" element={<ProtectedRoute><CabinetDeparturePage /></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><ProfilePage/></ProtectedRoute>} />
+                <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+                <Route path="/airline-notifications" element={<ProtectedRoute><AirlineNotificationsPage /></ProtectedRoute>} />
                 <Route path="/airline-register" element={<ProtectedRoute><RegisterAirlinePage /></ProtectedRoute>} />
                 <Route path="/airline-profile" element={<ProtectedRoute><AirlineProfilePage /></ProtectedRoute>} />
+                <Route path="/airline-employees" element={<ProtectedRoute><AirlineEmployeesPage /></ProtectedRoute>} />
                 <Route path="/create-order" element={<ProtectedRoute><OrderPage/></ProtectedRoute>} />
                 <Route element={<StaffRoute />}>
                     <Route path="/management" element={<ManagementPage />} />

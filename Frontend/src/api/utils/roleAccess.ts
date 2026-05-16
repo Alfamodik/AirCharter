@@ -65,3 +65,34 @@ export function hasAirlineProfileAccess(roleName?: string | null): boolean {
 
     return allowedAirlineProfileRoles.has(roleName);
 }
+
+const allowedAirlineStaffAdministrationRoles = new Set([
+    "Owner",
+    "Admin",
+    "GeneralDirector"
+]);
+
+export function hasAirlineStaffAdministrationAccess(roleName?: string | null): boolean {
+    if (!roleName) {
+        return false;
+    }
+
+    return allowedAirlineStaffAdministrationRoles.has(roleName);
+}
+
+export function getRoleRank(roleName?: string | null): number {
+    switch (roleName) {
+        case "Employee":
+            return 1;
+        case "Manager":
+            return 2;
+        case "Admin":
+            return 3;
+        case "GeneralDirector":
+            return 4;
+        case "Owner":
+            return 5;
+        default:
+            return 0;
+    }
+}

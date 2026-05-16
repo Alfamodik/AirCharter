@@ -51,6 +51,24 @@ public sealed class DatabaseCompatibilityService(AirCharterExtendedContext conte
             "varchar(9) NULL",
             cancellationToken);
 
+        await EnsureNotificationsTableAsync(cancellationToken);
+        await EnsureAirlineNotificationsTableAsync(cancellationToken);
+        await EnsureColumnAsync(
+            "notifications",
+            "action_type",
+            "varchar(100) NULL",
+            cancellationToken);
+        await EnsureColumnAsync(
+            "notifications",
+            "airline_id",
+            "int NULL",
+            cancellationToken);
+        await EnsureColumnAsync(
+            "notifications",
+            "role_id",
+            "int NULL",
+            cancellationToken);
+
         await EnsureColumnAsync(
             "airlines",
             "contract_city",
@@ -189,6 +207,55 @@ public sealed class DatabaseCompatibilityService(AirCharterExtendedContext conte
         await alterCommand.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    private async Task EnsureNotificationsTableAsync(CancellationToken cancellationToken)
+    {
+        if (await TableExistsAsync("notifications", cancellationToken))
+            return;
+
+        await _context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE notifications (
+                id int NOT NULL AUTO_INCREMENT,
+                user_id int NOT NULL,
+                title varchar(255) NOT NULL,
+                message varchar(1000) NOT NULL,
+                action_type varchar(100) NULL,
+                airline_id int NULL,
+                role_id int NULL,
+                created_at_utc datetime NOT NULL,
+                read_at_utc datetime NULL,
+                PRIMARY KEY (id),
+                KEY user_id (user_id),
+                KEY airline_id (airline_id),
+                KEY role_id (role_id),
+                CONSTRAINT notifications_ibfk_1 FOREIGN KEY (user_id) REFERENCES users (id)
+            )
+            """,
+            cancellationToken);
+    }
+
+    private async Task EnsureAirlineNotificationsTableAsync(CancellationToken cancellationToken)
+    {
+        if (await TableExistsAsync("airline_notifications", cancellationToken))
+            return;
+
+        await _context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE airline_notifications (
+                id int NOT NULL AUTO_INCREMENT,
+                airline_id int NOT NULL,
+                title varchar(255) NOT NULL,
+                message varchar(1000) NOT NULL,
+                created_at_utc datetime NOT NULL,
+                read_at_utc datetime NULL,
+                PRIMARY KEY (id),
+                KEY airline_id (airline_id),
+                CONSTRAINT airline_notifications_ibfk_1 FOREIGN KEY (airline_id) REFERENCES airlines (id)
+            )
+            """,
+            cancellationToken);
+    }
+
     private async Task DropColumnAsync(
         string tableName,
         string columnName,
@@ -271,6 +338,31 @@ public sealed class DatabaseCompatibilityService(AirCharterExtendedContext conte
 
         AddParameter(checkCommand, "@tableName", tableName);
         AddParameter(checkCommand, "@columnName", columnName);
+
+        object? result = await checkCommand.ExecuteScalarAsync(cancellationToken);
+
+        return Convert.ToInt32(result) > 0;
+    }
+
+    private async Task<bool> TableExistsAsync(
+        string tableName,
+        CancellationToken cancellationToken)
+    {
+        DbConnection connection = _context.Database.GetDbConnection();
+
+        if (connection.State != System.Data.ConnectionState.Open)
+            await connection.OpenAsync(cancellationToken);
+
+        await using DbCommand checkCommand = connection.CreateCommand();
+        checkCommand.CommandText =
+            """
+            SELECT COUNT(*)
+            FROM information_schema.tables
+            WHERE table_schema = DATABASE()
+                AND table_name = @tableName
+            """;
+
+        AddParameter(checkCommand, "@tableName", tableName);
 
         object? result = await checkCommand.ExecuteScalarAsync(cancellationToken);
 

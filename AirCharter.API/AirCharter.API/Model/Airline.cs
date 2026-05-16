@@ -55,5 +55,7 @@ public partial class Airline
 
     public virtual ICollection<Plane> Planes { get; set; } = new List<Plane>();
 
+    public virtual ICollection<AirlineNotification> AirlineNotifications { get; set; } = new List<AirlineNotification>();
+
     public virtual ICollection<User> Users { get; set; } = new List<User>();
 }

@@ -151,14 +151,14 @@ public sealed class AuthController(AirCharterExtendedContext context, JwtService
         if (!user.IsActive)
             return Forbid();
 
-        if (!user.IsEmailConfirmed)
-            return BadRequest("Email is not confirmed.");
-
         PasswordVerificationResult passwordVerificationResult = 
             _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
 
         if (passwordVerificationResult == PasswordVerificationResult.Failed)
             return Unauthorized();
+
+        if (!user.IsEmailConfirmed)
+            return BadRequest("Email is not confirmed.");
 
         await IssueRefreshTokenAsync(user, cancellationToken);
 

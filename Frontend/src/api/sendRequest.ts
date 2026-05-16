@@ -22,7 +22,7 @@ export async function sendRequest<TResponse>(
         return await parseResponse<TResponse>(response);
     }
 
-    if (response.status === 401 && accessToken && !isAuthEndpoint(path)) {
+    if ((response.status === 401 || response.status === 403) && accessToken && !isAuthEndpoint(path)) {
         const refreshedAccessToken = await refreshAccessToken();
 
         if (refreshedAccessToken !== null) {
@@ -66,7 +66,7 @@ export async function sendBlobRequest(
         return await response.blob();
     }
 
-    if (response.status === 401 && accessToken && !isAuthEndpoint(path)) {
+    if ((response.status === 401 || response.status === 403) && accessToken && !isAuthEndpoint(path)) {
         const refreshedAccessToken = await refreshAccessToken();
 
         if (refreshedAccessToken !== null) {

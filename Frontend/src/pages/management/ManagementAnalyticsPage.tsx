@@ -186,46 +186,43 @@ export default function ManagementAnalyticsPage() {
                 />
 
                 <main className="catalog-main management-analytics-page">
-                    <div className="management-analytics-header">
-                        <div>
-                            <h1>Аналитика бизнеса</h1>
-                            <p>Рост, воронка, деньги в работе и места, где заявки застревают.</p>
+                    <div className="management-analytics-period-panel">
+                        <div className="management-analytics-header">
+                            <div className="management-analytics-periods" aria-label="Период аналитики">
+                                {periodOptions.map((option) => (
+                                    <button
+                                        key={option.key}
+                                        type="button"
+                                        className={period === option.key ? "active" : ""}
+                                        onClick={() => setPeriod(option.key)}
+                                    >
+                                        {option.label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
 
-                        <div className="management-analytics-periods" aria-label="Период аналитики">
-                            {periodOptions.map((option) => (
-                                <button
-                                    key={option.key}
-                                    type="button"
-                                    className={period === option.key ? "active" : ""}
-                                    onClick={() => setPeriod(option.key)}
-                                >
-                                    {option.label}
-                                </button>
-                            ))}
-                        </div>
+                        {period === "custom" && (
+                            <div className="management-analytics-custom-period">
+                                <label>
+                                    <span>С</span>
+                                    <input
+                                        type="date"
+                                        value={customDateFrom}
+                                        onChange={(event) => setCustomDateFrom(event.target.value)}
+                                    />
+                                </label>
+                                <label>
+                                    <span>По</span>
+                                    <input
+                                        type="date"
+                                        value={customDateTo}
+                                        onChange={(event) => setCustomDateTo(event.target.value)}
+                                    />
+                                </label>
+                            </div>
+                        )}
                     </div>
-
-                    {period === "custom" && (
-                        <div className="management-analytics-custom-period">
-                            <label>
-                                <span>С</span>
-                                <input
-                                    type="date"
-                                    value={customDateFrom}
-                                    onChange={(event) => setCustomDateFrom(event.target.value)}
-                                />
-                            </label>
-                            <label>
-                                <span>По</span>
-                                <input
-                                    type="date"
-                                    value={customDateTo}
-                                    onChange={(event) => setCustomDateTo(event.target.value)}
-                                />
-                            </label>
-                        </div>
-                    )}
 
                     {errorMessage !== "" && (
                         <div className="management-inline-error">{errorMessage}</div>

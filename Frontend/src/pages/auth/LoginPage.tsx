@@ -45,6 +45,16 @@ export default function LoginPage() {
             await refreshUser();
             navigate("/");
         } catch (error) {
+            if (isEmailNotConfirmedError(error)) {
+                navigate("/confirm-email", {
+                    state: {
+                        email: trimmedEmail,
+                        autoSendCode: true
+                    }
+                });
+                return;
+            }
+
             setErrorMessage(getLoginErrorMessage(error));
         } finally {
             setIsSubmitting(false);
@@ -114,4 +124,11 @@ export default function LoginPage() {
             </section>
         </div>
     );
+}
+
+function isEmailNotConfirmedError(error: unknown): boolean {
+    return typeof error === "object" &&
+        error !== null &&
+        "message" in error &&
+        error.message === "Email is not confirmed.";
 }

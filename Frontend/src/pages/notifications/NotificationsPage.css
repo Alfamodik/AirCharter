@@ -1,0 +1,140 @@
+.notifications-page {
+    width: min(960px, 100%);
+    margin: 0 auto;
+    padding: 40px 20px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.notifications-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.notifications-header h1 {
+    margin: 0;
+    font-size: 28px;
+}
+
+.notifications-header .secondary-button {
+    min-height: 38px;
+    padding: 0 12px;
+}
+
+.notification-count {
+    min-width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    background: var(--accent-blue);
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+}
+
+.notifications-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.notification-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 16px 20px;
+    align-items: end;
+    padding: 18px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+}
+
+.notification-actions {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    justify-content: flex-end;
+    align-self: end;
+    flex-shrink: 0;
+    margin-top: 0;
+    padding-top: 0;
+}
+
+.notification-actions button {
+    box-sizing: border-box;
+    width: 124px;
+    min-width: 124px;
+    height: 38px;
+    min-height: 38px;
+    padding: 0 12px;
+    margin-top: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.notification-actions .auth-submit-button {
+    border: 1px solid transparent;
+}
+
+.notification-item.unread {
+    border-color: var(--accent-soft);
+}
+
+.notification-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+    align-self: start;
+}
+
+.notification-title-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.notification-title-row h2 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.notification-title-row span {
+    color: var(--accent-soft);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.notification-content p {
+    margin: 0;
+    color: var(--text-secondary);
+    line-height: 1.45;
+}
+
+.notification-content time {
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+@media (max-width: 640px) {
+    .notification-item {
+        grid-template-columns: 1fr;
+    }
+
+    .notification-actions {
+        width: 100%;
+        flex-direction: column;
+    }
+
+    .notification-actions button {
+        width: 100%;
+    }
+}

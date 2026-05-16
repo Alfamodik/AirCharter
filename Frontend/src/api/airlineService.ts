@@ -55,6 +55,31 @@ export interface AirlineEmployeeResponse {
     email: string;
     roleName: string;
     fullName?: string | null;
+    isEmailConfirmed: boolean;
+    isActive: boolean;
+}
+
+export interface CreateAirlineEmployeeRequest {
+    email: string;
+    roleName: string;
+}
+
+export interface UpdateAirlineEmployeeRoleRequest {
+    roleName: string;
+}
+
+export interface CreateAirlineEmployeeResponse {
+    employee?: AirlineEmployeeResponse | null;
+    notificationCreated: boolean;
+    message: string;
+}
+
+export interface AirlineNotificationResponse {
+    id: number;
+    title: string;
+    message: string;
+    createdAtUtc: string;
+    readAtUtc?: string | null;
 }
 
 export interface AccessTokenResponse {
@@ -73,17 +98,34 @@ export async function registerAirline(data: RegisterAirlineRequest): Promise<Acc
 
 export async function getMyAirlineEmployees(
     availableForDepartureId?: number,
+    includeInactiveOrSignal: boolean | AbortSignal = false,
     signal?: AbortSignal
 ): Promise<AirlineEmployeeResponse[]> {
-    const query = availableForDepartureId === undefined
+    const includeInactive = typeof includeInactiveOrSignal === "boolean"
+        ? includeInactiveOrSignal
+        : false;
+    const requestSignal = typeof includeInactiveOrSignal === "boolean"
+        ? signal
+        : includeInactiveOrSignal;
+    const searchParameters = new URLSearchParams();
+
+    if (availableForDepartureId !== undefined) {
+        searchParameters.set("availableForDepartureId", availableForDepartureId.toString());
+    }
+
+    if (includeInactive) {
+        searchParameters.set("includeInactive", "true");
+    }
+
+    const query = searchParameters.toString() === ""
         ? ""
-        : `?availableForDepartureId=${availableForDepartureId}`;
+        : `?${searchParameters.toString()}`;
 
     return await sendRequest<AirlineEmployeeResponse[]>(
         `/airlines/my/employees${query}`,
         "GET",
         undefined,
-        signal
+        requestSignal
     );
 }
 
@@ -109,6 +151,44 @@ export async function updateMyAirlineImage(imageBase64: string | null): Promise<
         "/airlines/my/image",
         "PUT",
         { imageBase64 }
+    );
+}
+
+export async function createMyAirlineEmployee(
+    data: CreateAirlineEmployeeRequest
+): Promise<CreateAirlineEmployeeResponse> {
+    return await sendRequest<CreateAirlineEmployeeResponse>(
+        "/airlines/my/employees",
+        "POST",
+        data
+    );
+}
+
+export async function updateMyAirlineEmployeeRole(
+    employeeId: number,
+    data: UpdateAirlineEmployeeRoleRequest
+): Promise<AirlineEmployeeResponse> {
+    return await sendRequest<AirlineEmployeeResponse>(
+        `/airlines/my/employees/${employeeId}/role`,
+        "PUT",
+        data
+    );
+}
+
+export async function dismissMyAirlineEmployee(employeeId: number): Promise<void> {
+    await sendRequest<void>(`/airlines/my/employees/${employeeId}`, "DELETE");
+}
+
+export async function resignFromMyAirline(): Promise<void> {
+    await sendRequest<void>("/airlines/my/employment", "DELETE");
+}
+
+export async function getMyAirlineNotifications(signal?: AbortSignal): Promise<AirlineNotificationResponse[]> {
+    return await sendRequest<AirlineNotificationResponse[]>(
+        "/airlines/my/notifications",
+        "GET",
+        undefined,
+        signal
     );
 }
 

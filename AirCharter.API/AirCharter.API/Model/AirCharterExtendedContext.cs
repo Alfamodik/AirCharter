@@ -18,6 +18,8 @@ public partial class AirCharterExtendedContext : DbContext
 
     public virtual DbSet<Airline> Airlines { get; set; }
 
+    public virtual DbSet<AirlineNotification> AirlineNotifications { get; set; }
+
     public virtual DbSet<Airport> Airports { get; set; }
 
     public virtual DbSet<AirportRoutePriority> AirportRoutePriorities { get; set; }
@@ -27,6 +29,8 @@ public partial class AirCharterExtendedContext : DbContext
     public virtual DbSet<DepartureRouteLeg> DepartureRouteLegs { get; set; }
 
     public virtual DbSet<DepartureStatus> DepartureStatuses { get; set; }
+
+    public virtual DbSet<Notification> Notifications { get; set; }
 
     public virtual DbSet<Person> Persons { get; set; }
 
@@ -117,6 +121,35 @@ public partial class AirCharterExtendedContext : DbContext
             entity.Property(e => e.TransferBaseCost)
                 .HasPrecision(12, 2)
                 .HasColumnName("transfer_base_cost");
+        });
+
+        modelBuilder.Entity<AirlineNotification>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("airline_notifications");
+
+            entity.HasIndex(e => e.AirlineId, "airline_id");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.AirlineId).HasColumnName("airline_id");
+            entity.Property(e => e.CreatedAtUtc)
+                .HasColumnType("datetime")
+                .HasColumnName("created_at_utc");
+            entity.Property(e => e.Message)
+                .HasMaxLength(1000)
+                .HasColumnName("message");
+            entity.Property(e => e.ReadAtUtc)
+                .HasColumnType("datetime")
+                .HasColumnName("read_at_utc");
+            entity.Property(e => e.Title)
+                .HasMaxLength(255)
+                .HasColumnName("title");
+
+            entity.HasOne(d => d.Airline).WithMany(p => p.AirlineNotifications)
+                .HasForeignKey(d => d.AirlineId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("airline_notifications_ibfk_1");
         });
 
         modelBuilder.Entity<Airport>(entity =>
@@ -347,6 +380,52 @@ public partial class AirCharterExtendedContext : DbContext
                 .HasForeignKey(d => d.StatusId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("departure_statuses_ibfk_2");
+        });
+
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("notifications");
+
+            entity.HasIndex(e => e.UserId, "user_id");
+
+            entity.HasIndex(e => e.AirlineId, "airline_id");
+
+            entity.HasIndex(e => e.RoleId, "role_id");
+
+            entity.Property(e => e.ActionType)
+                .HasMaxLength(100)
+                .HasColumnName("action_type");
+            entity.Property(e => e.AirlineId).HasColumnName("airline_id");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CreatedAtUtc)
+                .HasColumnType("datetime")
+                .HasColumnName("created_at_utc");
+            entity.Property(e => e.Message)
+                .HasMaxLength(1000)
+                .HasColumnName("message");
+            entity.Property(e => e.ReadAtUtc)
+                .HasColumnType("datetime")
+                .HasColumnName("read_at_utc");
+            entity.Property(e => e.RoleId).HasColumnName("role_id");
+            entity.Property(e => e.Title)
+                .HasMaxLength(255)
+                .HasColumnName("title");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+
+            entity.HasOne(d => d.Airline).WithMany()
+                .HasForeignKey(d => d.AirlineId)
+                .HasConstraintName("notifications_ibfk_2");
+
+            entity.HasOne(d => d.Role).WithMany()
+                .HasForeignKey(d => d.RoleId)
+                .HasConstraintName("notifications_ibfk_3");
+
+            entity.HasOne(d => d.User).WithMany(p => p.Notifications)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("notifications_ibfk_1");
         });
 
         modelBuilder.Entity<Person>(entity =>

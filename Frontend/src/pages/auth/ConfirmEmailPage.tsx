@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import InputField from "../../components/inputField/InputField";
@@ -8,6 +8,7 @@ import "./auth-page.css";
 
 type ConfirmEmailLocationState = {
     email?: string;
+    autoSendCode?: boolean;
 };
 
 export default function ConfirmEmailPage() {
@@ -23,6 +24,16 @@ export default function ConfirmEmailPage() {
     const [successMessage, setSuccessMessage] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isResending, setIsResending] = useState(false);
+    const didAutoSendCode = useRef(false);
+
+    useEffect(() => {
+        if (!state?.autoSendCode || didAutoSendCode.current) {
+            return;
+        }
+
+        didAutoSendCode.current = true;
+        void sendConfirmationCode(initialEmail, "Код подтверждения отправлен на почту.");
+    }, [initialEmail, state?.autoSendCode]);
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -61,29 +72,7 @@ export default function ConfirmEmailPage() {
     }
 
     async function handleResendCodeClick() {
-        setErrorMessage("");
-        setSuccessMessage("");
-
-        const trimmedEmail = email.trim();
-
-        if (trimmedEmail === "") {
-            setErrorMessage("Укажите почту.");
-            return;
-        }
-
-        setIsResending(true);
-
-        try {
-            await resendEmailConfirmationCode({
-                email: trimmedEmail
-            });
-
-            setSuccessMessage("Новый код отправлен на почту.");
-        } catch (error) {
-            setErrorMessage(getResendCodeErrorMessage(error));
-        } finally {
-            setIsResending(false);
-        }
+        await sendConfirmationCode(email, "Новый код отправлен на почту.");
     }
 
     function handleBackClick() {
@@ -150,4 +139,30 @@ export default function ConfirmEmailPage() {
             </section>
         </div>
     );
+
+    async function sendConfirmationCode(emailValue: string, successText: string) {
+        setErrorMessage("");
+        setSuccessMessage("");
+
+        const trimmedEmail = emailValue.trim();
+
+        if (trimmedEmail === "") {
+            setErrorMessage("Укажите почту.");
+            return;
+        }
+
+        setIsResending(true);
+
+        try {
+            await resendEmailConfirmationCode({
+                email: trimmedEmail
+            });
+
+            setSuccessMessage(successText);
+        } catch (error) {
+            setErrorMessage(getResendCodeErrorMessage(error));
+        } finally {
+            setIsResending(false);
+        }
+    }
 }
