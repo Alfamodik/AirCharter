@@ -8,8 +8,17 @@ import type {
     UpdateDepartureRouteRequest
 } from "./managementService";
 
+export type ChangePasswordRequest = {
+    currentPassword: string;
+    newPassword: string;
+};
+
 export async function getCurrentUser(signal?: AbortSignal): Promise<UserProfileResponse> {
     return await sendRequest<UserProfileResponse>("/users/me", "GET", undefined, signal);
+}
+
+export async function changeMyPassword(request: ChangePasswordRequest): Promise<void> {
+    await sendRequest<void>("/users/me/password", "POST", request);
 }
 
 export async function getUserDepartures(signal?: AbortSignal): Promise<MyDepartureResponse[]> {

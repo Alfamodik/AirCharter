@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getMyPerson, updateMyPerson } from "../../api/personService";
+import { changeMyPassword } from "../../api/userService";
 import { getUpdateProfileErrorMessage } from "../../api/utils/authErrorMessages";
 import Header from "../../components/header/Header";
 import InputField from "../../components/inputField/InputField";
@@ -33,6 +34,12 @@ export default function ProfilePage() {
     const [formData, setFormData] = useState<ProfileFormData>(emptyProfileFormData);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+    const [currentPassword, setCurrentPassword] = useState("");
+    const [newPassword, setNewPassword] = useState("");
+    const [newPasswordConfirmation, setNewPasswordConfirmation] = useState("");
+    const [isPasswordSaving, setIsPasswordSaving] = useState(false);
+    const [passwordMessage, setPasswordMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
     const [statusMessage, setStatusMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
     useEffect(() => {
@@ -128,6 +135,65 @@ export default function ProfilePage() {
         }
     }
 
+    function openPasswordModal() {
+        setCurrentPassword("");
+        setNewPassword("");
+        setNewPasswordConfirmation("");
+        setPasswordMessage(null);
+        setIsPasswordModalOpen(true);
+    }
+
+    function closePasswordModal() {
+        if (isPasswordSaving) {
+            return;
+        }
+
+        setIsPasswordModalOpen(false);
+    }
+
+    async function handlePasswordSubmit(event: React.FormEvent) {
+        event.preventDefault();
+
+        if (isPasswordSaving) {
+            return;
+        }
+
+        if (currentPassword.trim() === "") {
+            setPasswordMessage({ text: "Укажите текущий пароль.", type: "error" });
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            setPasswordMessage({ text: "Новый пароль должен быть не короче 6 символов.", type: "error" });
+            return;
+        }
+
+        if (newPassword !== newPasswordConfirmation) {
+            setPasswordMessage({ text: "Новые пароли не совпадают.", type: "error" });
+            return;
+        }
+
+        setIsPasswordSaving(true);
+        setPasswordMessage(null);
+
+        try {
+            await changeMyPassword({
+                currentPassword,
+                newPassword
+            });
+
+            setIsPasswordModalOpen(false);
+            setStatusMessage({ text: "Пароль изменён.", type: "success" });
+            setCurrentPassword("");
+            setNewPassword("");
+            setNewPasswordConfirmation("");
+        } catch (error: unknown) {
+            setPasswordMessage({ text: getChangePasswordErrorMessage(error), type: "error" });
+        } finally {
+            setIsPasswordSaving(false);
+        }
+    }
+
     if (isLoading) {
         return <div className="auth-page"><div className="auth-title">Загрузка...</div></div>;
     }
@@ -179,6 +245,14 @@ export default function ProfilePage() {
 
                         <div className="auth-actions">
                             <button
+                                type="button"
+                                className="secondary-button"
+                                onClick={openPasswordModal}
+                                disabled={isSaving}
+                            >
+                                Сменить пароль
+                            </button>
+                            <button
                                 type="submit"
                                 className="auth-submit-button"
                                 disabled={!isChanged || isSaving}
@@ -189,6 +263,75 @@ export default function ProfilePage() {
                     </form>
                 </div>
             </div>
+
+            {isPasswordModalOpen && (
+                <div className="profile-modal-backdrop" role="presentation">
+                    <form className="profile-password-modal" onSubmit={handlePasswordSubmit}>
+                        <div className="profile-modal-header">
+                            <h2>Смена пароля</h2>
+                            <button
+                                type="button"
+                                onClick={closePasswordModal}
+                                aria-label="Закрыть"
+                                disabled={isPasswordSaving}
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        <InputField
+                            label="Текущий пароль"
+                            type="password"
+                            value={currentPassword}
+                            onChange={setCurrentPassword}
+                            autoComplete="current-password"
+                            required
+                        />
+
+                        <InputField
+                            label="Новый пароль"
+                            type="password"
+                            value={newPassword}
+                            onChange={setNewPassword}
+                            autoComplete="new-password"
+                            required
+                        />
+
+                        <InputField
+                            label="Повторите новый пароль"
+                            type="password"
+                            value={newPasswordConfirmation}
+                            onChange={setNewPasswordConfirmation}
+                            autoComplete="new-password"
+                            required
+                        />
+
+                        {passwordMessage && (
+                            <div className={`form-message ${passwordMessage.type}`}>
+                                {passwordMessage.text}
+                            </div>
+                        )}
+
+                        <div className="profile-modal-actions">
+                            <button
+                                type="button"
+                                className="secondary-button"
+                                onClick={closePasswordModal}
+                                disabled={isPasswordSaving}
+                            >
+                                Отмена
+                            </button>
+                            <button
+                                type="submit"
+                                className="auth-submit-button"
+                                disabled={isPasswordSaving}
+                            >
+                                {isPasswordSaving ? "Сохранение..." : "Сохранить"}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            )}
         </div>
     );
 }
@@ -198,4 +341,24 @@ function isApiErrorWithStatus(error: unknown, status: number): boolean {
         error !== null &&
         "status" in error &&
         error.status === status;
+}
+
+function getChangePasswordErrorMessage(error: unknown): string {
+    if (typeof error === "object" && error !== null && "message" in error) {
+        switch (error.message) {
+            case "Current password is required.":
+                return "Укажите текущий пароль.";
+
+            case "New password is required.":
+                return "Укажите новый пароль.";
+
+            case "New password is too short.":
+                return "Новый пароль должен быть не короче 6 символов.";
+
+            case "Current password is invalid.":
+                return "Текущий пароль указан неверно.";
+        }
+    }
+
+    return "Не удалось изменить пароль.";
 }

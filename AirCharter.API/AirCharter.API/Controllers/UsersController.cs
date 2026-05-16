@@ -1,9 +1,11 @@
 ﻿using AirCharter.API.Model;
 using AirCharter.API.Requests.Authentication;
+using AirCharter.API.Requests.Users;
 using AirCharter.API.Responses.Departures;
 using AirCharter.API.Responses.Users;
 using AirCharter.API.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
@@ -17,6 +19,7 @@ public sealed class UsersController(AirCharterExtendedContext context, JwtServic
 {
     private readonly AirCharterExtendedContext _context = context;
     private readonly JwtService _jwtService = jwtService;
+    private readonly PasswordHasher<User> _passwordHasher = new();
 
     [HttpGet("me")]
     public async Task<IActionResult> GetCurrentUser(CancellationToken cancellationToken)
@@ -252,6 +255,44 @@ public sealed class UsersController(AirCharterExtendedContext context, JwtServic
         {
             Token = _jwtService.GenerateAccessToken(user.Id, roleName)
         });
+    }
+
+    [HttpPost("me/password")]
+    public async Task<IActionResult> ChangePassword(
+        ChangePasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        int? userId = GetCurrentUserId();
+
+        if (userId is null)
+            return Unauthorized();
+
+        if (string.IsNullOrWhiteSpace(request.CurrentPassword))
+            return BadRequest("Current password is required.");
+
+        if (string.IsNullOrWhiteSpace(request.NewPassword))
+            return BadRequest("New password is required.");
+
+        if (request.NewPassword.Length < 6)
+            return BadRequest("New password is too short.");
+
+        User? user = await _context.Users
+            .FirstOrDefaultAsync(currentUser => currentUser.Id == userId.Value, cancellationToken);
+
+        if (user is null)
+            return Unauthorized();
+
+        PasswordVerificationResult verificationResult =
+            _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.CurrentPassword);
+
+        if (verificationResult == PasswordVerificationResult.Failed)
+            return BadRequest("Current password is invalid.");
+
+        user.PasswordHash = _passwordHasher.HashPassword(user, request.NewPassword);
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
     }
 
     private int? GetCurrentUserId()
