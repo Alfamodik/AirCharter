@@ -8,6 +8,7 @@ import {
     hasAirlineProfileAccess,
     hasAirlineStaffAdministrationAccess,
     hasManagementAccess,
+    hasManagementEditAccess,
     hasOrderManagementAccess,
     hasPlaneManagementAccess
 } from "../../api/utils/roleAccess";
@@ -239,7 +240,7 @@ export function ManagementSidebar({
                 </NavLink>
                 )}
 
-                {!isUserLoading && hasManagementAccess(roleName) && (
+                {!isUserLoading && hasManagementEditAccess(roleName) && (
                 <NavLink to="/management/analytics" className="profile-redirect-btn">
                     Аналитика
                 </NavLink>

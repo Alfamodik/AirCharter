@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import Header from "../../components/header/Header";
 import { getManagementDepartures } from "../../api/managementService";
-import { hasManagementAccess } from "../../api/utils/roleAccess";
+import { hasManagementEditAccess } from "../../api/utils/roleAccess";
 import { useUser } from "../../context/UserContext";
 import type { ManagementDepartureResponse } from "../../contracts/responses/departures/managementDepartureResponse";
 import { ManagementSidebar } from "./ManagementPlanesPage";
@@ -146,7 +146,7 @@ export default function ManagementAnalyticsPage() {
     }, []);
 
     useEffect(() => {
-        if (isUserLoading || user === null || !hasManagementAccess(user.role?.name)) {
+        if (isUserLoading || user === null || !hasManagementEditAccess(user.role?.name)) {
             return;
         }
 
@@ -161,7 +161,7 @@ export default function ManagementAnalyticsPage() {
         [customDateFrom, customDateTo, departures, period]
     );
 
-    if (!isUserLoading && (user === null || !hasManagementAccess(user.role?.name))) {
+    if (!isUserLoading && (user === null || !hasManagementEditAccess(user.role?.name))) {
         return <Navigate to="/catalog" replace />;
     }
 

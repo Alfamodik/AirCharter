@@ -201,6 +201,9 @@ namespace AirCharter.API.Controllers
             if (employeeOnlyAccess && managementSection == ManagementDepartureSection.Orders)
                 return Ok(Array.Empty<ManagementDepartureResponse>());
 
+            if (employeeOnlyAccess && managementSection == ManagementDepartureSection.Analytics)
+                return Forbid();
+
             var departureRows = await _context.Departures
                 .AsNoTracking()
                 .Where(departure => departure.Plane.AirlineId == userAirlineId.Value)
@@ -765,6 +768,7 @@ namespace AirCharter.API.Controllers
                 return BadRequest("Дата и время вылета должны быть не раньше завтрашнего дня.");
 
             AddDepartureStatus(departure, FlightStatusId.AwaitingContractSigning);
+            AddDepartureStatusChangedNotification(departure, FlightStatusId.AwaitingContractSigning);
             await _context.SaveChangesAsync(cancellationToken);
 
             return NoContent();
@@ -806,6 +810,8 @@ namespace AirCharter.API.Controllers
             if (!CreateManagementRoutePreviewResponse(departure.Plane, calculation.RouteLegs).CanFly)
                 return BadRequest("Одно из плеч маршрута превышает безопасную дальность самолёта.");
 
+            string previousRouteSignature = CreateRouteSignature(departure);
+
             List<DepartureRouteLeg> existingRouteLegs = departure.DepartureRouteLegs.ToList();
             _context.DepartureRouteLegs.RemoveRange(existingRouteLegs);
             departure.DepartureRouteLegs.Clear();
@@ -814,6 +820,10 @@ namespace AirCharter.API.Controllers
             ApplyRouteTotals(departure);
 
             AddDepartureStatus(departure, FlightStatusId.AwaitingContractSigning);
+            if (HasRouteChanged(previousRouteSignature, calculation.RouteLegs))
+                AddDepartureRouteChangedNotification(departure, calculation.RouteAirports);
+
+            AddDepartureStatusChangedNotification(departure, FlightStatusId.AwaitingContractSigning);
             await _context.SaveChangesAsync(cancellationToken);
 
             return NoContent();
@@ -844,6 +854,7 @@ namespace AirCharter.API.Controllers
                 return BadRequest("Перед подтверждением менеджер должен загрузить подписанный договор.");
 
             AddDepartureStatus(departure, FlightStatusId.AwaitingPayment);
+            AddDepartureStatusChangedNotification(departure, FlightStatusId.AwaitingPayment);
             await _context.SaveChangesAsync(cancellationToken);
 
             return NoContent();
@@ -880,11 +891,13 @@ namespace AirCharter.API.Controllers
             if (paymentDeadlineAt is not null && DateTime.UtcNow > paymentDeadlineAt.Value)
             {
                 AddDepartureStatus(departure, FlightStatusId.Cancelled);
+                AddDepartureStatusChangedNotification(departure, FlightStatusId.Cancelled);
                 await _context.SaveChangesAsync(cancellationToken);
                 return BadRequest("Срок оплаты истёк. Вылет отменён.");
             }
 
             AddDepartureStatus(departure, FlightStatusId.Scheduled);
+            AddDepartureStatusChangedNotification(departure, FlightStatusId.Scheduled);
             await _context.SaveChangesAsync(cancellationToken);
 
             return NoContent();
@@ -951,6 +964,7 @@ namespace AirCharter.API.Controllers
                 foreach (FlightStatusId statusId in catchUpSequence)
                 {
                     AddDepartureStatus(departure, statusId);
+                    AddDepartureStatusChangedNotification(departure, statusId);
                 }
 
                 await _context.SaveChangesAsync(cancellationToken);
@@ -963,6 +977,7 @@ namespace AirCharter.API.Controllers
                     return BadRequest("Для вылета назначьте хотя бы одного члена экипажа.");
 
                 AddDepartureStatus(departure, nextStatusId);
+                AddDepartureStatusChangedNotification(departure, nextStatusId);
                 await _context.SaveChangesAsync(cancellationToken);
             }
 
@@ -999,7 +1014,20 @@ namespace AirCharter.API.Controllers
             if (currentStatus.StatusId <= (int)FlightStatusId.Planned)
                 return BadRequest("This status cannot be deleted.");
 
+            DepartureStatus? restoredStatus = departure.DepartureStatuses
+                .Where(departureStatus => departureStatus != currentStatus)
+                .OrderByDescending(departureStatus => departureStatus.StatusSettingDateTime)
+                .ThenByDescending(departureStatus => departureStatus.Id)
+                .FirstOrDefault();
+
             _context.DepartureStatuses.Remove(currentStatus);
+
+            if (restoredStatus is not null &&
+                Enum.IsDefined(typeof(FlightStatusId), restoredStatus.StatusId))
+            {
+                AddDepartureStatusChangedNotification(departure, (FlightStatusId)restoredStatus.StatusId);
+            }
+
             await _context.SaveChangesAsync(cancellationToken);
 
             return NoContent();
@@ -1038,6 +1066,8 @@ namespace AirCharter.API.Controllers
             if (!CreateManagementRoutePreviewResponse(departure.Plane, calculation.RouteLegs).CanFly)
                 return BadRequest("Одно из плеч маршрута превышает безопасную дальность самолёта.");
 
+            string previousRouteSignature = CreateRouteSignature(departure);
+
             List<DepartureRouteLeg> existingRouteLegs = departure.DepartureRouteLegs.ToList();
             _context.DepartureRouteLegs.RemoveRange(existingRouteLegs);
             departure.DepartureRouteLegs.Clear();
@@ -1045,8 +1075,13 @@ namespace AirCharter.API.Controllers
             AddRouteLegs(departure, calculation.RouteLegs);
             ApplyRouteTotals(departure);
 
+            bool routeChanged = HasRouteChanged(previousRouteSignature, calculation.RouteLegs);
+            if (routeChanged)
+                AddDepartureRouteChangedNotification(departure, calculation.RouteAirports);
+
             await _context.SaveChangesAsync(cancellationToken);
-            await SendRouteChangedEmailAsync(departure, calculation.RouteAirports, cancellationToken);
+            if (routeChanged)
+                await SendRouteChangedEmailAsync(departure, calculation.RouteAirports, cancellationToken);
 
             return NoContent();
         }
@@ -1104,7 +1139,14 @@ namespace AirCharter.API.Controllers
             if (IsRequestedTakeOffDateTimeTooEarly(request.RequestedTakeOffDateTime))
                 return BadRequest("Дата и время вылета должны быть не раньше завтрашнего дня.");
 
+            DateTime previousTakeOffDateTime = departure.RequestedTakeOffDateTime;
             departure.RequestedTakeOffDateTime = request.RequestedTakeOffDateTime;
+
+            if (previousTakeOffDateTime != request.RequestedTakeOffDateTime)
+                AddDepartureTakeOffDateTimeChangedNotification(
+                    departure,
+                    previousTakeOffDateTime,
+                    request.RequestedTakeOffDateTime);
 
             await _context.SaveChangesAsync(cancellationToken);
 
@@ -1340,6 +1382,7 @@ namespace AirCharter.API.Controllers
                 return BadRequest("Заявку можно отклонить только в статусе ожидания одобрения.");
 
             AddDepartureStatus(departure, FlightStatusId.Denied);
+            AddDepartureStatusChangedNotification(departure, FlightStatusId.Denied);
             await _context.SaveChangesAsync(cancellationToken);
 
             return NoContent();
@@ -1383,11 +1426,12 @@ namespace AirCharter.API.Controllers
                 .Where(user =>
                     employeeIds.Contains(user.Id) &&
                     user.AirlineId == userAirlineId.Value &&
-                    user.IsActive)
+                    user.IsActive &&
+                    user.IsEmailConfirmed)
                 .ToArrayAsync(cancellationToken);
 
             if (employees.Length != employeeIds.Length)
-                return BadRequest("Один или несколько сотрудников не найдены в вашей авиакомпании.");
+                return BadRequest("Один или несколько сотрудников не найдены в вашей авиакомпании или ещё не подтвердили почту.");
 
             if (employees.Any(employee => employee.Role.Name == "Client"))
                 return BadRequest("К вылету можно прикреплять только сотрудников авиакомпании.");
@@ -1852,6 +1896,145 @@ namespace AirCharter.API.Controllers
                 StatusId = (int)statusId,
                 StatusSettingDateTime = DateTime.UtcNow
             });
+        }
+
+        private void AddDepartureTakeOffDateTimeChangedNotification(
+            Departure departure,
+            DateTime previousTakeOffDateTime,
+            DateTime nextTakeOffDateTime)
+        {
+            AddDepartureNotification(
+                departure,
+                "Дата и время вылета изменены",
+                $"По заявке {CreateDepartureNotificationLabel(departure)} дата и время вылета изменены: " +
+                $"{FormatNotificationDateTime(previousTakeOffDateTime)} → {FormatNotificationDateTime(nextTakeOffDateTime)}.");
+        }
+
+        private void AddDepartureRouteChangedNotification(
+            Departure departure,
+            IReadOnlyCollection<Airport> routeAirports)
+        {
+            AddDepartureNotification(
+                departure,
+                "Маршрут вылета изменён",
+                $"По заявке {CreateDepartureNotificationLabel(departure)} маршрут изменён: {CreateRouteText(routeAirports)}.");
+        }
+
+        private void AddDepartureStatusChangedNotification(
+            Departure departure,
+            FlightStatusId statusId)
+        {
+            string actionMessage = CreateStatusActionMessage(statusId);
+            string message = $"Статус вылета по заявке {CreateDepartureNotificationLabel(departure)} изменён на «{GetFlightStatusDisplayName(statusId)}».";
+
+            if (!string.IsNullOrWhiteSpace(actionMessage))
+                message += " " + actionMessage;
+
+            AddDepartureNotification(
+                departure,
+                "Статус вылета изменён",
+                message);
+        }
+
+        private void AddDepartureNotification(Departure departure, string title, string message)
+        {
+            _context.Notifications.Add(new Notification
+            {
+                UserId = departure.CharterRequesterId,
+                Title = title,
+                Message = message,
+                CreatedAtUtc = DateTime.UtcNow
+            });
+        }
+
+        private static string CreateStatusActionMessage(FlightStatusId statusId)
+        {
+            return statusId switch
+            {
+                FlightStatusId.AwaitingContractSigning =>
+                    "Скачайте договор, подпишите его и загрузите подписанную копию в заявке.",
+                FlightStatusId.AwaitingPayment =>
+                    "Оплатите вылет в личном кабинете.",
+                FlightStatusId.RegistrationOpen =>
+                    "Пройдите регистрацию на вылет.",
+                FlightStatusId.Cancelled =>
+                    "Дополнительных действий не требуется.",
+                FlightStatusId.Denied =>
+                    "Заявка отклонена, дополнительные действия по этому вылету не требуются.",
+                _ => string.Empty
+            };
+        }
+
+        private static string GetFlightStatusDisplayName(FlightStatusId statusId)
+        {
+            return statusId switch
+            {
+                FlightStatusId.InCreation => "Создание заявки",
+                FlightStatusId.AwaitingApproval => "Ожидает одобрения",
+                FlightStatusId.Scheduled => "Запланирован",
+                FlightStatusId.Planned => "Подготовка к вылету",
+                FlightStatusId.RegistrationOpen => "Регистрация открыта",
+                FlightStatusId.RegistrationClosing => "Регистрация скоро закроется",
+                FlightStatusId.RegistrationClosed => "Регистрация закрыта",
+                FlightStatusId.AwaitingBoarding => "Ожидает посадки",
+                FlightStatusId.Boarding => "Посадка",
+                FlightStatusId.GateOpen => "Выход открыт",
+                FlightStatusId.GateClosed => "Выход закрыт",
+                FlightStatusId.BoardingCompleted => "Посадка завершена",
+                FlightStatusId.EnRoute => "В пути",
+                FlightStatusId.Landed => "Приземлился",
+                FlightStatusId.Delayed => "Задержан",
+                FlightStatusId.Redirected => "Перенаправлен",
+                FlightStatusId.Cancelled => "Отменён",
+                FlightStatusId.Denied => "Отклонён",
+                FlightStatusId.AwaitingContractSigning => "Ожидает подписания договора",
+                FlightStatusId.AwaitingPayment => "Ожидает оплаты",
+                FlightStatusId.IntermediateStop => "На промежуточной посадке",
+                _ => "Неизвестный статус"
+            };
+        }
+
+        private static string FormatNotificationDateTime(DateTime dateTime)
+        {
+            return dateTime.ToString("dd.MM.yyyy HH:mm");
+        }
+
+        private static string CreateDepartureNotificationLabel(Departure departure)
+        {
+            return $"{BuildAirportLabel(departure.TakeOffAirport)} → {BuildAirportLabel(departure.LandingAirport)}";
+        }
+
+        private static string CreateRouteSignature(Departure departure)
+        {
+            return string.Join(
+                "|",
+                departure.DepartureRouteLegs
+                    .OrderBy(routeLeg => routeLeg.SequenceNumber)
+                    .Select(routeLeg =>
+                        $"{routeLeg.FromAirportId}>{routeLeg.ToAirportId}:{routeLeg.GroundTimeAfterArrival?.Ticks ?? -1}"));
+        }
+
+        private static string CreateRouteSignature(IReadOnlyCollection<RouteLegResponse> routeLegs)
+        {
+            return string.Join(
+                "|",
+                routeLegs.Select(routeLeg =>
+                    $"{routeLeg.FromAirportId}>{routeLeg.ToAirportId}:{routeLeg.GroundTimeAfterArrival?.Ticks ?? -1}"));
+        }
+
+        private static bool HasRouteChanged(
+            string previousRouteSignature,
+            IReadOnlyCollection<RouteLegResponse> nextRouteLegs)
+        {
+            return !string.Equals(
+                previousRouteSignature,
+                CreateRouteSignature(nextRouteLegs),
+                StringComparison.Ordinal);
+        }
+
+        private static string CreateRouteText(IReadOnlyCollection<Airport> routeAirports)
+        {
+            return string.Join(" → ", routeAirports.Select(BuildAirportLabel));
         }
 
         private static void AddRouteLegs(

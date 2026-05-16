@@ -181,6 +181,7 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
         if (availableForDepartureId is not null)
         {
             employees = employees
+                .Where(user => user.IsEmailConfirmed)
                 .Where(user => !user.DeparturesNavigation.Any(departure =>
                     departure.Id != availableForDepartureId.Value &&
                     DoDepartureIntervalsOverlap(

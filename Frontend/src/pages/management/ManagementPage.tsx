@@ -293,7 +293,7 @@ export default function ManagementPage() {
                         </NavLink>
                         )}
 
-                        {!isUserLoading && hasManagementAccess(user?.role?.name) && (
+                        {!isUserLoading && hasManagementEditAccess(user?.role?.name) && (
                         <NavLink to="/management/analytics" className="profile-redirect-btn">
                             Аналитика
                         </NavLink>
