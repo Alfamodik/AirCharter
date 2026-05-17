@@ -78,21 +78,41 @@ function getCurrentOperationalStatusSequenceIndex(
     departure: ManagementDepartureResponse,
     sequence: number[]
 ): number {
-    if (departure.currentStatusId === 13 || departure.currentStatusId === 21) {
+    const currentStatusId = getCurrentOperationalSequenceStatusId(departure);
+
+    if (currentStatusId === null) {
+        return -1;
+    }
+
+    if (currentStatusId === 13 || currentStatusId === 21) {
         const occurrenceIndex = Math.max(
-            getStatusOccurrenceCount(departure, departure.currentStatusId) - 1,
+            getStatusOccurrenceCount(departure, currentStatusId) - 1,
             0
         );
         const sequenceIndex = findStatusSequenceIndexByOccurrence(
             sequence,
-            departure.currentStatusId,
+            currentStatusId,
             occurrenceIndex
         );
 
         return sequenceIndex >= 0 ? sequenceIndex : sequence.length;
     }
 
-    return sequence.indexOf(departure.currentStatusId);
+    return sequence.indexOf(currentStatusId);
+}
+
+function getCurrentOperationalSequenceStatusId(departure: ManagementDepartureResponse): number | null {
+    for (let index = departure.statusHistory.length - 1; index >= 0; index--) {
+        const statusId = departure.statusHistory[index].id;
+
+        if (statusId !== 15 && statusId !== 16) {
+            return statusId;
+        }
+    }
+
+    return departure.currentStatusId === 15 || departure.currentStatusId === 16
+        ? null
+        : departure.currentStatusId;
 }
 
 function getStatusOccurrenceCount(

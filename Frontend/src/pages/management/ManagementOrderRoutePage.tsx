@@ -1854,7 +1854,9 @@ export default function ManagementOrderRoutePage({
     }
 
     function renderEmployeeSection(currentDeparture: ManagementDepartureResponse) {
-        const canEditEmployees = canEditManagementDeparture && currentDeparture.currentStatusId !== 17;
+        const canEditEmployees = canEditManagementDeparture &&
+            currentDeparture.currentStatusId !== 14 &&
+            currentDeparture.currentStatusId !== 17;
 
         if (!canEditEmployees) {
             return renderSectionCard(
@@ -2437,7 +2439,9 @@ function getActualFlightState(departure: ManagementDepartureResponse): {
         };
     }
 
-    if (departure.currentStatusId === 13) {
+    const currentStatusId = getCurrentOperationalSequenceStatusId(departure) ?? departure.currentStatusId;
+
+    if (currentStatusId === 13) {
         const legIndex = getActualCurrentRouteLegIndex(departure) ?? 0;
         const leg = departure.routeLegs[legIndex];
 
@@ -2447,7 +2451,7 @@ function getActualFlightState(departure: ManagementDepartureResponse): {
         };
     }
 
-    if (departure.currentStatusId === 21) {
+    if (currentStatusId === 21) {
         const legIndex = getActualCurrentRouteLegIndex(departure) ?? 0;
         const leg = departure.routeLegs[Math.max(legIndex, 0)];
 
@@ -2457,7 +2461,7 @@ function getActualFlightState(departure: ManagementDepartureResponse): {
         };
     }
 
-    if (departure.currentStatusId === 14) {
+    if (currentStatusId === 14) {
         return {
             statusText: departure.statusName,
             locationText: getAirportLabelById(departure, departure.landingAirportId)
@@ -2475,21 +2479,23 @@ function getActualCurrentRouteLegIndex(departure: ManagementDepartureResponse): 
         return null;
     }
 
-    if (departure.currentStatusId === 13) {
+    const currentStatusId = getCurrentOperationalSequenceStatusId(departure) ?? departure.currentStatusId;
+
+    if (currentStatusId === 13) {
         return Math.min(
             Math.max(getStatusOccurrenceCount(departure, 13) - 1, 0),
             departure.routeLegs.length - 1
         );
     }
 
-    if (departure.currentStatusId === 21) {
+    if (currentStatusId === 21) {
         return Math.min(
             Math.max(getStatusOccurrenceCount(departure, 21) - 1, 0),
             Math.max(departure.routeLegs.length - 2, 0)
         );
     }
 
-    if (departure.currentStatusId === 14) {
+    if (currentStatusId === 14) {
         return departure.routeLegs.length - 1;
     }
 
@@ -2507,7 +2513,7 @@ function getSuggestedNextFlightStatus(
     departure: ManagementDepartureResponse,
     timing: ReturnType<typeof calculateFlightTiming>
 ): { id: number; name: string } {
-    switch (departure.currentStatusId) {
+    switch (getCurrentOperationalSequenceStatusId(departure) ?? departure.currentStatusId) {
         case 3:
             return { id: 5, name: "Регистрация открыта" };
         case 4:
@@ -2585,21 +2591,41 @@ function getCurrentOperationalStatusSequenceIndex(
     departure: ManagementDepartureResponse,
     sequence: number[]
 ): number {
-    if (departure.currentStatusId === 13 || departure.currentStatusId === 21) {
+    const currentStatusId = getCurrentOperationalSequenceStatusId(departure);
+
+    if (currentStatusId === null) {
+        return -1;
+    }
+
+    if (currentStatusId === 13 || currentStatusId === 21) {
         const occurrenceIndex = Math.max(
-            getStatusOccurrenceCount(departure, departure.currentStatusId) - 1,
+            getStatusOccurrenceCount(departure, currentStatusId) - 1,
             0
         );
         const sequenceIndex = findStatusSequenceIndexByOccurrence(
             sequence,
-            departure.currentStatusId,
+            currentStatusId,
             occurrenceIndex
         );
 
         return sequenceIndex >= 0 ? sequenceIndex : sequence.length;
     }
 
-    return sequence.indexOf(departure.currentStatusId);
+    return sequence.indexOf(currentStatusId);
+}
+
+function getCurrentOperationalSequenceStatusId(departure: ManagementDepartureResponse): number | null {
+    for (let index = departure.statusHistory.length - 1; index >= 0; index--) {
+        const statusId = departure.statusHistory[index].id;
+
+        if (statusId !== 15 && statusId !== 16) {
+            return statusId;
+        }
+    }
+
+    return departure.currentStatusId === 15 || departure.currentStatusId === 16
+        ? null
+        : departure.currentStatusId;
 }
 
 function findStatusSequenceIndexByOccurrence(

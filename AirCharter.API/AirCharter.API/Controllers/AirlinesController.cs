@@ -335,7 +335,22 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
         if (targetRole is null || !CanAssignRole(currentUser.Role.Name, targetRole.Name))
             return BadRequest("Недоступный статус сотрудника.");
 
+        string previousRoleName = employee.Role.Name;
+
+        if (previousRoleName == targetRole.Name)
+            return Ok(ToEmployeeResponse(employee, previousRoleName));
+
         employee.RoleId = targetRole.Id;
+        await CreateEmployeeRoleChangedNotificationAsync(
+            employee.Id,
+            currentUser.AirlineId.Value,
+            previousRoleName,
+            targetRole.Name,
+            cancellationToken);
+        CreateAirlineNotification(
+            currentUser.AirlineId.Value,
+            "Должность сотрудника изменена",
+            $"Сотруднику {employee.Email} изменили должность: {GetRoleDisplayName(previousRoleName)} -> {GetRoleDisplayName(targetRole.Name)}.");
         await _context.SaveChangesAsync(cancellationToken);
 
         employee.Role = targetRole;
@@ -708,6 +723,27 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
             ActionType = "AirlineEmploymentInvite",
             AirlineId = airlineId,
             RoleId = roleId,
+            CreatedAtUtc = DateTime.UtcNow
+        });
+    }
+
+    private async Task CreateEmployeeRoleChangedNotificationAsync(
+        int userId,
+        int airlineId,
+        string previousRoleName,
+        string nextRoleName,
+        CancellationToken cancellationToken)
+    {
+        string airlineName = await _context.Airlines
+            .Where(airline => airline.Id == airlineId)
+            .Select(airline => airline.AirlineName)
+            .FirstOrDefaultAsync(cancellationToken) ?? "авиакомпания";
+
+        _context.Notifications.Add(new Notification
+        {
+            UserId = userId,
+            Title = "Должность изменена",
+            Message = $"Авиакомпания «{airlineName}» изменила вашу должность: {GetRoleDisplayName(previousRoleName)} -> {GetRoleDisplayName(nextRoleName)}.",
             CreatedAtUtc = DateTime.UtcNow
         });
     }

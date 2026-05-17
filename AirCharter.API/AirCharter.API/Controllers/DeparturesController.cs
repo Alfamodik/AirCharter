@@ -975,9 +975,13 @@ namespace AirCharter.API.Controllers
 
             if (request.IncludePreviousStatuses)
             {
+                FlightStatusId currentSequenceStatusId =
+                    GetCurrentOperationalSequenceStatusId(departure) ??
+                    (FlightStatusId)currentStatus.StatusId;
+
                 if (IsStatusAlreadyPastCatchUpTarget(
                     departure,
-                    (FlightStatusId)currentStatus.StatusId,
+                    currentSequenceStatusId,
                     nextStatusId,
                     departure.DepartureRouteLegs.Count,
                     request.TargetLegIndex))
@@ -987,7 +991,7 @@ namespace AirCharter.API.Controllers
 
                 IReadOnlyCollection<FlightStatusId> catchUpSequence = BuildOperationalStatusCatchUpSequence(
                     departure,
-                    (FlightStatusId)currentStatus.StatusId,
+                    currentSequenceStatusId,
                     nextStatusId,
                     departure.DepartureRouteLegs.Count,
                     request.TargetLegIndex);
@@ -1056,11 +1060,7 @@ namespace AirCharter.API.Controllers
 
             _context.DepartureStatuses.Remove(currentStatus);
 
-            if (restoredStatus is not null &&
-                Enum.IsDefined(typeof(FlightStatusId), restoredStatus.StatusId))
-            {
-                AddDepartureStatusChangedNotification(departure, (FlightStatusId)restoredStatus.StatusId);
-            }
+            AddDepartureStatusDeletedNotification(departure, currentStatus, restoredStatus);
 
             await _context.SaveChangesAsync(cancellationToken);
 
@@ -1447,8 +1447,8 @@ namespace AirCharter.API.Controllers
 
             DepartureStatus? currentStatus = GetCurrentStatus(departure);
 
-            if (currentStatus?.StatusId == (int)FlightStatusId.Cancelled)
-                return BadRequest("Отменённый вылет нельзя редактировать.");
+            if (currentStatus?.StatusId is (int)FlightStatusId.Landed or (int)FlightStatusId.Cancelled)
+                return BadRequest("Завершённый или отменённый вылет нельзя редактировать.");
 
             int[] employeeIds = request.EmployeeIds
                 .Distinct()
@@ -1970,6 +1970,25 @@ namespace AirCharter.API.Controllers
                 message);
         }
 
+        private void AddDepartureStatusDeletedNotification(
+            Departure departure,
+            DepartureStatus deletedStatus,
+            DepartureStatus? restoredStatus)
+        {
+            string deletedStatusName = GetDepartureStatusDisplayName(deletedStatus);
+            string message = $"По заявке {CreateDepartureNotificationLabel(departure)} удалён текущий статус «{deletedStatusName}».";
+
+            if (restoredStatus is not null)
+            {
+                message += $" Текущий статус после удаления: «{GetDepartureStatusDisplayName(restoredStatus)}».";
+            }
+
+            AddDepartureNotification(
+                departure,
+                "Статус вылета удалён",
+                message);
+        }
+
         private void AddDepartureNotification(Departure departure, string title, string message)
         {
             _context.Notifications.Add(new Notification
@@ -1979,6 +1998,13 @@ namespace AirCharter.API.Controllers
                 Message = message,
                 CreatedAtUtc = DateTime.UtcNow
             });
+        }
+
+        private static string GetDepartureStatusDisplayName(DepartureStatus departureStatus)
+        {
+            return Enum.IsDefined(typeof(FlightStatusId), departureStatus.StatusId)
+                ? GetFlightStatusDisplayName((FlightStatusId)departureStatus.StatusId)
+                : departureStatus.Status.Status1;
         }
 
         private static string CreateStatusActionMessage(FlightStatusId statusId)
@@ -2440,6 +2466,24 @@ namespace AirCharter.API.Controllers
             }
 
             return FindFirstStatusIndex(sequence, statusId);
+        }
+
+        private static FlightStatusId? GetCurrentOperationalSequenceStatusId(Departure departure)
+        {
+            DepartureStatus? currentSequenceStatus = departure.DepartureStatuses
+                .OrderByDescending(departureStatus => departureStatus.StatusSettingDateTime)
+                .ThenByDescending(departureStatus => departureStatus.Id)
+                .FirstOrDefault(departureStatus =>
+                    departureStatus.StatusId != (int)FlightStatusId.Delayed &&
+                    departureStatus.StatusId != (int)FlightStatusId.Redirected);
+
+            if (currentSequenceStatus is null ||
+                !Enum.IsDefined(typeof(FlightStatusId), currentSequenceStatus.StatusId))
+            {
+                return null;
+            }
+
+            return (FlightStatusId)currentSequenceStatus.StatusId;
         }
 
         private static int FindStatusIndexByOccurrence(
