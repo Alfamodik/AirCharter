@@ -151,6 +151,17 @@ public sealed class DatabaseCompatibilityService(AirCharterExtendedContext conte
             "int NULL",
             cancellationToken);
 
+        await EnsureColumnAsync(
+            "departure_statuses",
+            "delay_minutes",
+            "int NULL",
+            cancellationToken);
+        await EnsureColumnAsync(
+            "departure_statuses",
+            "redirected_airport_id",
+            "int NULL",
+            cancellationToken);
+
         if (await ColumnExistsAsync("airlines", "contract_end_date", cancellationToken))
         {
             await _context.Database.ExecuteSqlRawAsync(

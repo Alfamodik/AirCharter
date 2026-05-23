@@ -13,7 +13,13 @@ public partial class DepartureStatus
 
     public DateTime StatusSettingDateTime { get; set; }
 
+    public int? DelayMinutes { get; set; }
+
+    public int? RedirectedAirportId { get; set; }
+
     public virtual Departure Departure { get; set; } = null!;
+
+    public virtual Airport? RedirectedAirport { get; set; }
 
     public virtual Status Status { get; set; } = null!;
 }

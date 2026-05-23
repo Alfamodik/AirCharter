@@ -451,6 +451,44 @@
     border-color: rgba(245, 159, 0, 0.35);
 }
 
+.management-trend-block {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+.management-trend-legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px 14px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.management-trend-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.management-trend-legend i {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.management-trend-legend i.revenue {
+    background: linear-gradient(180deg, #40c057, #228be6);
+}
+
+.management-trend-legend i.requests {
+    background: linear-gradient(180deg, #f59f00, #ff6b6b);
+}
+
 .management-trend-chart {
     min-height: 250px;
     display: grid;

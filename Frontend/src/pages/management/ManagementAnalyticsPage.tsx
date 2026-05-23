@@ -398,31 +398,37 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
     }
 
     return (
-        <div
-            className="management-trend-chart"
-            style={{ gridTemplateColumns: `repeat(${points.length}, minmax(0, 1fr))` }}
-        >
-            {points.map((point) => (
-                <div key={point.key} className="management-trend-column">
-                    <div className="management-trend-bars">
-                        <div
-                            className="management-trend-bar revenue"
-                            style={{ height: `${Math.max(6, (point.revenue / maxRevenue) * 100)}%` }}
-                            title={`${point.label}: ${formatPrice(point.revenue)}`}
-                        >
-                            <span>{formatCompactMoney(point.revenue)}</span>
+        <div className="management-trend-block">
+            <div className="management-trend-legend" aria-label="Легенда графика Динамика">
+                <span><i className="revenue"></i>Выручка</span>
+                <span><i className="requests"></i>Заявки</span>
+            </div>
+            <div
+                className="management-trend-chart"
+                style={{ gridTemplateColumns: `repeat(${points.length}, minmax(0, 1fr))` }}
+            >
+                {points.map((point) => (
+                    <div key={point.key} className="management-trend-column">
+                        <div className="management-trend-bars">
+                            <div
+                                className="management-trend-bar revenue"
+                                style={{ height: `${Math.max(6, (point.revenue / maxRevenue) * 100)}%` }}
+                                title={`${point.label}: ${formatPrice(point.revenue)}`}
+                            >
+                                <span>{formatCompactMoney(point.revenue)}</span>
+                            </div>
+                            <div
+                                className="management-trend-bar requests"
+                                style={{ height: `${Math.max(6, (point.requests / maxRequests) * 100)}%` }}
+                                title={`${point.label}: ${point.requests} заявок`}
+                            >
+                                <span>{point.requests}</span>
+                            </div>
                         </div>
-                        <div
-                            className="management-trend-bar requests"
-                            style={{ height: `${Math.max(6, (point.requests / maxRequests) * 100)}%` }}
-                            title={`${point.label}: ${point.requests} заявок`}
-                        >
-                            <span>{point.requests}</span>
-                        </div>
+                        <strong>{point.label}</strong>
                     </div>
-                    <strong>{point.label}</strong>
-                </div>
-            ))}
+                ))}
+            </div>
         </div>
     );
 }

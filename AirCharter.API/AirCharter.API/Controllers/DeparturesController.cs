@@ -347,7 +347,21 @@ namespace AirCharter.API.Controllers
                     {
                         Id = departureStatus.StatusId,
                         Name = departureStatus.Status.Status1,
-                        SetAt = departureStatus.StatusSettingDateTime
+                        SetAt = departureStatus.StatusSettingDateTime,
+                        DelayMinutes = departureStatus.DelayMinutes,
+                        RedirectedAirport = departureStatus.RedirectedAirport == null
+                            ? null
+                            : new AirportSearchResponse
+                            {
+                                Id = departureStatus.RedirectedAirport.Id,
+                                Name = departureStatus.RedirectedAirport.Name,
+                                City = departureStatus.RedirectedAirport.City,
+                                Country = departureStatus.RedirectedAirport.Country,
+                                Iata = departureStatus.RedirectedAirport.Iata,
+                                Icao = departureStatus.RedirectedAirport.Icao,
+                                Latitude = departureStatus.RedirectedAirport.Latitude,
+                                Longitude = departureStatus.RedirectedAirport.Longitude
+                            }
                     }
                 })
                 .ToListAsync(cancellationToken);
@@ -980,12 +994,44 @@ namespace AirCharter.API.Controllers
             if (departure.Plane.AirlineId != userAirlineId.Value)
                 return Forbid();
 
+            int? delayMinutes = null;
+            Airport? redirectedAirport = null;
+
+            if (nextStatusId == FlightStatusId.Delayed)
+            {
+                if (request.DelayMinutes is null or <= 0)
+                    return BadRequest("Укажите примерное время задержки вылета.");
+
+                if (request.DelayMinutes > 72 * 60)
+                    return BadRequest("Примерная задержка не должна превышать 72 часа.");
+
+                delayMinutes = request.DelayMinutes.Value;
+            }
+
+            if (nextStatusId == FlightStatusId.Redirected)
+            {
+                if (request.RedirectedAirportId is null)
+                    return BadRequest("Укажите аэропорт перенаправления вылета.");
+
+                redirectedAirport = await _context.Airports
+                    .FirstOrDefaultAsync(
+                        airport => airport.Id == request.RedirectedAirportId.Value,
+                        cancellationToken);
+
+                if (redirectedAirport is null)
+                    return NotFound("Аэропорт перенаправления не найден.");
+            }
+
             DepartureStatus? currentStatus = GetCurrentStatus(departure);
 
             if (currentStatus is null || !IsActiveFlightStatus(currentStatus.StatusId))
                 return BadRequest("Flight status cannot be changed now.");
 
-            if (request.IncludePreviousStatuses)
+            bool shouldIncludePreviousStatuses = request.IncludePreviousStatuses &&
+                nextStatusId != FlightStatusId.Delayed &&
+                nextStatusId != FlightStatusId.Redirected;
+
+            if (shouldIncludePreviousStatuses)
             {
                 FlightStatusId currentSequenceStatusId =
                     GetCurrentOperationalSequenceStatusId(departure) ??
@@ -1026,8 +1072,16 @@ namespace AirCharter.API.Controllers
                 if (RequiresCrewBeforeDeparture(nextStatusId) && departure.Employees.Count == 0)
                     return BadRequest("Для вылета назначьте хотя бы одного члена экипажа.");
 
-                AddDepartureStatus(departure, nextStatusId);
-                AddDepartureStatusChangedNotification(departure, nextStatusId);
+                AddDepartureStatus(
+                    departure,
+                    nextStatusId,
+                    delayMinutes,
+                    redirectedAirport?.Id);
+                AddDepartureStatusChangedNotification(
+                    departure,
+                    nextStatusId,
+                    delayMinutes,
+                    redirectedAirport);
                 await _context.SaveChangesAsync(cancellationToken);
             }
 
@@ -1538,7 +1592,11 @@ namespace AirCharter.API.Controllers
                 {
                     Id = departureStatus.StatusId,
                     Name = departureStatus.Status.Status1,
-                    SetAt = departureStatus.StatusSettingDateTime
+                    SetAt = departureStatus.StatusSettingDateTime,
+                    DelayMinutes = departureStatus.DelayMinutes,
+                    RedirectedAirport = departureStatus.RedirectedAirport is null
+                        ? null
+                        : CreateAirportResponse(departureStatus.RedirectedAirport)
                 })
                 .ToArray();
 
@@ -1749,6 +1807,8 @@ namespace AirCharter.API.Controllers
                     .ThenInclude(employee => employee.Person)
                 .Include(departure => departure.DepartureStatuses)
                     .ThenInclude(departureStatus => departureStatus.Status)
+                .Include(departure => departure.DepartureStatuses)
+                    .ThenInclude(departureStatus => departureStatus.RedirectedAirport)
                 .Include(departure => departure.DepartureRouteLegs)
                     .ThenInclude(routeLeg => routeLeg.FromAirport)
                 .Include(departure => departure.DepartureRouteLegs)
@@ -1936,12 +1996,18 @@ namespace AirCharter.API.Controllers
             };
         }
 
-        private static void AddDepartureStatus(Departure departure, FlightStatusId statusId)
+        private static void AddDepartureStatus(
+            Departure departure,
+            FlightStatusId statusId,
+            int? delayMinutes = null,
+            int? redirectedAirportId = null)
         {
             departure.DepartureStatuses.Add(new DepartureStatus
             {
                 StatusId = (int)statusId,
-                StatusSettingDateTime = DateTime.UtcNow
+                StatusSettingDateTime = DateTime.UtcNow,
+                DelayMinutes = delayMinutes,
+                RedirectedAirportId = redirectedAirportId
             });
         }
 
@@ -1971,8 +2037,25 @@ namespace AirCharter.API.Controllers
             Departure departure,
             FlightStatusId statusId)
         {
+            AddDepartureStatusChangedNotification(
+                departure,
+                statusId,
+                delayMinutes: null,
+                redirectedAirport: null);
+        }
+
+        private void AddDepartureStatusChangedNotification(
+            Departure departure,
+            FlightStatusId statusId,
+            int? delayMinutes,
+            Airport? redirectedAirport)
+        {
             string actionMessage = CreateStatusActionMessage(statusId);
             string message = $"Статус вылета по заявке {CreateDepartureNotificationLabel(departure)} изменён на «{GetFlightStatusDisplayName(statusId)}».";
+            string detailMessage = CreateStatusDetailMessage(statusId, delayMinutes, redirectedAirport);
+
+            if (!string.IsNullOrWhiteSpace(detailMessage))
+                message += " " + detailMessage;
 
             if (!string.IsNullOrWhiteSpace(actionMessage))
                 message += " " + actionMessage;
@@ -2036,6 +2119,35 @@ namespace AirCharter.API.Controllers
                     "Заявка отклонена, дополнительные действия по этому вылету не требуются.",
                 _ => string.Empty
             };
+        }
+
+        private static string CreateStatusDetailMessage(
+            FlightStatusId statusId,
+            int? delayMinutes,
+            Airport? redirectedAirport)
+        {
+            return statusId switch
+            {
+                FlightStatusId.Delayed when delayMinutes is > 0 =>
+                    $"Примерная задержка: {FormatDelayMinutes(delayMinutes.Value)}.",
+                FlightStatusId.Redirected when redirectedAirport is not null =>
+                    $"Аэропорт перенаправления: {BuildAirportLabel(redirectedAirport)}.",
+                _ => string.Empty
+            };
+        }
+
+        private static string FormatDelayMinutes(int totalMinutes)
+        {
+            int hours = totalMinutes / 60;
+            int minutes = totalMinutes % 60;
+
+            if (hours <= 0)
+                return $"{minutes} мин";
+
+            if (minutes <= 0)
+                return $"{hours} ч";
+
+            return $"{hours} ч {minutes} мин";
         }
 
         private static string GetFlightStatusDisplayName(FlightStatusId statusId)

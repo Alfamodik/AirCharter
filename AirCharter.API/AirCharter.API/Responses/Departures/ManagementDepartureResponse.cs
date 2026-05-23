@@ -132,5 +132,9 @@ namespace AirCharter.API.Responses.Departures
         public string Name { get; set; } = string.Empty;
 
         public DateTime SetAt { get; set; }
+
+        public int? DelayMinutes { get; set; }
+
+        public AirportSearchResponse? RedirectedAirport { get; set; }
     }
 }

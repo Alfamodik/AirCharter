@@ -29,5 +29,7 @@ public partial class Airport
 
     public virtual ICollection<DepartureRouteLeg> DepartureRouteLegToAirports { get; set; } = new List<DepartureRouteLeg>();
 
+    public virtual ICollection<DepartureStatus> DepartureStatusRedirectedAirports { get; set; } = new List<DepartureStatus>();
+
     public virtual ICollection<Departure> DepartureTakeOffAirports { get; set; } = new List<Departure>();
 }

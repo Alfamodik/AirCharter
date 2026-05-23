@@ -10,6 +10,11 @@ export interface UpdateDepartureRouteRequest {
     groundTimesAfterArrival: Array<string | null>;
 }
 
+export interface UpdateDepartureStatusDetails {
+    delayMinutes?: number | null;
+    redirectedAirportId?: number | null;
+}
+
 export interface ManagementRoutePreviewResponse {
     distance: number;
     flightTime: string;
@@ -108,7 +113,8 @@ export async function updateManagementDepartureStatus(
     departureId: number,
     statusId: number,
     includePreviousStatuses = false,
-    targetLegIndex?: number | null
+    targetLegIndex?: number | null,
+    details: UpdateDepartureStatusDetails = {}
 ): Promise<void> {
     await sendRequest<void>(
         `/departures/management/${departureId}/status`,
@@ -116,7 +122,8 @@ export async function updateManagementDepartureStatus(
         {
             statusId,
             includePreviousStatuses,
-            targetLegIndex
+            targetLegIndex,
+            ...details
         }
     );
 }

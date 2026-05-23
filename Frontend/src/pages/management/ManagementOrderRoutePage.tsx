@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent,
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { YMaps, Map, Placemark, Polyline } from "@pbe/react-yandex-maps";
 import Header from "../../components/header/Header";
-import AirportSearch from "../../components/airportSearch/AirportSearch";
+import AirportSearch, { type AirportSelection } from "../../components/airportSearch/AirportSearch";
 import {
     approveManagementDeparture,
     approveManagementDepartureRoute,
@@ -117,6 +117,15 @@ type PendingManagementStatusChange = {
     targetLegIndex?: number | null;
 };
 
+type ManagementStatusDetails = {
+    delayMinutes?: number | null;
+    redirectedAirportId?: number | null;
+};
+
+type PendingAdditionalFlightStatus = PendingManagementStatusChange & {
+    action: AdditionalFlightStatusAction;
+};
+
 type AdditionalFlightStatusAction = {
     statusId: number;
     name: string;
@@ -196,6 +205,7 @@ export default function ManagementOrderRoutePage({
     const [isAdditionalStatusesExpanded, setIsAdditionalStatusesExpanded] = useState(false);
     const [pendingCompletionStatus, setPendingCompletionStatus] = useState<PendingManagementStatusChange | null>(null);
     const [pendingCancellationStatus, setPendingCancellationStatus] = useState<PendingManagementStatusChange | null>(null);
+    const [pendingAdditionalStatus, setPendingAdditionalStatus] = useState<PendingAdditionalFlightStatus | null>(null);
     const [isDeleteDepartureConfirmOpen, setIsDeleteDepartureConfirmOpen] = useState(false);
     const [isCancelDepartureConfirmOpen, setIsCancelDepartureConfirmOpen] = useState(false);
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -1046,7 +1056,8 @@ export default function ManagementOrderRoutePage({
     async function handleSetManagementStatus(
         statusId: number,
         includePreviousStatuses = false,
-        targetLegIndex?: number | null
+        targetLegIndex?: number | null,
+        details: ManagementStatusDetails = {}
     ) {
         if (departure === null) {
             return;
@@ -1070,13 +1081,28 @@ export default function ManagementOrderRoutePage({
             return;
         }
 
-        await applyManagementStatus(statusId, includePreviousStatuses, targetLegIndex);
+        await applyManagementStatus(statusId, includePreviousStatuses, targetLegIndex, details);
+    }
+
+    function handleAdditionalFlightStatus(action: AdditionalFlightStatusAction) {
+        if (action.statusId === 15 || action.statusId === 16) {
+            setPendingAdditionalStatus({
+                action,
+                statusId: action.statusId,
+                includePreviousStatuses: false,
+                targetLegIndex: null
+            });
+            return;
+        }
+
+        void handleSetManagementStatus(action.statusId);
     }
 
     async function applyManagementStatus(
         statusId: number,
         includePreviousStatuses = false,
-        targetLegIndex?: number | null
+        targetLegIndex?: number | null,
+        details: ManagementStatusDetails = {}
     ) {
         if (departure === null) {
             return;
@@ -1098,7 +1124,8 @@ export default function ManagementOrderRoutePage({
                 departure.id,
                 statusId,
                 includePreviousStatuses,
-                targetLegIndex
+                targetLegIndex,
+                details
             );
             await refreshDeparture();
         } catch (error: unknown) {
@@ -1135,6 +1162,22 @@ export default function ManagementOrderRoutePage({
             statusChange.statusId,
             statusChange.includePreviousStatuses,
             statusChange.targetLegIndex
+        );
+    }
+
+    async function handleConfirmAdditionalStatus(details: ManagementStatusDetails) {
+        if (pendingAdditionalStatus === null) {
+            return;
+        }
+
+        const statusChange = pendingAdditionalStatus;
+
+        setPendingAdditionalStatus(null);
+        await applyManagementStatus(
+            statusChange.statusId,
+            statusChange.includePreviousStatuses,
+            statusChange.targetLegIndex,
+            details
         );
     }
 
@@ -1642,6 +1685,7 @@ export default function ManagementOrderRoutePage({
     function renderFlightOperations(currentDeparture: ManagementDepartureResponse) {
         const timing = calculateFlightTiming(currentDeparture);
         const actualState = getActualFlightState(currentDeparture);
+        const actualStatusDetail = getLatestStatusDetailText(currentDeparture);
         const nextStatus = getSuggestedNextFlightStatus(currentDeparture, timing);
         const canChangeStatus = currentDeparture.canChangeStatus && !isActionLoading;
         const canShowStatusActions = canEditManagementDeparture && currentDeparture.canChangeStatus;
@@ -1670,6 +1714,9 @@ export default function ManagementOrderRoutePage({
                     <div className="management-flight-operation-panel current">
                         <span>Фактическое состояние: {actualState.statusText}</span>
                         <p className="management-flight-operation-route">{actualState.locationText}</p>
+                        {actualStatusDetail !== "" && (
+                            <p>{actualStatusDetail}</p>
+                        )}
                         <p>Установлено {formatDateTime(currentDeparture.currentStatusSetAt)}.</p>
                     </div>
 
@@ -1701,7 +1748,7 @@ export default function ManagementOrderRoutePage({
                                         key={action.statusId}
                                         type="button"
                                         className={`management-additional-status-button ${action.tone}`}
-                                        onClick={() => handleSetManagementStatus(action.statusId)}
+                                        onClick={() => handleAdditionalFlightStatus(action)}
                                         disabled={!canChangeStatus || currentDeparture.currentStatusId === action.statusId}
                                     >
                                         <span>{action.name}</span>
@@ -1839,14 +1886,23 @@ export default function ManagementOrderRoutePage({
                         <p className="management-muted-text">История статусов недоступна.</p>
                     ) : (
                         <div className="management-status-history-list">
-                            {currentDeparture.statusHistory.map((status, index) => (
-                                <div key={`${status.id}-${status.setAt}-${index}`} className="management-status-history-row">
-                                    <span className={`status-badge ${getRouteStatusClassName(status.id)}`}>
-                                        {status.name}
-                                    </span>
-                                    <span>{formatDateTime(status.setAt)}</span>
-                                </div>
-                            ))}
+                            {currentDeparture.statusHistory.map((status, index) => {
+                                const statusDetail = getStatusDetailText(status);
+
+                                return (
+                                    <div key={`${status.id}-${status.setAt}-${index}`} className="management-status-history-row">
+                                        <div className="management-status-history-status">
+                                            <span className={`status-badge ${getRouteStatusClassName(status.id)}`}>
+                                                {status.name}
+                                            </span>
+                                            {statusDetail !== "" && (
+                                                <small>{statusDetail}</small>
+                                            )}
+                                        </div>
+                                        <span>{formatDateTime(status.setAt)}</span>
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
             </>
@@ -2151,6 +2207,16 @@ export default function ManagementOrderRoutePage({
                     isLoading={isActionLoading}
                     onClose={() => setPendingCancellationStatus(null)}
                     onConfirm={handleConfirmCancellationStatus}
+                />
+            )}
+
+            {pendingAdditionalStatus !== null && departure !== null && (
+                <AdditionalStatusDetailsModal
+                    action={pendingAdditionalStatus.action}
+                    departure={departure}
+                    isLoading={isActionLoading}
+                    onClose={() => setPendingAdditionalStatus(null)}
+                    onConfirm={handleConfirmAdditionalStatus}
                 />
             )}
 
@@ -2857,6 +2923,24 @@ function getDepartureRouteTitleFromAirports(departure: ManagementDepartureRespon
     return `${getAirportLabelById(departure, departure.takeOffAirportId)} -> ${getAirportLabelById(departure, departure.landingAirportId)}`;
 }
 
+function getLatestStatusDetailText(departure: ManagementDepartureResponse): string {
+    const latestStatus = departure.statusHistory.at(-1);
+
+    return latestStatus === undefined ? "" : getStatusDetailText(latestStatus);
+}
+
+function getStatusDetailText(status: ManagementDepartureResponse["statusHistory"][number]): string {
+    if (status.id === 15 && status.delayMinutes !== null && status.delayMinutes !== undefined) {
+        return `Примерная задержка: ${formatDuration(minutesToTimeSpan(status.delayMinutes))}`;
+    }
+
+    if (status.id === 16 && status.redirectedAirport) {
+        return `Перенаправлен в ${getAirportDisplayName(status.redirectedAirport)}`;
+    }
+
+    return "";
+}
+
 function addMinutes(date: Date, minutes: number): Date {
     return new Date(date.getTime() + minutes * 60_000);
 }
@@ -3122,6 +3206,163 @@ function FlightCancellationConfirmModal({
                     </button>
                 </div>
             </section>
+        </div>
+    );
+}
+
+function AdditionalStatusDetailsModal({
+    action,
+    departure,
+    isLoading,
+    onClose,
+    onConfirm
+}: {
+    action: AdditionalFlightStatusAction;
+    departure: ManagementDepartureResponse;
+    isLoading: boolean;
+    onClose: () => void;
+    onConfirm: (details: ManagementStatusDetails) => void | Promise<void>;
+}) {
+    const [delayHours, setDelayHours] = useState("1");
+    const [delayMinutes, setDelayMinutes] = useState("0");
+    const [redirectedAirportId, setRedirectedAirportId] = useState("");
+    const [redirectedAirportName, setRedirectedAirportName] = useState("");
+    const [localError, setLocalError] = useState("");
+    const isDelayed = action.statusId === 15;
+    const isRedirected = action.statusId === 16;
+
+    function handleAirportSelect(airport: AirportSelection) {
+        setRedirectedAirportId(airport.id);
+        setRedirectedAirportName(airport.displayName);
+        setLocalError("");
+    }
+
+    function handleSubmit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        setLocalError("");
+
+        if (isDelayed) {
+            const hours = Number(delayHours || "0");
+            const minutes = Number(delayMinutes || "0");
+
+            if (!Number.isFinite(hours) || !Number.isFinite(minutes) || hours < 0 || minutes < 0 || minutes > 59) {
+                setLocalError("Укажите задержку в часах и минутах.");
+                return;
+            }
+
+            const totalDelayMinutes = hours * 60 + minutes;
+
+            if (totalDelayMinutes <= 0) {
+                setLocalError("Задержка должна быть больше нуля.");
+                return;
+            }
+
+            if (totalDelayMinutes > 72 * 60) {
+                setLocalError("Задержка не должна превышать 72 часа.");
+                return;
+            }
+
+            void onConfirm({ delayMinutes: totalDelayMinutes });
+            return;
+        }
+
+        if (isRedirected) {
+            const airportId = Number(redirectedAirportId);
+
+            if (!Number.isFinite(airportId) || airportId <= 0) {
+                setLocalError("Выберите аэропорт перенаправления.");
+                return;
+            }
+
+            void onConfirm({ redirectedAirportId: airportId });
+        }
+    }
+
+    return (
+        <div className="management-modal-backdrop" role="presentation" onMouseDown={onClose}>
+            <form
+                className="management-passenger-modal management-confirm-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="additional-status-title"
+                onSubmit={handleSubmit}
+                onMouseDown={(event) => event.stopPropagation()}
+            >
+                <div className="management-passenger-modal-header">
+                    <div>
+                        <h3 id="additional-status-title">{action.name}</h3>
+                        <span>{getDepartureRouteTitleFromAirports(departure)}</span>
+                    </div>
+                    <button type="button" onClick={onClose} disabled={isLoading} aria-label="Закрыть">
+                        ×
+                    </button>
+                </div>
+
+                <p className="management-passenger-modal-note">{action.description}</p>
+
+                {isDelayed && (
+                    <div className="management-additional-status-modal-grid">
+                        <InputField
+                            label="Часы задержки"
+                            type="number"
+                            min="0"
+                            max="72"
+                            step="1"
+                            value={delayHours}
+                            onChange={(value) => setDelayHours(value.replace(/\D/g, "").slice(0, 2))}
+                            required
+                        />
+                        <InputField
+                            label="Минуты задержки"
+                            type="number"
+                            min="0"
+                            max="59"
+                            step="1"
+                            value={delayMinutes}
+                            onChange={(value) => setDelayMinutes(value.replace(/\D/g, "").slice(0, 2))}
+                            required
+                        />
+                    </div>
+                )}
+
+                {isRedirected && (
+                    <AirportSearch
+                        label="Аэропорт перенаправления"
+                        selectedAirportId={redirectedAirportId}
+                        selectedAirportDisplayName={redirectedAirportName}
+                        onSelect={handleAirportSelect}
+                    />
+                )}
+
+                {localError !== "" && (
+                    <p className="management-passenger-modal-error">{localError}</p>
+                )}
+
+                <div className="management-confirm-summary">
+                    <span>Текущий статус</span>
+                    <strong>{departure.statusName}</strong>
+                    <span>Новый статус</span>
+                    <strong>{action.name}</strong>
+                </div>
+
+                <div className="management-passenger-modal-actions">
+                    <button
+                        type="button"
+                        className="management-secondary-button"
+                        onClick={onClose}
+                        disabled={isLoading}
+                    >
+                        Отмена
+                    </button>
+                    <button
+                        type="submit"
+                        className="management-primary-button"
+                        disabled={isLoading}
+                    >
+                        Установить статус
+                    </button>
+                </div>
+            </form>
         </div>
     );
 }

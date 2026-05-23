@@ -65,6 +65,8 @@ export interface ManagementDepartureStatusResponse {
     id: number;
     name: string;
     setAt: string;
+    delayMinutes?: number | null;
+    redirectedAirport?: ManagementRouteAirportResponse | null;
 }
 
 export interface ManagementRouteAirportResponse {

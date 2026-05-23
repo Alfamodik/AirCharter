@@ -362,10 +362,14 @@ public partial class AirCharterExtendedContext : DbContext
 
             entity.HasIndex(e => e.DepartureId, "departure_id");
 
+            entity.HasIndex(e => e.RedirectedAirportId, "redirected_airport_id");
+
             entity.HasIndex(e => e.StatusId, "status_id");
 
+            entity.Property(e => e.DelayMinutes).HasColumnName("delay_minutes");
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.DepartureId).HasColumnName("departure_id");
+            entity.Property(e => e.RedirectedAirportId).HasColumnName("redirected_airport_id");
             entity.Property(e => e.StatusId).HasColumnName("status_id");
             entity.Property(e => e.StatusSettingDateTime)
                 .HasColumnType("datetime")
@@ -375,6 +379,10 @@ public partial class AirCharterExtendedContext : DbContext
                 .HasForeignKey(d => d.DepartureId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("departure_statuses_ibfk_1");
+
+            entity.HasOne(d => d.RedirectedAirport).WithMany(p => p.DepartureStatusRedirectedAirports)
+                .HasForeignKey(d => d.RedirectedAirportId)
+                .HasConstraintName("departure_statuses_ibfk_3");
 
             entity.HasOne(d => d.Status).WithMany(p => p.DepartureStatuses)
                 .HasForeignKey(d => d.StatusId)

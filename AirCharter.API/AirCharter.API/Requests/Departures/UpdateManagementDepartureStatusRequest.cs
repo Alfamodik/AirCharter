@@ -7,5 +7,9 @@ namespace AirCharter.API.Requests.Departures
         public bool IncludePreviousStatuses { get; set; }
 
         public int? TargetLegIndex { get; set; }
+
+        public int? DelayMinutes { get; set; }
+
+        public int? RedirectedAirportId { get; set; }
     }
 }

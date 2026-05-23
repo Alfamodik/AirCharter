@@ -626,6 +626,12 @@
     grid-column: 1 / -1;
 }
 
+.management-additional-status-modal-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
 .management-payment-summary {
     display: flex;
     align-items: center;
@@ -657,6 +663,13 @@
 
 .management-passenger-modal .management-inline-error {
     margin-top: 14px;
+}
+
+.management-passenger-modal-error {
+    margin: 12px 0 0;
+    color: #ff6b6b;
+    font-size: 13px;
+    font-weight: 700;
 }
 
 .management-confirm-summary {
@@ -1603,6 +1616,20 @@
     font-size: 13px;
 }
 
+.management-status-history-status {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+    min-width: 0;
+}
+
+.management-status-history-status small {
+    color: var(--text-secondary);
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
 .status-badge {
     display: inline-flex;
     width: fit-content;
@@ -1674,6 +1701,7 @@
         grid-template-columns: 1fr;
     }
 
+    .management-additional-status-modal-grid,
     .management-passenger-add-row,
     .management-passenger-dropdown li,
     .management-passenger-modal-grid,
