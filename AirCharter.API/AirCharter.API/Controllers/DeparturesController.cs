@@ -24,6 +24,7 @@ namespace AirCharter.API.Controllers
         TicketPdfService ticketPdfService,
         ContractPdfDataFactory contractPdfDataFactory,
         ContractPdfService contractPdfService,
+        AirportTimeZoneService airportTimeZoneService,
         EmailService emailService) : ControllerBase
     {
         private const string ManagementViewerRoles = "Owner,Manager,Admin,GeneralDirector,Employee";
@@ -38,6 +39,7 @@ namespace AirCharter.API.Controllers
         private readonly DeparturePdfDataFactory _departurePdfDataFactory = departurePdfDataFactory;
         private readonly ContractPdfDataFactory _contractPdfDataFactory = contractPdfDataFactory;
         private readonly ContractPdfService _contractPdfService = contractPdfService;
+        private readonly AirportTimeZoneService _airportTimeZoneService = airportTimeZoneService;
         private readonly EmailService _emailService = emailService;
 
         [HttpPost("create-order")]
@@ -224,12 +226,16 @@ namespace AirCharter.API.Controllers
                     TakeOffAirportCity = departure.TakeOffAirport.City,
                     TakeOffAirportIata = departure.TakeOffAirport.Iata,
                     TakeOffAirportIcao = departure.TakeOffAirport.Icao,
+                    TakeOffAirportLatitude = departure.TakeOffAirport.Latitude,
+                    TakeOffAirportLongitude = departure.TakeOffAirport.Longitude,
 
                     departure.LandingAirportId,
                     LandingAirportName = departure.LandingAirport.Name,
                     LandingAirportCity = departure.LandingAirport.City,
                     LandingAirportIata = departure.LandingAirport.Iata,
                     LandingAirportIcao = departure.LandingAirport.Icao,
+                    LandingAirportLatitude = departure.LandingAirport.Latitude,
+                    LandingAirportLongitude = departure.LandingAirport.Longitude,
 
                     departure.RequestedTakeOffDateTime,
                     departure.Price,
@@ -492,7 +498,13 @@ namespace AirCharter.API.Controllers
                         LandingAirportIcao = departure.LandingAirportIcao,
 
                         RequestedTakeOffDateTime = departure.RequestedTakeOffDateTime,
-                        ArrivalDateTime = departure.RequestedTakeOffDateTime.Add(departure.FlightTime),
+                        ArrivalDateTime = _airportTimeZoneService.CalculateArrivalDateTime(
+                            departure.RequestedTakeOffDateTime,
+                            departure.FlightTime,
+                            departure.TakeOffAirportLatitude,
+                            departure.TakeOffAirportLongitude,
+                            departure.LandingAirportLatitude,
+                            departure.LandingAirportLongitude),
                         CreatedAt = departure.CreatedAt,
                         SubmittedAt = departure.SubmittedAt,
                         Price = departure.Price,
@@ -1457,6 +1469,7 @@ namespace AirCharter.API.Controllers
             User[] employees = await _context.Users
                 .Include(user => user.Role)
                 .Include(user => user.DeparturesNavigation)
+                    .ThenInclude(employeeDeparture => employeeDeparture.TakeOffAirport)
                 .Where(user =>
                     employeeIds.Contains(user.Id) &&
                     user.AirlineId == userAirlineId.Value &&
@@ -1470,13 +1483,9 @@ namespace AirCharter.API.Controllers
             if (employees.Any(employee => employee.Role.Name == "Client"))
                 return BadRequest("К вылету можно прикреплять только сотрудников авиакомпании.");
 
-            DateTime departureStart = departure.RequestedTakeOffDateTime;
-            DateTime departureEnd = departureStart.Add(departure.FlightTime);
-
             if (employees.Any(employee => employee.DeparturesNavigation.Any(employeeDeparture =>
                 employeeDeparture.Id != departureId &&
-                employeeDeparture.RequestedTakeOffDateTime < departureEnd &&
-                departureStart < employeeDeparture.RequestedTakeOffDateTime.Add(employeeDeparture.FlightTime))))
+                DoDepartureIntervalsOverlap(departure, employeeDeparture))))
                 return BadRequest("Один или несколько сотрудников уже назначены на другой вылет.");
 
             if (HasDepartureStarted(departure) && employeeIds.Length == 0)
@@ -1563,7 +1572,11 @@ namespace AirCharter.API.Controllers
                 LandingAirportIcao = departure.LandingAirport.Icao,
 
                 RequestedTakeOffDateTime = departure.RequestedTakeOffDateTime,
-                ArrivalDateTime = departure.RequestedTakeOffDateTime.Add(routeTotals.FlightTime),
+                ArrivalDateTime = _airportTimeZoneService.CalculateArrivalDateTime(
+                    departure.RequestedTakeOffDateTime,
+                    routeTotals.FlightTime,
+                    departure.TakeOffAirport,
+                    departure.LandingAirport),
                 CreatedAt = statusHistory
                     .FirstOrDefault(status => status.Id == (int)FlightStatusId.InCreation)
                     ?.SetAt,
@@ -2583,6 +2596,19 @@ namespace AirCharter.API.Controllers
         private static bool IsRequestedTakeOffDateTimeTooEarly(DateTime requestedTakeOffDateTime)
         {
             return requestedTakeOffDateTime < DateTime.Today.AddDays(1);
+        }
+
+        private bool DoDepartureIntervalsOverlap(Departure left, Departure right)
+        {
+            DateTimeOffset leftStart = _airportTimeZoneService.CreateDepartureInstant(
+                left.RequestedTakeOffDateTime,
+                left.TakeOffAirport);
+            DateTimeOffset rightStart = _airportTimeZoneService.CreateDepartureInstant(
+                right.RequestedTakeOffDateTime,
+                right.TakeOffAirport);
+
+            return rightStart < leftStart.Add(left.FlightTime) &&
+                leftStart < rightStart.Add(right.FlightTime);
         }
 
         private static string? GetPassengerEmail(Person person)

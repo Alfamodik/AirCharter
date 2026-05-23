@@ -118,6 +118,7 @@ internal class Program
 
         builder.Services.AddScoped<RoutePlanningService>();
         builder.Services.AddSingleton<AirportGraphCache>();
+        builder.Services.AddSingleton<AirportTimeZoneService>();
 
         builder.Services.AddScoped<DeparturePdfDataFactory>();
         builder.Services.AddScoped<TicketPdfService>();

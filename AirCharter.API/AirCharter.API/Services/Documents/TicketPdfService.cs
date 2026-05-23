@@ -103,7 +103,7 @@ public sealed class TicketPdfService
         flightRow.Cells[0].AddParagraph($"{passengerTicketPdfData.FromCity} ({passengerTicketPdfData.FromAirportCode})");
         flightRow.Cells[1].AddParagraph(passengerTicketPdfData.DepartureDateTime.ToString("HH:mm\ndd.MM.yyyy"));
 
-        TimeSpan duration = passengerTicketPdfData.ArrivalDateTime - passengerTicketPdfData.DepartureDateTime;
+        TimeSpan duration = passengerTicketPdfData.FlightTime;
         int totalHours = (int)duration.TotalHours;
         int minutes = duration.Minutes;
 

@@ -1,8 +1,9 @@
 ﻿using AirCharter.API.Model;
+using AirCharter.API.Services;
 
 namespace AirCharter.API.Services.Documents;
 
-public sealed class DeparturePdfDataFactory
+public sealed class DeparturePdfDataFactory(AirportTimeZoneService airportTimeZoneService)
 {
     public DeparturePdfData Create(Departure departure)
     {
@@ -37,7 +38,12 @@ public sealed class DeparturePdfDataFactory
                 FromAirportCode = BuildAirportCode(departure.TakeOffAirport),
                 ToAirportCode = BuildAirportCode(departure.LandingAirport),
                 DepartureDateTime = departure.RequestedTakeOffDateTime,
-                ArrivalDateTime = departure.RequestedTakeOffDateTime.Add(departure.FlightTime)
+                ArrivalDateTime = airportTimeZoneService.CalculateArrivalDateTime(
+                    departure.RequestedTakeOffDateTime,
+                    departure.FlightTime,
+                    departure.TakeOffAirport,
+                    departure.LandingAirport),
+                FlightTime = departure.FlightTime
             };
 
             tickets.Add(passengerTicketPdfData);

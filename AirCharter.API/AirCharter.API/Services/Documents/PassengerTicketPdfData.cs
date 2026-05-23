@@ -15,4 +15,5 @@ public sealed class PassengerTicketPdfData
     public required string ToAirportCode { get; init; }
     public required DateTime DepartureDateTime { get; init; }
     public required DateTime ArrivalDateTime { get; init; }
+    public required TimeSpan FlightTime { get; init; }
 }

@@ -26,9 +26,17 @@ const emptyProfileFormData: ProfileFormData = {
     bankIdentifierCode: ""
 };
 
+function formatLocalDateInput(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+}
+
 export default function ProfilePage() {
     const navigate = useNavigate();
-    const today = new Date().toISOString().split("T")[0];
+    const today = formatLocalDateInput(new Date());
 
     const [initialData, setInitialData] = useState<ProfileFormData | null>(null);
     const [formData, setFormData] = useState<ProfileFormData>(emptyProfileFormData);
@@ -98,7 +106,7 @@ export default function ProfilePage() {
             return;
         }
 
-        if (formData.birthDate && new Date(formData.birthDate) > new Date()) {
+        if (formData.birthDate && formData.birthDate > today) {
             setStatusMessage({ text: "Дата рождения не может быть в будущем", type: "error" });
             return;
         }

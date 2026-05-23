@@ -16,7 +16,11 @@ namespace AirCharter.API.Controllers;
 [ApiController]
 [Authorize]
 [Route("airlines")]
-public sealed class AirlinesController(AirCharterExtendedContext context, JwtService jwtService, EmailService emailService) : ControllerBase
+public sealed class AirlinesController(
+    AirCharterExtendedContext context,
+    JwtService jwtService,
+    EmailService emailService,
+    AirportTimeZoneService airportTimeZoneService) : ControllerBase
 {
     private const string AirlineProfileRoles = "Owner,GeneralDirector";
     private const string AirlineEmployeeManagementRoles = "Owner,Manager,Admin,GeneralDirector";
@@ -26,6 +30,7 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
     private readonly AirCharterExtendedContext _context = context;
     private readonly JwtService _jwtService = jwtService;
     private readonly EmailService _emailService = emailService;
+    private readonly AirportTimeZoneService _airportTimeZoneService = airportTimeZoneService;
     private readonly PasswordHasher<User> _passwordHasher = new();
 
     [HttpPost("register")]
@@ -145,8 +150,8 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
         if (airlineId is null)
             return Forbid();
 
-        DateTime? availableDepartureStart = null;
-        DateTime? availableDepartureEnd = null;
+        DateTimeOffset? availableDepartureStart = null;
+        DateTimeOffset? availableDepartureEnd = null;
 
         if (availableForDepartureId is not null)
         {
@@ -159,15 +164,20 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
                 .Select(departure => new
                 {
                     Start = departure.RequestedTakeOffDateTime,
-                    departure.FlightTime
+                    departure.FlightTime,
+                    TakeOffAirportLatitude = departure.TakeOffAirport.Latitude,
+                    TakeOffAirportLongitude = departure.TakeOffAirport.Longitude
                 })
                 .FirstOrDefaultAsync(cancellationToken);
 
             if (availableDeparture is null)
                 return NotFound();
 
-            availableDepartureStart = availableDeparture.Start;
-            availableDepartureEnd = availableDeparture.Start.Add(availableDeparture.FlightTime);
+            availableDepartureStart = _airportTimeZoneService.CreateDepartureInstant(
+                availableDeparture.Start,
+                availableDeparture.TakeOffAirportLatitude,
+                availableDeparture.TakeOffAirportLongitude);
+            availableDepartureEnd = availableDepartureStart.Value.Add(availableDeparture.FlightTime);
         }
 
         User[] employees = await _context.Users
@@ -175,6 +185,7 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
             .Include(user => user.Person)
             .Include(user => user.Role)
             .Include(user => user.DeparturesNavigation)
+                .ThenInclude(departure => departure.TakeOffAirport)
             .Where(user => user.AirlineId == airlineId.Value && (includeInactive || user.IsActive))
             .ToArrayAsync(cancellationToken);
 
@@ -187,8 +198,7 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
                     DoDepartureIntervalsOverlap(
                         availableDepartureStart!.Value,
                         availableDepartureEnd!.Value,
-                        departure.RequestedTakeOffDateTime,
-                        departure.RequestedTakeOffDateTime.Add(departure.FlightTime))))
+                        departure)))
                 .ToArray();
         }
 
@@ -820,11 +830,27 @@ public sealed class AirlinesController(AirCharterExtendedContext context, JwtSer
         return value?.Trim() ?? string.Empty;
     }
 
+    private bool DoDepartureIntervalsOverlap(
+        DateTimeOffset leftStart,
+        DateTimeOffset leftEnd,
+        Departure right)
+    {
+        DateTimeOffset rightStart = _airportTimeZoneService.CreateDepartureInstant(
+            right.RequestedTakeOffDateTime,
+            right.TakeOffAirport);
+
+        return DoDepartureIntervalsOverlap(
+            leftStart,
+            leftEnd,
+            rightStart,
+            rightStart.Add(right.FlightTime));
+    }
+
     private static bool DoDepartureIntervalsOverlap(
-        DateTime leftStart,
-        DateTime leftEnd,
-        DateTime rightStart,
-        DateTime rightEnd)
+        DateTimeOffset leftStart,
+        DateTimeOffset leftEnd,
+        DateTimeOffset rightStart,
+        DateTimeOffset rightEnd)
     {
         return rightStart < leftEnd && leftStart < rightEnd;
     }

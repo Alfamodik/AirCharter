@@ -1,9 +1,10 @@
 using System.Globalization;
 using AirCharter.API.Model;
+using AirCharter.API.Services;
 
 namespace AirCharter.API.Services.Documents;
 
-public sealed class ContractPdfDataFactory
+public sealed class ContractPdfDataFactory(AirportTimeZoneService airportTimeZoneService)
 {
     public ContractPdfDataResult Create(Departure departure, User signingUser)
     {
@@ -67,7 +68,11 @@ public sealed class ContractPdfDataFactory
         if (missingFields.Count > 0)
             return Missing(missingFields);
 
-        DateTime landingDateTime = departure.RequestedTakeOffDateTime.Add(departure.FlightTime);
+        DateTime landingDateTime = airportTimeZoneService.CalculateArrivalDateTime(
+            departure.RequestedTakeOffDateTime,
+            departure.FlightTime,
+            departure.TakeOffAirport,
+            departure.LandingAirport);
         DateOnly contractEndDate = DateOnly.FromDateTime(contractDate.Date.AddDays(contractValidityDays!.Value));
         DateOnly paymentDeadlineDate = DateOnly.FromDateTime(contractDate.Date.AddDays(paymentDeadlineDays!.Value));
 
