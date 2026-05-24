@@ -116,11 +116,20 @@ const periodOptions: Array<{ key: PeriodKey; label: string }> = [
     { key: "custom", label: "Диапазон" }
 ];
 
+const trendGroupOptions: Array<{ key: TrendGroup; label: string }> = [
+    { key: "day", label: "Дни" },
+    { key: "week", label: "Недели" },
+    { key: "month", label: "Месяцы" },
+    { key: "year", label: "Годы" }
+];
+const maxDailyTrendDays = 186;
+
 export default function ManagementAnalyticsPage() {
     const navigate = useNavigate();
     const { user, isLoading: isUserLoading } = useUser();
     const [departures, setDepartures] = useState<ManagementDepartureResponse[]>([]);
     const [period, setPeriod] = useState<PeriodKey>("month");
+    const [trendGroup, setTrendGroup] = useState<TrendGroup>(() => getDefaultTrendGroup("month", "", ""));
     const [customDateFrom, setCustomDateFrom] = useState("");
     const [customDateTo, setCustomDateTo] = useState("");
     const [isAnalyticsLoading, setIsAnalyticsLoading] = useState(true);
@@ -156,10 +165,27 @@ export default function ManagementAnalyticsPage() {
         return () => abortController.abort();
     }, [isUserLoading, loadAnalytics, user]);
 
-    const analytics = useMemo(
-        () => buildAnalytics(departures, period, customDateFrom, customDateTo),
+    useEffect(() => {
+        setTrendGroup(getDefaultTrendGroup(period, customDateFrom, customDateTo, departures));
+    }, [customDateFrom, customDateTo, departures, period]);
+
+    const availableTrendGroupOptions = useMemo(
+        () => getAvailableTrendGroupOptions(departures, period, customDateFrom, customDateTo),
         [customDateFrom, customDateTo, departures, period]
     );
+    const selectedTrendGroup = normalizeTrendGroup(
+        trendGroup,
+        availableTrendGroupOptions,
+        getDefaultTrendGroup(period, customDateFrom, customDateTo, departures)
+    );
+    const analytics = useMemo(
+        () => buildAnalytics(departures, period, customDateFrom, customDateTo, selectedTrendGroup),
+        [customDateFrom, customDateTo, departures, period, selectedTrendGroup]
+    );
+    const updatePeriod = (nextPeriod: PeriodKey) => {
+        setPeriod(nextPeriod);
+        setTrendGroup(getDefaultTrendGroup(nextPeriod, customDateFrom, customDateTo, departures));
+    };
 
     if (!isUserLoading && (user === null || !hasManagementEditAccess(user.role?.name))) {
         return <Navigate to="/catalog" replace />;
@@ -187,41 +213,55 @@ export default function ManagementAnalyticsPage() {
 
                 <main className="catalog-main management-analytics-page">
                     <div className="management-analytics-period-panel">
-                        <div className="management-analytics-header">
+                        <div className="management-analytics-controls">
                             <div className="management-analytics-periods" aria-label="Период аналитики">
                                 {periodOptions.map((option) => (
                                     <button
                                         key={option.key}
                                         type="button"
                                         className={period === option.key ? "active" : ""}
-                                        onClick={() => setPeriod(option.key)}
+                                        onClick={() => updatePeriod(option.key)}
                                     >
                                         {option.label}
                                     </button>
                                 ))}
                             </div>
-                        </div>
 
-                        {period === "custom" && (
-                            <div className="management-analytics-custom-period">
-                                <label>
-                                    <span>С</span>
-                                    <input
-                                        type="date"
-                                        value={customDateFrom}
-                                        onChange={(event) => setCustomDateFrom(event.target.value)}
-                                    />
-                                </label>
-                                <label>
-                                    <span>По</span>
-                                    <input
-                                        type="date"
-                                        value={customDateTo}
-                                        onChange={(event) => setCustomDateTo(event.target.value)}
-                                    />
-                                </label>
-                            </div>
-                        )}
+                            {period === "custom" && (
+                                <div className="management-analytics-custom-period">
+                                    <label>
+                                        <span>С</span>
+                                        <input
+                                            type="date"
+                                            value={customDateFrom}
+                                            onChange={(event) => setCustomDateFrom(event.target.value)}
+                                        />
+                                    </label>
+                                    <label>
+                                        <span>По</span>
+                                        <input
+                                            type="date"
+                                            value={customDateTo}
+                                            onChange={(event) => setCustomDateTo(event.target.value)}
+                                        />
+                                    </label>
+                                </div>
+                            )}
+
+                            <label className="management-analytics-grouping">
+                                <select
+                                    aria-label="Группировка графика"
+                                    value={selectedTrendGroup}
+                                    onChange={(event) => setTrendGroup(event.target.value as TrendGroup)}
+                                >
+                                    {availableTrendGroupOptions.map((option) => (
+                                        <option key={option.key} value={option.key}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                        </div>
                     </div>
 
                     {errorMessage !== "" && (
@@ -268,13 +308,37 @@ export default function ManagementAnalyticsPage() {
                                 <article className="management-analytics-panel wide full">
                                     <div className="management-analytics-panel-header">
                                         <div>
-                                            <h2>Динамика</h2>
-                                            <HelpTooltip text="Помогает понять, растёт ли поток заявок и денег. За 7 дней показывает дни, за месяц - недели, за длинные периоды - более крупные интервалы. Оранжевое - заявки, зелёное - выручка." />
-                                            <p>Поданные заявки и выручка выполненных рейсов.</p>
+                                            <h2>Динамика заявок</h2>
+                                            <HelpTooltip text="Показывает, растёт ли поток поданных заявок. За 7 дней показывает дни, за месяц - недели, за длинные периоды - более крупные интервалы." />
+                                            <p>Поданные заявки.</p>
                                         </div>
-                                        <span>{analytics.trend.length}</span>
                                     </div>
-                                    <TrendChart points={analytics.trend} />
+                                    <TrendSeriesChart
+                                        points={analytics.trend}
+                                        title="Заявки"
+                                        tone="requests"
+                                        getValue={(point) => point.requests}
+                                        formatAxisValue={(value) => formatNumber(Math.round(value))}
+                                        formatTitle={(point) => `${point.label}: ${formatRequestCount(point.requests)}`}
+                                    />
+                                </article>
+
+                                <article className="management-analytics-panel wide full">
+                                    <div className="management-analytics-panel-header">
+                                        <div>
+                                            <h2>Динамика выручки</h2>
+                                            <HelpTooltip text="Показывает выручку по выполненным рейсам за выбранный период." />
+                                            <p>Выручка по выполненным рейсам.</p>
+                                        </div>
+                                    </div>
+                                    <TrendSeriesChart
+                                        points={analytics.trend}
+                                        title="Выручка"
+                                        tone="revenue"
+                                        getValue={(point) => point.revenue}
+                                        formatAxisValue={formatCompactMoney}
+                                        formatTitle={(point) => `${point.label}: ${formatPrice(point.revenue)}`}
+                                    />
                                 </article>
 
                                 <article className="management-analytics-panel">
@@ -389,48 +453,155 @@ function IssueList({ issues }: { issues: IssueStat[] }) {
     );
 }
 
-function TrendChart({ points }: { points: TrendPoint[] }) {
-    const maxRevenue = Math.max(1, ...points.map((point) => point.revenue));
-    const maxRequests = Math.max(1, ...points.map((point) => point.requests));
+function TrendSeriesChart({
+    points,
+    title,
+    tone,
+    getValue,
+    formatAxisValue,
+    formatTitle
+}: {
+    points: TrendPoint[];
+    title: string;
+    tone: "requests" | "revenue";
+    getValue: (point: TrendPoint) => number;
+    formatAxisValue: (value: number) => string;
+    formatTitle: (point: TrendPoint) => string;
+}) {
+    const maxPointValue = Math.max(1, ...points.map(getValue));
+    const axisMaxValue = tone === "requests" ? Math.max(4, Math.ceil(maxPointValue)) : maxPointValue;
+    const chartTop = 12;
+    const chartBottom = 88;
+    const chartLeft = 3.5;
+    const chartRight = 96.5;
+    const chartHeight = chartBottom - chartTop;
+    const chartWidth = chartRight - chartLeft;
+    const chartPoints = points.map((point, index) => {
+        const x = points.length === 1 ? 50 : chartLeft + (index / (points.length - 1)) * chartWidth;
+        const y = chartBottom - (getValue(point) / axisMaxValue) * chartHeight;
+
+        return { point, x, y };
+    });
+    const polylinePoints = chartPoints
+        .map(({ x, y }) => `${x.toFixed(2)},${y.toFixed(2)}`)
+        .join(" ");
+    const horizontalGridLines = [12, 31, 50, 69, 88];
+    const visibleChartPoints = getVisibleTrendPoints(chartPoints);
+    const axisValues = horizontalGridLines.map((y, index) => ({
+        key: `${index}`,
+        label: formatAxisValue(axisMaxValue * ((horizontalGridLines.length - 1 - index) / (horizontalGridLines.length - 1))),
+        y
+    }));
 
     if (points.length === 0) {
         return <p className="management-analytics-empty">Нет данных за выбранный период.</p>;
     }
 
     return (
-        <div className="management-trend-block">
-            <div className="management-trend-legend" aria-label="Легенда графика Динамика">
-                <span><i className="revenue"></i>Выручка</span>
-                <span><i className="requests"></i>Заявки</span>
-            </div>
-            <div
-                className="management-trend-chart"
-                style={{ gridTemplateColumns: `repeat(${points.length}, minmax(0, 1fr))` }}
-            >
-                {points.map((point) => (
-                    <div key={point.key} className="management-trend-column">
-                        <div className="management-trend-bars">
-                            <div
-                                className="management-trend-bar revenue"
-                                style={{ height: `${Math.max(6, (point.revenue / maxRevenue) * 100)}%` }}
-                                title={`${point.label}: ${formatPrice(point.revenue)}`}
-                            >
-                                <span>{formatCompactMoney(point.revenue)}</span>
-                            </div>
-                            <div
-                                className="management-trend-bar requests"
-                                style={{ height: `${Math.max(6, (point.requests / maxRequests) * 100)}%` }}
-                                title={`${point.label}: ${point.requests} заявок`}
-                            >
-                                <span>{point.requests}</span>
-                            </div>
-                        </div>
-                        <strong>{point.label}</strong>
+        <section className="management-trend-series" aria-label={title}>
+            <div className="management-trend-line-chart">
+                <div className="management-trend-plot-row">
+                    <div className="management-trend-axis" aria-hidden="true">
+                        {axisValues.map((value) => (
+                            <span key={value.key} style={{ top: `${value.y}%` }}>{value.label}</span>
+                        ))}
                     </div>
-                ))}
+                    <div className="management-trend-plot-wrap">
+                        <svg className="management-trend-line-plot" viewBox="0 0 100 100" preserveAspectRatio="none" role="img">
+                            <title>{title}</title>
+                            {horizontalGridLines.map((y) => (
+                                <line
+                                    key={`horizontal-${y}`}
+                                    className="management-trend-grid-line"
+                                    x1="0"
+                                    x2="100"
+                                    y1={y}
+                                    y2={y}
+                                    vectorEffect="non-scaling-stroke"
+                                />
+                            ))}
+                            {visibleChartPoints.map(({ point, x }) => (
+                                <line
+                                    key={`vertical-${point.key}`}
+                                    className="management-trend-grid-line"
+                                    x1={x}
+                                    x2={x}
+                                    y1={chartTop}
+                                    y2={chartBottom}
+                                    vectorEffect="non-scaling-stroke"
+                                />
+                            ))}
+                            <polyline
+                                className={`management-trend-line ${tone}`}
+                                points={polylinePoints}
+                                vectorEffect="non-scaling-stroke"
+                            />
+                        </svg>
+                        {chartPoints.map(({ point, x, y }) => (
+                            <span
+                                key={point.key}
+                                className={`management-trend-marker ${tone}`}
+                                style={{ left: `${x}%`, top: `${y}%` }}
+                                title={formatTitle(point)}
+                                tabIndex={0}
+                                aria-label={formatTitle(point)}
+                            >
+                                <span className="management-trend-tooltip">{formatTitle(point)}</span>
+                            </span>
+                        ))}
+                    </div>
+                </div>
+                <div className="management-trend-label-row">
+                    <span></span>
+                    <div className="management-trend-line-labels">
+                        {visibleChartPoints.map(({ point, x }) => (
+                            <strong
+                                key={point.key}
+                                style={{ left: `${x}%` }}
+                            >
+                                {point.label}
+                            </strong>
+                        ))}
+                    </div>
+                </div>
             </div>
-        </div>
+        </section>
     );
+}
+
+function getVisibleTrendPoints<T extends { x: number }>(points: T[]): T[] {
+    if (points.length <= 12) {
+        return points;
+    }
+
+    const step = Math.ceil((points.length - 1) / 8);
+    const selected = points.filter((_, index) => index === 0 || index === points.length - 1 || index % step === 0);
+    const minLabelGapPercent = 12;
+    const visible: T[] = [];
+
+    for (const point of selected) {
+        const isLastPoint = point === points[points.length - 1];
+
+        if (visible.length === 0) {
+            visible.push(point);
+            continue;
+        }
+
+        if (isLastPoint) {
+            while (visible.length > 1 && point.x - visible[visible.length - 1].x < minLabelGapPercent) {
+                visible.pop();
+            }
+
+            visible.push(point);
+            continue;
+        }
+
+        if (point.x - visible[visible.length - 1].x >= minLabelGapPercent) {
+            visible.push(point);
+        }
+    }
+
+    return visible;
 }
 
 function PipelineList({ stages }: { stages: PipelineStage[] }) {
@@ -490,7 +661,8 @@ function buildAnalytics(
     departures: ManagementDepartureResponse[],
     period: PeriodKey,
     customDateFrom: string,
-    customDateTo: string
+    customDateTo: string,
+    trendGroup: TrendGroup
 ) {
     const range = createDateRange(period, customDateFrom, customDateTo);
     const now = new Date();
@@ -610,7 +782,7 @@ function buildAnalytics(
         ),
         issueTotal: buildIssueStats(departures, now, draftDepartures).reduce((sum, issue) => sum + Number(issue.value), 0),
         issues: buildIssueStats(departures, now, draftDepartures),
-        trend: buildTrend(departures, range, period),
+        trend: buildTrend(departures, range, period, trendGroup),
         pipelineStages: buildPipelineStages(activePipeline),
         topRoutes: buildTopRoutes(submittedInPeriod),
         topPlanes: buildTopPlanes(submittedInPeriod),
@@ -838,10 +1010,11 @@ function buildIssueStats(
 function buildTrend(
     departures: ManagementDepartureResponse[],
     range: DateRange,
-    period: PeriodKey
+    period: PeriodKey,
+    trendGroup: TrendGroup
 ): TrendPoint[] {
-    const trendGroup = getTrendGroup(range, period);
-    const trendMap = createTrendBuckets(range, trendGroup);
+    const trendRange = createTrendRange(departures, range, period);
+    const trendMap = createTrendBuckets(trendRange, trendGroup);
 
     for (const departure of departures) {
         const submittedDate = getSubmittedDate(departure);
@@ -916,6 +1089,64 @@ function getTrendPoint(
     return point;
 }
 
+function createTrendRange(
+    departures: ManagementDepartureResponse[],
+    range: DateRange,
+    period: PeriodKey
+): DateRange {
+    if (period !== "all" && period !== "custom") {
+        return range;
+    }
+
+    const dataRange = getTrendDataRange(departures, range);
+
+    if (dataRange === null) {
+        return range;
+    }
+
+    return {
+        currentStart: dataRange.start,
+        currentEnd: dataRange.end,
+        previousStart: null,
+        previousEnd: null
+    };
+}
+
+function getTrendDataRange(
+    departures: ManagementDepartureResponse[],
+    range: DateRange
+): { start: Date; end: Date } | null {
+    let start: Date | null = null;
+    let end: Date | null = null;
+
+    for (const departure of departures) {
+        const dates = [getSubmittedDate(departure), getCompletedDate(departure)];
+
+        for (const date of dates) {
+            if (date === null || !isDateInRange(date, range.currentStart, range.currentEnd)) {
+                continue;
+            }
+
+            if (start === null || date < start) {
+                start = date;
+            }
+
+            if (end === null || date > end) {
+                end = date;
+            }
+        }
+    }
+
+    if (start === null || end === null) {
+        return null;
+    }
+
+    return {
+        start: createDateFromDate(start, false),
+        end: createDateFromDate(end, true)
+    };
+}
+
 function getTrendGroup(range: DateRange, period: PeriodKey): TrendGroup {
     if (period === "sevenDays") {
         return "day";
@@ -948,6 +1179,62 @@ function getTrendGroup(range: DateRange, period: PeriodKey): TrendGroup {
     }
 
     return "year";
+}
+
+function getAvailableTrendGroupOptions(
+    departures: ManagementDepartureResponse[],
+    period: PeriodKey,
+    customDateFrom: string,
+    customDateTo: string
+): Array<{ key: TrendGroup; label: string }> {
+    const range = createTrendRange(departures, createDateRange(period, customDateFrom, customDateTo), period);
+
+    return trendGroupOptions.filter((option) => option.key !== "day" || isDailyTrendGroupAllowed(range, period));
+}
+
+function normalizeTrendGroup(
+    trendGroup: TrendGroup,
+    options: Array<{ key: TrendGroup; label: string }>,
+    fallback: TrendGroup
+): TrendGroup {
+    if (options.some((option) => option.key === trendGroup)) {
+        return trendGroup;
+    }
+
+    if (options.some((option) => option.key === fallback)) {
+        return fallback;
+    }
+
+    return options[0]?.key ?? "month";
+}
+
+function getDefaultTrendGroup(
+    period: PeriodKey,
+    customDateFrom: string,
+    customDateTo: string,
+    departures: ManagementDepartureResponse[] = []
+): TrendGroup {
+    const range = createTrendRange(departures, createDateRange(period, customDateFrom, customDateTo), period);
+
+    return getTrendGroup(range, period);
+}
+
+function isDailyTrendGroupAllowed(range: DateRange, period: PeriodKey): boolean {
+    if (period === "sixMonths" || period === "year") {
+        return false;
+    }
+
+    const days = getDateRangeDays(range);
+
+    return days !== null && days <= maxDailyTrendDays;
+}
+
+function getDateRangeDays(range: DateRange): number | null {
+    if (range.currentStart === null || range.currentEnd === null) {
+        return null;
+    }
+
+    return Math.ceil((range.currentEnd.getTime() - range.currentStart.getTime()) / 86_400_000) + 1;
 }
 
 function getTrendBucketStart(date: Date, trendGroup: TrendGroup): Date {
@@ -1007,10 +1294,14 @@ function formatTrendLabel(date: Date, trendGroup: TrendGroup): string {
     }
 
     if (trendGroup === "week") {
-        return `с ${new Intl.DateTimeFormat("ru-RU", {
-            day: "2-digit",
-            month: "short"
-        }).format(date)}`;
+        const endDate = new Date(date);
+        endDate.setDate(endDate.getDate() + 6);
+
+        if (date.getMonth() === endDate.getMonth() && date.getFullYear() === endDate.getFullYear()) {
+            return `${formatDayOnly(date)}-${formatDayMonth(endDate)}`;
+        }
+
+        return `${formatDayMonth(date)} - ${formatDayMonth(endDate)}`;
     }
 
     if (trendGroup === "month") {
@@ -1350,6 +1641,18 @@ function createDateBoundary(value: string, isEndOfDay: boolean): Date | null {
     return date;
 }
 
+function createDateFromDate(value: Date, isEndOfDay: boolean): Date {
+    const date = new Date(value);
+
+    if (isEndOfDay) {
+        date.setHours(23, 59, 59, 999);
+    } else {
+        date.setHours(0, 0, 0, 0);
+    }
+
+    return date;
+}
+
 function getAirportShortName(
     city?: string | null,
     name?: string | null,
@@ -1374,6 +1677,35 @@ function formatCompactMoney(value: number): string {
     return new Intl.NumberFormat("ru-RU", {
         notation: "compact",
         maximumFractionDigits: 1
+    }).format(value);
+}
+
+function formatRequestCount(value: number): string {
+    const mod100 = Math.abs(value) % 100;
+    const mod10 = mod100 % 10;
+    let noun = "заявок";
+
+    if (mod100 < 11 || mod100 > 14) {
+        if (mod10 === 1) {
+            noun = "заявка";
+        } else if (mod10 >= 2 && mod10 <= 4) {
+            noun = "заявки";
+        }
+    }
+
+    return `${formatNumber(value)} ${noun}`;
+}
+
+function formatDayOnly(value: Date): string {
+    return new Intl.DateTimeFormat("ru-RU", {
+        day: "2-digit"
+    }).format(value);
+}
+
+function formatDayMonth(value: Date): string {
+    return new Intl.DateTimeFormat("ru-RU", {
+        day: "2-digit",
+        month: "short"
     }).format(value);
 }
 
