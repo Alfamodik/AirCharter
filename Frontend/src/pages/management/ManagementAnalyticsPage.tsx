@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import Header from "../../components/header/Header";
 import { getManagementDepartures } from "../../api/managementService";
+import { getFriendlyApiErrorMessage } from "../../api/utils/apiError";
 import { hasManagementEditAccess } from "../../api/utils/roleAccess";
 import { useUser } from "../../context/UserContext";
 import type { ManagementDepartureResponse } from "../../contracts/responses/departures/managementDepartureResponse";
@@ -143,9 +144,12 @@ export default function ManagementAnalyticsPage() {
             const response = await getManagementDepartures("analytics", signal);
 
             setDepartures(response);
-        } catch {
+        } catch (error: unknown) {
             if (!signal?.aborted) {
-                setErrorMessage("Не удалось загрузить аналитику.");
+                setErrorMessage(getFriendlyApiErrorMessage(
+                    error,
+                    "Не удалось загрузить аналитику."
+                ));
             }
         } finally {
             if (!signal?.aborted) {

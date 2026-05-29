@@ -6,6 +6,7 @@ import CatalogPlaneCard from "../../components/catalogPlaneCard/CatalogPlaneCard
 import AirportSearch, { type AirportSelection } from "../../components/airportSearch/AirportSearch";
 import Header from "../../components/header/Header";
 import { getPlanes, getCatalogPlanes } from "../../api/planesService";
+import { getFriendlyApiErrorMessage } from "../../api/utils/apiError";
 import type { PlaneCatalogResponse } from "../../contracts/responses/planes/planeCatalogResponse";
 import "./CatalogPage.css";
 import RouteModal from "../../components/routeModal/RouteModal";
@@ -348,8 +349,11 @@ export default function CatalogPage() {
 
             setPlanes(data);
             setErrorMessage(null);
-        } catch {
-            setErrorMessage("Ошибка загрузки данных");
+        } catch (error: unknown) {
+            setErrorMessage(getFriendlyApiErrorMessage(
+                error,
+                "Не удалось загрузить данные. Попробуйте ещё раз."
+            ));
         } finally {
             setIsLoading(false);
         }

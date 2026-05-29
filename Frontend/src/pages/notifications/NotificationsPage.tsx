@@ -8,6 +8,7 @@ import {
     markMyNotificationsAsRead,
     type NotificationResponse
 } from "../../api/notificationService";
+import { getFriendlyApiErrorMessage } from "../../api/utils/apiError";
 import { useUser } from "../../context/UserContext";
 import "./NotificationsPage.css";
 
@@ -37,10 +38,10 @@ export default function NotificationsPage() {
                 const response = await getMyNotifications(abortController.signal);
                 setNotifications(response);
                 setStatusMessage(null);
-            } catch {
+            } catch (error: unknown) {
                 if (!abortController.signal.aborted) {
                     setStatusMessage({
-                        text: "Не удалось загрузить уведомления.",
+                        text: getApiErrorMessage(error, "Не удалось загрузить уведомления."),
                         type: "load"
                     });
                 }
@@ -71,9 +72,9 @@ export default function NotificationsPage() {
                     notification.id === notificationId
                         ? { ...notification, readAtUtc: new Date().toISOString() }
                         : notification));
-        } catch {
+        } catch (error: unknown) {
             setStatusMessage({
-                text: "Не удалось обновить уведомление.",
+                text: getApiErrorMessage(error, "Не удалось обновить уведомление."),
                 type: "action"
             });
         } finally {
@@ -97,9 +98,9 @@ export default function NotificationsPage() {
                     ...notification,
                     readAtUtc: notification.readAtUtc ?? readAtUtc
                 })));
-        } catch {
+        } catch (error: unknown) {
             setStatusMessage({
-                text: "Не удалось обновить уведомления.",
+                text: getApiErrorMessage(error, "Не удалось обновить уведомления."),
                 type: "action"
             });
         } finally {
@@ -229,13 +230,5 @@ function formatDateTime(value: string): string {
 }
 
 function getApiErrorMessage(error: unknown, fallback: string): string {
-    if (typeof error === "object" && error !== null && "message" in error) {
-        const message = error.message;
-
-        if (typeof message === "string" && message.trim() !== "") {
-            return message.trim();
-        }
-    }
-
-    return fallback;
+    return getFriendlyApiErrorMessage(error, fallback);
 }

@@ -1,4 +1,4 @@
-import type { ApiError } from "../utils/apiError";
+import { getFriendlyApiErrorMessage, type ApiError } from "../utils/apiError";
 
 export function getRegisterErrorMessage(error: unknown): string {
     const apiError = getApiError(error);
@@ -15,7 +15,7 @@ export function getRegisterErrorMessage(error: unknown): string {
             return "Пользователь с такой почтой уже существует.";
 
         default:
-            return "Не удалось зарегистрироваться.";
+            return getFriendlyApiErrorMessage(apiError, "Не удалось зарегистрироваться.");
     }
 }
 
@@ -37,7 +37,7 @@ export function getLoginErrorMessage(error: unknown): string {
             return "Пользователь заблокирован.";
 
         default:
-            return "Не удалось выполнить вход.";
+            return getFriendlyApiErrorMessage(apiError, "Не удалось выполнить вход.");
     }
 }
 
@@ -56,7 +56,7 @@ export function getConfirmEmailErrorMessage(error: unknown): string {
             return "Пользователь не найден.";
 
         default:
-            return "Не удалось подтвердить почту.";
+            return getFriendlyApiErrorMessage(apiError, "Не удалось подтвердить почту.");
     }
 }
 
@@ -75,7 +75,7 @@ export function getResendCodeErrorMessage(error: unknown): string {
             return "Пользователь не найден.";
 
         default:
-            return "Не удалось отправить код повторно.";
+            return getFriendlyApiErrorMessage(apiError, "Не удалось отправить код повторно.");
     }
 }
 
@@ -103,70 +103,96 @@ function getApiError(error: unknown): ApiError | null {
 function getRegisterBadRequestMessage(message?: string): string {
     switch (message) {
         case "Email is required.":
+        case "Укажите почту.":
             return "Укажите почту.";
 
         case "Password is required.":
+        case "Укажите пароль.":
             return "Укажите пароль.";
 
         default:
-            return "Некорректные данные для регистрации.";
+            return getFriendlyApiErrorMessage(
+                { status: 400, message },
+                "Некорректные данные для регистрации."
+            );
     }
 }
 
 function getLoginBadRequestMessage(message?: string): string {
     switch (message) {
         case "Email is required.":
+        case "Укажите почту.":
             return "Укажите почту.";
 
         case "Password is required.":
+        case "Укажите пароль.":
             return "Укажите пароль.";
 
         case "Email is not confirmed.":
+        case "Почта не подтверждена.":
             return "Почта не подтверждена.";
 
         default:
-            return "Не удалось выполнить вход.";
+            return getFriendlyApiErrorMessage(
+                { status: 400, message },
+                "Не удалось выполнить вход."
+            );
     }
 }
 
 function getConfirmEmailBadRequestMessage(message?: string): string {
     switch (message) {
         case "Email is required.":
+        case "Укажите почту.":
             return "Укажите почту.";
 
         case "Code is required.":
+        case "Укажите код подтверждения.":
             return "Укажите код подтверждения.";
 
         case "Email is already confirmed.":
+        case "Почта уже подтверждена.":
             return "Почта уже подтверждена.";
 
         case "Confirmation code not found.":
+        case "Код подтверждения не найден. Запросите новый код.":
             return "Код подтверждения не найден.";
 
         case "Confirmation code expiration not found.":
+        case "Не удалось проверить срок действия кода. Запросите новый код.":
             return "Срок действия кода не найден.";
 
         case "Confirmation code expired.":
+        case "Срок действия кода истёк. Запросите новый код.":
             return "Срок действия кода истёк.";
 
         case "Invalid confirmation code.":
+        case "Неверный код подтверждения.":
             return "Неверный код подтверждения.";
 
         default:
-            return "Не удалось подтвердить почту.";
+            return getFriendlyApiErrorMessage(
+                { status: 400, message },
+                "Не удалось подтвердить почту."
+            );
     }
 }
 
 function getResendCodeBadRequestMessage(message?: string): string {
     switch (message) {
         case "Email is required.":
+        case "Укажите почту.":
             return "Укажите почту.";
 
         case "Email is already confirmed.":
+        case "Почта уже подтверждена.":
             return "Почта уже подтверждена.";
 
         default:
-            return "Не удалось отправить код повторно.";
+            return getFriendlyApiErrorMessage(
+                { status: 400, message },
+                "Не удалось отправить код повторно."
+            );
     }
 }
 
@@ -188,7 +214,7 @@ export function getUpdateProfileErrorMessage(error: unknown): string {
             return "Человек с такими паспортными данными уже зарегистрирован.";
 
         default:
-            return "Не удалось сохранить данные.";
+            return getFriendlyApiErrorMessage(apiError, "Не удалось сохранить данные.");
     }
 }
 
@@ -219,6 +245,9 @@ function getUpdateProfileBadRequestMessage(message?: string): string {
             return "Номер паспорта должен содержать 6 цифр.";
 
         default:
-            return message || "Некорректные данные.";
+            return getFriendlyApiErrorMessage(
+                { status: 400, message },
+                "Некорректные данные."
+            );
     }
 }

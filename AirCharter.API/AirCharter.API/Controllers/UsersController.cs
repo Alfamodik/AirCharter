@@ -268,13 +268,13 @@ public sealed class UsersController(AirCharterExtendedContext context, JwtServic
             return Unauthorized();
 
         if (string.IsNullOrWhiteSpace(request.CurrentPassword))
-            return BadRequest("Current password is required.");
+            return BadRequest("Укажите текущий пароль.");
 
         if (string.IsNullOrWhiteSpace(request.NewPassword))
-            return BadRequest("New password is required.");
+            return BadRequest("Укажите новый пароль.");
 
         if (request.NewPassword.Length < 6)
-            return BadRequest("New password is too short.");
+            return BadRequest("Новый пароль должен быть не короче 6 символов.");
 
         User? user = await _context.Users
             .FirstOrDefaultAsync(currentUser => currentUser.Id == userId.Value, cancellationToken);
@@ -286,7 +286,7 @@ public sealed class UsersController(AirCharterExtendedContext context, JwtServic
             _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.CurrentPassword);
 
         if (verificationResult == PasswordVerificationResult.Failed)
-            return BadRequest("Current password is invalid.");
+            return BadRequest("Текущий пароль указан неверно.");
 
         user.PasswordHash = _passwordHasher.HashPassword(user, request.NewPassword);
 

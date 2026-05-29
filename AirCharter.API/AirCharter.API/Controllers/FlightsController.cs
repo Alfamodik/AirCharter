@@ -29,10 +29,10 @@ public sealed class FlightsController(
             cancellationToken);
 
         if (!airportGraph.ContainsAirport(request.TakeOffAirportId))
-            return NotFound("Take-off airport not found.");
+            return NotFound("Аэропорт вылета не найден.");
 
         if (!airportGraph.ContainsAirport(request.LandingAirportId))
-            return NotFound("Landing airport not found.");
+            return NotFound("Аэропорт посадки не найден.");
 
         List<Plane> planes = await _context.Planes
             .Include(plane => plane.Airline)

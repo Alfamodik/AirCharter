@@ -130,5 +130,5 @@ function isEmailNotConfirmedError(error: unknown): boolean {
     return typeof error === "object" &&
         error !== null &&
         "message" in error &&
-        error.message === "Email is not confirmed.";
+        (error.message === "Email is not confirmed." || error.message === "Почта не подтверждена.");
 }

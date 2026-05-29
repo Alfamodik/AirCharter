@@ -6,6 +6,7 @@ import {
     getMyPlane,
     updateMyPlane
 } from "../../api/planesService";
+import { getFriendlyApiErrorMessage } from "../../api/utils/apiError";
 import { hasPlaneManagementAccess } from "../../api/utils/roleAccess";
 import { useUser } from "../../context/UserContext";
 import { validateImageAspectRatio } from "../../utils/imageAspectRatio";
@@ -73,9 +74,9 @@ export default function ManagementPlaneFormPage() {
             try {
                 const plane = await getMyPlane(parsedPlaneId!, abortController.signal);
                 setFormState(createFormState(plane));
-            } catch {
+            } catch (error: unknown) {
                 if (!abortController.signal.aborted) {
-                    setErrorMessage("Не удалось загрузить самолет.");
+                    setErrorMessage(getApiErrorMessage(error, "Не удалось загрузить самолет."));
                 }
             } finally {
                 if (!abortController.signal.aborted) {
@@ -422,13 +423,5 @@ function readFileAsDataUrl(file: File): Promise<string> {
 }
 
 function getApiErrorMessage(error: unknown, fallback: string): string {
-    if (typeof error === "object" && error !== null && "message" in error) {
-        const message = error.message;
-
-        if (typeof message === "string" && message.trim() !== "") {
-            return message.trim();
-        }
-    }
-
-    return fallback;
+    return getFriendlyApiErrorMessage(error, fallback);
 }

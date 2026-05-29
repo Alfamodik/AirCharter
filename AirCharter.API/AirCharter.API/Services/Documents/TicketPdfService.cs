@@ -215,7 +215,7 @@ public sealed class TicketPdfService
 
         Paragraph bulletListParagraph = section.AddParagraph();
         bulletListParagraph.Format.Font.Size = 9;
-        bulletListParagraph.AddFormattedText("• В билете указано время вылета и прибытия относительно города взлёта.\n");
+        bulletListParagraph.AddFormattedText("• В билете указано местное время аэропортов вылета и прибытия.\n");
         bulletListParagraph.AddFormattedText("• Лучше приехать в аэропорт за 2–3 часа до вылета.\n");
         bulletListParagraph.AddFormattedText("• Для посадки на рейс нужен документ, указанный в билете.\n");
         bulletListParagraph.AddFormattedText("• В билете кириллица автоматически меняется на латиницу.");

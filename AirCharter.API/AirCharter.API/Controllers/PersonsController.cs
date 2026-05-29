@@ -32,7 +32,7 @@ namespace AirCharter.API.Controllers
                 return Unauthorized();
 
             if (user.Person == null)
-                return NotFound("Person data was not found for the current user.");
+                return NotFound("Данные профиля не найдены.");
 
             return Ok(CreateCurrentUserPersonResponse(user.Person));
         }
@@ -207,7 +207,7 @@ namespace AirCharter.API.Controllers
                 .FirstOrDefaultAsync(person => person.Id == personId, cancellationToken);
 
             if (person is null || !HasPassport(person, passportSeries, passportNumber))
-                return NotFound("Passenger with these passport details was not found.");
+                return NotFound("Пассажир с такими паспортными данными не найден.");
 
             return Ok(CreatePersonEditResponse(person));
         }
@@ -234,7 +234,7 @@ namespace AirCharter.API.Controllers
                 .FirstOrDefaultAsync(person => person.Id == personId, cancellationToken);
 
             if (person is null || !HasPassport(person, currentPassportSeries, currentPassportNumber))
-                return NotFound("Passenger with these passport details was not found.");
+                return NotFound("Пассажир с такими паспортными данными не найден.");
 
             bool isPassportAlreadyUsed = await _context.Persons
                 .AnyAsync(
@@ -244,7 +244,7 @@ namespace AirCharter.API.Controllers
                     cancellationToken);
 
             if (isPassportAlreadyUsed)
-                return Conflict("A person with the same passport details already exists.");
+                return Conflict("Пассажир с такими паспортными данными уже существует.");
 
             ApplyPersonFields(
                 person,
@@ -315,10 +315,10 @@ namespace AirCharter.API.Controllers
             string? passportNumberValue)
         {
             if (string.IsNullOrWhiteSpace(firstName))
-                return "First name is required.";
+                return "Укажите имя.";
 
             if (string.IsNullOrWhiteSpace(lastName))
-                return "Last name is required.";
+                return "Укажите фамилию.";
 
             return ValidatePassportFields(passportSeriesValue, passportNumberValue);
         }
@@ -328,25 +328,25 @@ namespace AirCharter.API.Controllers
             string? passportNumberValue)
         {
             if (string.IsNullOrWhiteSpace(passportSeriesValue))
-                return "Passport series is required.";
+                return "Укажите серию паспорта.";
 
             if (string.IsNullOrWhiteSpace(passportNumberValue))
-                return "Passport number is required.";
+                return "Укажите номер паспорта.";
 
             string passportSeries = passportSeriesValue.Trim();
             string passportNumber = passportNumberValue.Trim();
 
             if (!passportSeries.All(char.IsDigit))
-                return "Passport series must contain digits only.";
+                return "Серия паспорта должна состоять только из цифр.";
 
             if (!passportNumber.All(char.IsDigit))
-                return "Passport number must contain digits only.";
+                return "Номер паспорта должен состоять только из цифр.";
 
             if (passportSeries.Length != 4)
-                return "Passport series must contain 4 digits.";
+                return "Серия паспорта должна содержать 4 цифры.";
 
             if (passportNumber.Length != 6)
-                return "Passport number must contain 6 digits.";
+                return "Номер паспорта должен содержать 6 цифр.";
 
             return null;
         }

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { getMyPerson, updateMyPerson } from "../../api/personService";
 import { changeMyPassword } from "../../api/userService";
 import { getUpdateProfileErrorMessage } from "../../api/utils/authErrorMessages";
+import { getFriendlyApiErrorMessage } from "../../api/utils/apiError";
 import Header from "../../components/header/Header";
 import InputField from "../../components/inputField/InputField";
 import type { ProfileFormData } from "../../contracts/responses/persons/profileFormData";
@@ -87,7 +88,10 @@ export default function ProfilePage() {
                 return;
             }
 
-            setStatusMessage({ text: "Ошибка загрузки профиля", type: "error" });
+            setStatusMessage({
+                text: getFriendlyApiErrorMessage(error, "Не удалось загрузить профиль. Попробуйте ещё раз."),
+                type: "error"
+            });
         } finally {
             setIsLoading(false);
         }
@@ -355,15 +359,19 @@ function getChangePasswordErrorMessage(error: unknown): string {
     if (typeof error === "object" && error !== null && "message" in error) {
         switch (error.message) {
             case "Current password is required.":
+            case "Укажите текущий пароль.":
                 return "Укажите текущий пароль.";
 
             case "New password is required.":
+            case "Укажите новый пароль.":
                 return "Укажите новый пароль.";
 
             case "New password is too short.":
+            case "Новый пароль должен быть не короче 6 символов.":
                 return "Новый пароль должен быть не короче 6 символов.";
 
             case "Current password is invalid.":
+            case "Текущий пароль указан неверно.":
                 return "Текущий пароль указан неверно.";
         }
     }

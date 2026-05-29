@@ -4,6 +4,7 @@ import {
     getMyAirlineNotifications,
     type AirlineNotificationResponse
 } from "../../api/airlineService";
+import { getFriendlyApiErrorMessage } from "../../api/utils/apiError";
 import { hasManagementAccess } from "../../api/utils/roleAccess";
 import Header from "../../components/header/Header";
 import { useUser } from "../../context/UserContext";
@@ -31,9 +32,12 @@ export default function AirlineNotificationsPage() {
                 const response = await getMyAirlineNotifications(abortController.signal);
                 setNotifications(response);
                 setStatusMessage(null);
-            } catch {
+            } catch (error: unknown) {
                 if (!abortController.signal.aborted) {
-                    setStatusMessage("Не удалось загрузить уведомления авиакомпании.");
+                    setStatusMessage(getFriendlyApiErrorMessage(
+                        error,
+                        "Не удалось загрузить уведомления авиакомпании."
+                    ));
                 }
             } finally {
                 if (!abortController.signal.aborted) {

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { registerAirline, type RegisterAirlineRequest } from "../../api/airlineService";
+import { getFriendlyApiErrorMessage } from "../../api/utils/apiError";
 import Header from "../../components/header/Header";
 import InputField from "../../components/inputField/InputField";
 import { useUser } from "../../context/UserContext";
@@ -203,13 +204,5 @@ function isNumericField(name: keyof RegisterAirlineRequest): boolean {
 }
 
 function getApiErrorMessage(error: unknown, fallback: string): string {
-    if (typeof error === "object" && error !== null && "message" in error) {
-        const message = error.message;
-
-        if (typeof message === "string" && message.trim() !== "") {
-            return message.trim();
-        }
-    }
-
-    return fallback;
+    return getFriendlyApiErrorMessage(error, fallback);
 }

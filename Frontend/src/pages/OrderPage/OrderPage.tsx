@@ -4,6 +4,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import InputField from "../../components/inputField/InputField";
 import AirportSearch, { type AirportSelection } from "../../components/airportSearch/AirportSearch";
 import { createOrder, getFlightCost } from "../../api/orderService";
+import { getFriendlyApiErrorMessage } from "../../api/utils/apiError";
 import type {
     AirportRouteResponse,
     PlaneCatalogResponse,
@@ -230,8 +231,12 @@ export default function OrderPage() {
 
             setFlightCalculation(routeCalculation);
             setStatusMessage(null);
-        } catch {
+        } catch (error: unknown) {
             setFlightCalculation(null);
+            setStatusMessage({
+                text: getFriendlyApiErrorMessage(error, "Не удалось рассчитать маршрут. Попробуйте ещё раз."),
+                type: "error"
+            });
         } finally {
             setIsCalculatingFlight(false);
         }
@@ -310,8 +315,11 @@ export default function OrderPage() {
 
             setIsOrderCreated(true);
             setIsDraftCreatedModalOpen(true);
-        } catch {
-            setStatusMessage({ text: "Ошибка при создании заявки", type: "error" });
+        } catch (error: unknown) {
+            setStatusMessage({
+                text: getFriendlyApiErrorMessage(error, "Не удалось создать заявку. Попробуйте ещё раз."),
+                type: "error"
+            });
         } finally {
             setIsSubmitting(false);
         }

@@ -4,6 +4,7 @@ import Header from "../../components/header/Header";
 import { resignFromMyAirline } from "../../api/airlineService";
 import { getManagementDepartures } from "../../api/managementService";
 import { getMyPlanes } from "../../api/planesService";
+import { getFriendlyApiErrorMessage } from "../../api/utils/apiError";
 import {
     hasAirlineProfileAccess,
     hasAirlineStaffAdministrationAccess,
@@ -41,9 +42,12 @@ export default function ManagementPlanesPage() {
         try {
             const response = await getMyPlanes(signal);
             setPlanes(response);
-        } catch {
+        } catch (error: unknown) {
             if (!signal?.aborted) {
-                setErrorMessage("Не удалось загрузить самолеты.");
+                setErrorMessage(getFriendlyApiErrorMessage(
+                    error,
+                    "Не удалось загрузить самолеты."
+                ));
             }
         } finally {
             if (!signal?.aborted) {

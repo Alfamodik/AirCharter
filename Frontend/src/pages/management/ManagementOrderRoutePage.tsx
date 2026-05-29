@@ -21,6 +21,7 @@ import {
     type ManagementRoutePreviewResponse,
     type UpdateDepartureRouteRequest
 } from "../../api/managementService";
+import { getFriendlyApiErrorMessage } from "../../api/utils/apiError";
 import { hasManagementAccess, hasManagementEditAccess } from "../../api/utils/roleAccess";
 import {
     addUserDeparturePassenger,
@@ -666,8 +667,8 @@ export default function ManagementOrderRoutePage({
         try {
             await rejectManagementDeparture(parsedDepartureId);
             navigate("/management/orders");
-        } catch {
-            setErrorMessage("Не удалось отклонить заявку.");
+        } catch (error: unknown) {
+            setErrorMessage(getApiErrorMessage(error, "Не удалось отклонить заявку."));
         } finally {
             setIsActionLoading(false);
         }
@@ -738,8 +739,8 @@ export default function ManagementOrderRoutePage({
 
                 await approveManagementDeparture(parsedDepartureId);
                 navigate("/management/orders");
-            } catch {
-                setErrorMessage("Не удалось одобрить заявку.");
+            } catch (error: unknown) {
+                setErrorMessage(getApiErrorMessage(error, "Не удалось одобрить заявку."));
             } finally {
                 setIsActionLoading(false);
             }
@@ -777,8 +778,8 @@ export default function ManagementOrderRoutePage({
 
             await approveManagementDepartureRoute(parsedDepartureId, routeRequest);
             navigate("/management/orders");
-        } catch {
-            setErrorMessage("Не удалось одобрить заявку с этим маршрутом.");
+        } catch (error: unknown) {
+            setErrorMessage(getApiErrorMessage(error, "Не удалось одобрить заявку с этим маршрутом."));
         } finally {
             setIsActionLoading(false);
         }
@@ -858,8 +859,8 @@ export default function ManagementOrderRoutePage({
             if (hasRouteChanges) {
                 navigate(mode === "management" ? "/management/orders" : "/cabinet");
             }
-        } catch {
-            setErrorMessage("Не удалось сохранить изменения заявки.");
+        } catch (error: unknown) {
+            setErrorMessage(getApiErrorMessage(error, "Не удалось сохранить изменения заявки."));
         } finally {
             setIsActionLoading(false);
         }
@@ -950,8 +951,8 @@ export default function ManagementOrderRoutePage({
         try {
             const ticketBlob = await downloadUserDepartureTicket(departure.id);
             downloadBlob(ticketBlob, `Маршрутная квитанция ${departure.id}.pdf`);
-        } catch {
-            setErrorMessage("Не удалось сохранить маршрутную квитанцию.");
+        } catch (error: unknown) {
+            setErrorMessage(getApiErrorMessage(error, "Не удалось сохранить маршрутную квитанцию."));
         } finally {
             setIsActionLoading(false);
         }
@@ -1336,8 +1337,8 @@ export default function ManagementOrderRoutePage({
             });
             setPassengerForm(emptyPassengerForm);
             setIsPassengerModalOpen(false);
-        } catch {
-            setErrorMessage("Не удалось зарегистрировать пассажира.");
+        } catch (error: unknown) {
+            setErrorMessage(getApiErrorMessage(error, "Не удалось зарегистрировать пассажира."));
         } finally {
             setIsPassengerActionLoading(false);
         }
@@ -2266,19 +2267,11 @@ function getPassengerApiErrorMessage(error: unknown, fallback: string): string {
         return "Пассажир с такими паспортными данными уже есть. Найдите его через поиск и выберите существующую запись.";
     }
 
-    return fallback;
+    return getFriendlyApiErrorMessage(error, fallback);
 }
 
 function getApiErrorMessage(error: unknown, fallback: string): string {
-    if (typeof error === "object" && error !== null && "message" in error) {
-        const message = error.message;
-
-        if (typeof message === "string" && message.trim() !== "") {
-            return message.trim();
-        }
-    }
-
-    return fallback;
+    return getFriendlyApiErrorMessage(error, fallback);
 }
 
 function getApiStatus(error: unknown): number | null {
@@ -3752,9 +3745,10 @@ function PassengerEditModal({
                 bankIdentifierCode: details.bankIdentifierCode ?? ""
             });
         } catch (error) {
-            setLocalError(error instanceof Error
-                ? error.message
-                : "Не удалось открыть карточку пассажира.");
+            setLocalError(getFriendlyApiErrorMessage(
+                error,
+                "Не удалось открыть карточку пассажира."
+            ));
         }
     }
 
@@ -3770,9 +3764,10 @@ function PassengerEditModal({
         try {
             await onSubmit(passenger, passportSeries, passportNumber, form);
         } catch (error) {
-            setLocalError(error instanceof Error
-                ? error.message
-                : "Не удалось сохранить данные пассажира.");
+            setLocalError(getFriendlyApiErrorMessage(
+                error,
+                "Не удалось сохранить данные пассажира."
+            ));
         }
     }
 

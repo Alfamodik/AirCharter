@@ -7,6 +7,7 @@ import {
     updateMyAirlineEmployeeRole,
     type AirlineEmployeeResponse
 } from "../../api/airlineService";
+import { getFriendlyApiErrorMessage } from "../../api/utils/apiError";
 import { getRoleRank, hasAirlineStaffAdministrationAccess } from "../../api/utils/roleAccess";
 import Header from "../../components/header/Header";
 import { useUser } from "../../context/UserContext";
@@ -68,8 +69,11 @@ export default function AirlineEmployeesPage() {
         try {
             const response = await getMyAirlineEmployees(undefined, true);
             setEmployees(response);
-        } catch {
-            setStatusMessage({ text: "Не удалось загрузить сотрудников.", type: "error" });
+        } catch (error: unknown) {
+            setStatusMessage({
+                text: getApiErrorMessage(error, "Не удалось загрузить сотрудников."),
+                type: "error"
+            });
         } finally {
             setIsLoading(false);
         }
@@ -349,13 +353,5 @@ function getEmployeeRoleOptions(
 }
 
 function getApiErrorMessage(error: unknown, fallback: string): string {
-    if (typeof error === "object" && error !== null && "message" in error) {
-        const message = error.message;
-
-        if (typeof message === "string" && message.trim() !== "") {
-            return message.trim();
-        }
-    }
-
-    return fallback;
+    return getFriendlyApiErrorMessage(error, fallback);
 }

@@ -27,15 +27,15 @@ public sealed class AuthController(AirCharterExtendedContext context, JwtService
     public async Task<IActionResult> Register([FromBody] RegisterRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Email))
-            return BadRequest("Email is required.");
+            return BadRequest("Укажите почту.");
 
         if (string.IsNullOrWhiteSpace(request.Password))
-            return BadRequest("Password is required.");
+            return BadRequest("Укажите пароль.");
 
         User? existingUser = await _context.Users.FirstOrDefaultAsync(user => user.Email == request.Email, cancellationToken);
 
         if (existingUser != null)
-            return Conflict("User with this email already exists.");
+            return Conflict("Пользователь с такой почтой уже существует.");
 
         User user = new()
         {
@@ -62,34 +62,34 @@ public sealed class AuthController(AirCharterExtendedContext context, JwtService
     public async Task<IActionResult> ConfirmEmail([FromBody] ConfirmEmailRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Email))
-            return BadRequest("Email is required.");
+            return BadRequest("Укажите почту.");
 
         if (string.IsNullOrWhiteSpace(request.Code))
-            return BadRequest("Code is required.");
+            return BadRequest("Укажите код подтверждения.");
 
         User? user = await _context.Users
             .Include(currentUser => currentUser.Role)
             .FirstOrDefaultAsync(currentUser => currentUser.Email == request.Email, cancellationToken);
 
         if (user == null)
-            return NotFound("User not found.");
+            return NotFound("Пользователь не найден.");
 
         if (user.IsEmailConfirmed)
-            return BadRequest("Email is already confirmed.");
+            return BadRequest("Почта уже подтверждена.");
 
         if (string.IsNullOrWhiteSpace(user.EmailConfirmationCodeHash))
-            return BadRequest("Confirmation code not found.");
+            return BadRequest("Код подтверждения не найден. Запросите новый код.");
 
         if (user.EmailConfirmationCodeExpiresAtUtc == null)
-            return BadRequest("Confirmation code expiration not found.");
+            return BadRequest("Не удалось проверить срок действия кода. Запросите новый код.");
 
         if (user.EmailConfirmationCodeExpiresAtUtc.Value < DateTime.UtcNow)
-            return BadRequest("Confirmation code expired.");
+            return BadRequest("Срок действия кода истёк. Запросите новый код.");
 
         bool isConfirmationCodeValid = IsConfirmationCodeValid(user, request.Code);
 
         if (!isConfirmationCodeValid)
-            return BadRequest("Invalid confirmation code.");
+            return BadRequest("Неверный код подтверждения.");
 
         user.IsEmailConfirmed = true;
         user.EmailConfirmationCodeHash = null;
@@ -111,15 +111,15 @@ public sealed class AuthController(AirCharterExtendedContext context, JwtService
     public async Task<IActionResult> ResendEmailConfirmationCode([FromBody] ResendEmailConfirmationCodeRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Email))
-            return BadRequest("Email is required.");
+            return BadRequest("Укажите почту.");
 
         User? user = await _context.Users.FirstOrDefaultAsync(currentUser => currentUser.Email == request.Email, cancellationToken);
 
         if (user == null)
-            return NotFound("User not found.");
+            return NotFound("Пользователь не найден.");
 
         if (user.IsEmailConfirmed)
-            return BadRequest("Email is already confirmed.");
+            return BadRequest("Почта уже подтверждена.");
 
         string confirmationCode = SetEmailConfirmationCode(user);
 
@@ -136,10 +136,10 @@ public sealed class AuthController(AirCharterExtendedContext context, JwtService
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Email))
-            return BadRequest("Email is required.");
+            return BadRequest("Укажите почту.");
 
         if (string.IsNullOrWhiteSpace(request.Password))
-            return BadRequest("Password is required.");
+            return BadRequest("Укажите пароль.");
 
         User? user = await _context.Users
             .Include(currentUser => currentUser.Role)
@@ -158,7 +158,7 @@ public sealed class AuthController(AirCharterExtendedContext context, JwtService
             return Unauthorized();
 
         if (!user.IsEmailConfirmed)
-            return BadRequest("Email is not confirmed.");
+            return BadRequest("Почта не подтверждена.");
 
         await IssueRefreshTokenAsync(user, cancellationToken);
 

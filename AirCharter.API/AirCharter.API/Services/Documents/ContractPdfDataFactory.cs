@@ -114,6 +114,7 @@ public sealed class ContractPdfDataFactory(AirportTimeZoneService airportTimeZon
             CustomerPhoneNumber = customerPhoneNumber,
             PlaneModelName = departure.Plane.ModelName,
             RouteText = BuildRouteText(departure),
+            RouteLegs = BuildRouteLegs(departure),
             TakeOffAirport = BuildAirportLabel(departure.TakeOffAirport),
             LandingAirport = BuildAirportLabel(departure.LandingAirport),
             TakeOffDateTime = departure.RequestedTakeOffDateTime,
@@ -196,6 +197,34 @@ public sealed class ContractPdfDataFactory(AirportTimeZoneService airportTimeZon
         return string.Join(" → ", airports);
     }
 
+    private IReadOnlyCollection<ContractRouteLegPdfData> BuildRouteLegs(Departure departure)
+    {
+        List<ContractRouteLegPdfData> routeLegs = new List<ContractRouteLegPdfData>();
+        DateTime currentTakeOffDateTime = departure.RequestedTakeOffDateTime;
+
+        foreach (DepartureRouteLeg routeLeg in departure.DepartureRouteLegs.OrderBy(leg => leg.SequenceNumber))
+        {
+            DateTime landingDateTime = airportTimeZoneService.CalculateArrivalDateTime(
+                currentTakeOffDateTime,
+                routeLeg.FlightTime,
+                routeLeg.FromAirport,
+                routeLeg.ToAirport);
+
+            routeLegs.Add(new ContractRouteLegPdfData
+            {
+                FromAirport = BuildAirportLabel(routeLeg.FromAirport),
+                ToAirport = BuildAirportLabel(routeLeg.ToAirport),
+                TakeOffDateTime = currentTakeOffDateTime,
+                LandingDateTime = landingDateTime,
+                FlightTime = routeLeg.FlightTime
+            });
+
+            currentTakeOffDateTime = landingDateTime.Add(routeLeg.GroundTimeAfterArrival ?? TimeSpan.Zero);
+        }
+
+        return routeLegs;
+    }
+
     private static string BuildAirportLabel(Airport airport)
     {
         string? code = airport.Iata ?? airport.Icao;
@@ -238,12 +267,44 @@ public sealed class ContractPdfDataFactory(AirportTimeZoneService airportTimeZon
         int remainderMinutes = minutes % 60;
 
         if (hours <= 0)
-            return $"{minutes} мин";
+            return $"{minutes} {FormatMinuteUnit(minutes)}";
 
         if (remainderMinutes == 0)
-            return $"{hours} ч";
+            return $"{hours} {FormatHourUnit(hours)}";
 
-        return $"{hours} ч {remainderMinutes} мин";
+        return $"{hours} {FormatHourUnit(hours)} {remainderMinutes} {FormatMinuteUnit(remainderMinutes)}";
+    }
+
+    private static string FormatHourUnit(int hours)
+    {
+        int lastTwoDigits = hours % 100;
+        int lastDigit = hours % 10;
+
+        if (lastTwoDigits is >= 11 and <= 14)
+            return "часов";
+
+        return lastDigit switch
+        {
+            1 => "часа",
+            >= 2 and <= 4 => "часа",
+            _ => "часов"
+        };
+    }
+
+    private static string FormatMinuteUnit(int minutes)
+    {
+        int lastTwoDigits = minutes % 100;
+        int lastDigit = minutes % 10;
+
+        if (lastTwoDigits is >= 11 and <= 14)
+            return "минут";
+
+        return lastDigit switch
+        {
+            1 => "минута",
+            >= 2 and <= 4 => "минуты",
+            _ => "минут"
+        };
     }
 
     private static string NumberToRussianWords(long value)

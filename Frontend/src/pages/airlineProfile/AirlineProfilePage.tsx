@@ -9,6 +9,7 @@ import {
     type AirlineContractSettingsResponse,
     type UpdateAirlineContractSettingsRequest
 } from "../../api/airlineService";
+import { getFriendlyApiErrorMessage } from "../../api/utils/apiError";
 import { hasAirlineProfileAccess } from "../../api/utils/roleAccess";
 import Header from "../../components/header/Header";
 import InputField from "../../components/inputField/InputField";
@@ -85,8 +86,11 @@ export default function AirlineProfilePage() {
                 hasDepartures: settings.hasDepartures,
                 isCatalogVisible: settings.isCatalogVisible
             });
-        } catch {
-            setStatusMessage({ text: "Не удалось загрузить профиль авиакомпании", type: "error" });
+        } catch (error: unknown) {
+            setStatusMessage({
+                text: getApiErrorMessage(error, "Не удалось загрузить профиль авиакомпании."),
+                type: "error"
+            });
         } finally {
             setIsLoading(false);
         }
@@ -454,13 +458,5 @@ function readFileAsDataUrl(file: File): Promise<string> {
 }
 
 function getApiErrorMessage(error: unknown, fallback: string): string {
-    if (typeof error === "object" && error !== null && "message" in error) {
-        const message = error.message;
-
-        if (typeof message === "string" && message.trim() !== "") {
-            return message.trim();
-        }
-    }
-
-    return fallback;
+    return getFriendlyApiErrorMessage(error, fallback);
 }

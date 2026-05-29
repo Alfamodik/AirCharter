@@ -57,7 +57,7 @@ namespace AirCharter.API.Controllers
                 return Unauthorized();
 
             if (createDepartureRequest.TakeOffAirportId == createDepartureRequest.LandingAirportId)
-                return BadRequest("The landing airport and the take off airport must not be the same.");
+                return BadRequest("Аэропорт вылета и аэропорт посадки не должны совпадать.");
 
             if (IsRequestedTakeOffDateTimeTooEarly(createDepartureRequest.RequestedTakeOffDateTime))
                 return BadRequest("Дата и время вылета должны быть не раньше завтрашнего дня.");
@@ -67,7 +67,7 @@ namespace AirCharter.API.Controllers
                 .FirstOrDefaultAsync(currentPlane => currentPlane.Id == createDepartureRequest.PlaneId, cancellationToken);
 
             if (plane == null)
-                return NotFound("Plane not found.");
+                return NotFound("Самолёт не найден.");
 
             Airport? takeOffAirport = await _context.Airports
                 .FirstOrDefaultAsync(
@@ -75,7 +75,7 @@ namespace AirCharter.API.Controllers
                     cancellationToken);
 
             if (takeOffAirport == null)
-                return NotFound("Take off airport not found.");
+                return NotFound("Аэропорт вылета не найден.");
 
             Airport? landingAirport = await _context.Airports
                 .FirstOrDefaultAsync(
@@ -83,7 +83,7 @@ namespace AirCharter.API.Controllers
                     cancellationToken);
 
             if (landingAirport == null)
-                return NotFound("Landing airport not found.");
+                return NotFound("Аэропорт посадки не найден.");
 
             AirportGraph airportGraph = await _airportGraphCache.GetOrCreateAsync(_context, cancellationToken);
 
@@ -185,7 +185,7 @@ namespace AirCharter.API.Controllers
             }
 
             if (!TryParseManagementSection(section, out ManagementDepartureSection managementSection))
-                return BadRequest("Unknown management section.");
+                return BadRequest("Не удалось открыть выбранный раздел управления.");
 
             int? userAirlineId = await _context.Users
                 .AsNoTracking()
@@ -976,12 +976,12 @@ namespace AirCharter.API.Controllers
                 return Forbid();
 
             if (!Enum.IsDefined(typeof(FlightStatusId), request.StatusId))
-                return BadRequest("Unknown status.");
+                return BadRequest("Выбран неизвестный статус вылета.");
 
             FlightStatusId nextStatusId = (FlightStatusId)request.StatusId;
 
             if (!IsOperationalStatus(nextStatusId))
-                return BadRequest("Status cannot be set from flight management.");
+                return BadRequest("Этот статус нельзя установить из управления вылетом.");
 
             Departure? departure = await GetManagementDepartureQuery()
                 .FirstOrDefaultAsync(
@@ -1025,7 +1025,7 @@ namespace AirCharter.API.Controllers
             DepartureStatus? currentStatus = GetCurrentStatus(departure);
 
             if (currentStatus is null || !IsActiveFlightStatus(currentStatus.StatusId))
-                return BadRequest("Flight status cannot be changed now.");
+                return BadRequest("Сейчас нельзя изменить статус вылета.");
 
             bool shouldIncludePreviousStatuses = request.IncludePreviousStatuses &&
                 nextStatusId != FlightStatusId.Delayed &&
@@ -1044,7 +1044,7 @@ namespace AirCharter.API.Controllers
                     departure.DepartureRouteLegs.Count,
                     request.TargetLegIndex))
                 {
-                    return BadRequest("Current status is already ahead of the calculated status.");
+                    return BadRequest("Текущий статус уже дальше рассчитанного статуса.");
                 }
 
                 IReadOnlyCollection<FlightStatusId> catchUpSequence = BuildOperationalStatusCatchUpSequence(
@@ -1113,10 +1113,10 @@ namespace AirCharter.API.Controllers
             DepartureStatus? currentStatus = GetCurrentStatus(departure);
 
             if (currentStatus is null)
-                return BadRequest("Flight has no status.");
+                return BadRequest("У вылета пока нет статуса.");
 
             if (currentStatus.StatusId <= (int)FlightStatusId.Planned)
-                return BadRequest("This status cannot be deleted.");
+                return BadRequest("Этот статус нельзя удалить.");
 
             DepartureStatus? restoredStatus = departure.DepartureStatuses
                 .Where(departureStatus => departureStatus != currentStatus)

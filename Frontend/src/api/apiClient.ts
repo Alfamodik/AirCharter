@@ -1,22 +1,34 @@
+import { createApiError } from "./utils/apiError";
+
 const apiBaseUrl = "https://localhost:7219";
 
 export async function sendRequest<TResponse>(path: string, init?: RequestInit): Promise<TResponse> {
-    const response = await fetch(`${apiBaseUrl}${path}`, {
-        headers: {
-            "Content-Type": "application/json",
-            ...(init?.headers ?? {})
-        },
-        ...init
-    });
+    let response: Response;
+
+    try {
+        response = await fetch(`${apiBaseUrl}${path}`, {
+            headers: {
+                "Content-Type": "application/json",
+                ...(init?.headers ?? {})
+            },
+            ...init
+        });
+    } catch {
+        throw createApiError(0);
+    }
 
     if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(errorText || "Request failed.");
+        throw createApiError(response.status, errorText);
     }
 
     if (response.status === 204) {
         return undefined as TResponse;
     }
 
-    return response.json() as Promise<TResponse>;
+    try {
+        return await response.json() as TResponse;
+    } catch {
+        throw createApiError(response.status);
+    }
 }

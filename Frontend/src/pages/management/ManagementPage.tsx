@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ChangeEvent, type ReactNode } fr
 import { NavLink, Navigate, useLocation, useNavigate } from "react-router-dom";
 import Header from "../../components/header/Header";
 import { resignFromMyAirline } from "../../api/airlineService";
+import { getFriendlyApiErrorMessage } from "../../api/utils/apiError";
 import {
     approveManagementDeparture,
     confirmManagementDepartureContractDocument,
@@ -83,9 +84,12 @@ export default function ManagementPage() {
         try {
             const response = await getManagementDepartures(currentSection, signal);
             setDepartures(sortManagementDepartures(response, currentSection));
-        } catch {
+        } catch (error: unknown) {
             if (!signal?.aborted) {
-                setErrorMessage("Не удалось загрузить вылеты.");
+                setErrorMessage(getFriendlyApiErrorMessage(
+                    error,
+                    "Не удалось загрузить вылеты."
+                ));
             }
         } finally {
             if (!signal?.aborted) {
@@ -166,8 +170,11 @@ export default function ManagementPage() {
             await approveManagementDeparture(departureId);
             await loadDepartures();
             await loadActionCounts();
-        } catch {
-            setErrorMessage("Не удалось одобрить заявку.");
+        } catch (error: unknown) {
+            setErrorMessage(getFriendlyApiErrorMessage(
+                error,
+                "Не удалось одобрить заявку."
+            ));
         } finally {
             setActionDepartureId(null);
         }
@@ -181,8 +188,11 @@ export default function ManagementPage() {
             await rejectManagementDeparture(departureId);
             await loadDepartures();
             await loadActionCounts();
-        } catch {
-            setErrorMessage("Не удалось отклонить заявку.");
+        } catch (error: unknown) {
+            setErrorMessage(getFriendlyApiErrorMessage(
+                error,
+                "Не удалось отклонить заявку."
+            ));
         } finally {
             setActionDepartureId(null);
         }
@@ -198,8 +208,11 @@ export default function ManagementPage() {
                 contractBlob,
                 departure.contractDocumentFileName || `Подписанный договор ${departure.id}.pdf`
             );
-        } catch {
-            setErrorMessage("Не удалось скачать подписанный договор.");
+        } catch (error: unknown) {
+            setErrorMessage(getFriendlyApiErrorMessage(
+                error,
+                "Не удалось скачать подписанный договор."
+            ));
         } finally {
             setActionDepartureId(null);
         }
@@ -213,8 +226,11 @@ export default function ManagementPage() {
             await confirmManagementDepartureContractDocument(departureId);
             await loadDepartures();
             await loadActionCounts();
-        } catch {
-            setErrorMessage("Не удалось подтвердить подписанный договор.");
+        } catch (error: unknown) {
+            setErrorMessage(getFriendlyApiErrorMessage(
+                error,
+                "Не удалось подтвердить подписанный договор."
+            ));
         } finally {
             setActionDepartureId(null);
         }
@@ -228,8 +244,11 @@ export default function ManagementPage() {
             await uploadDepartureContractDocument(departureId, file);
             await loadDepartures();
             await loadActionCounts();
-        } catch {
-            setErrorMessage("Не удалось загрузить итоговый договор.");
+        } catch (error: unknown) {
+            setErrorMessage(getFriendlyApiErrorMessage(
+                error,
+                "Не удалось загрузить итоговый договор."
+            ));
         } finally {
             setActionDepartureId(null);
         }

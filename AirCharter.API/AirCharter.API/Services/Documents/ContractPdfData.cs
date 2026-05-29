@@ -38,6 +38,7 @@ public sealed class ContractPdfData
     public required string CustomerPhoneNumber { get; init; }
     public required string PlaneModelName { get; init; }
     public required string RouteText { get; init; }
+    public required IReadOnlyCollection<ContractRouteLegPdfData> RouteLegs { get; init; }
     public required string TakeOffAirport { get; init; }
     public required string LandingAirport { get; init; }
     public required DateTime TakeOffDateTime { get; init; }
@@ -49,6 +50,15 @@ public sealed class ContractPdfData
     public required string CateringClass { get; init; }
     public required decimal FlightPrice { get; init; }
     public required string FlightPriceText { get; init; }
+}
+
+public sealed class ContractRouteLegPdfData
+{
+    public required string FromAirport { get; init; }
+    public required string ToAirport { get; init; }
+    public required DateTime TakeOffDateTime { get; init; }
+    public required DateTime LandingDateTime { get; init; }
+    public required TimeSpan FlightTime { get; init; }
 }
 
 public sealed class ContractPdfDataResult

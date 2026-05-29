@@ -1,4 +1,4 @@
-import type { ApiError } from "./utils/apiError";
+import { createApiError } from "./utils/apiError";
 
 const apiBaseUrl = "https://localhost:7219";
 export const unauthorizedResponseEventName = "aircharter:unauthorized-response";
@@ -129,13 +129,17 @@ async function sendFetchRequest(
         headers["Authorization"] = `Bearer ${accessToken}`;
     }
 
-    return await fetch(`${apiBaseUrl}${path}`, {
-        method: method,
-        headers: headers,
-        body: body === undefined ? undefined : JSON.stringify(body),
-        signal: signal,
-        credentials: "include"
-    });
+    try {
+        return await fetch(`${apiBaseUrl}${path}`, {
+            method: method,
+            headers: headers,
+            body: body === undefined ? undefined : JSON.stringify(body),
+            signal: signal,
+            credentials: "include"
+        });
+    } catch {
+        throw createApiError(0);
+    }
 }
 
 async function sendFetchFormDataRequest(
@@ -151,13 +155,17 @@ async function sendFetchFormDataRequest(
         headers["Authorization"] = `Bearer ${accessToken}`;
     }
 
-    return await fetch(`${apiBaseUrl}${path}`, {
-        method: method,
-        headers: headers,
-        body: body,
-        signal: signal,
-        credentials: "include"
-    });
+    try {
+        return await fetch(`${apiBaseUrl}${path}`, {
+            method: method,
+            headers: headers,
+            body: body,
+            signal: signal,
+            credentials: "include"
+        });
+    } catch {
+        throw createApiError(0);
+    }
 }
 
 async function parseResponse<TResponse>(response: Response): Promise<TResponse> {
@@ -165,7 +173,11 @@ async function parseResponse<TResponse>(response: Response): Promise<TResponse> 
         return undefined as TResponse;
     }
 
-    return await response.json() as TResponse;
+    try {
+        return await response.json() as TResponse;
+    } catch {
+        throw createApiError(response.status);
+    }
 }
 
 async function refreshAccessToken(): Promise<string | null> {
@@ -208,19 +220,4 @@ function handleUnauthorizedResponse() {
 
 function isAuthEndpoint(path: string): boolean {
     return path.startsWith("/auth/");
-}
-
-function createApiError(status: number, responseText: string): ApiError {
-    const trimmedResponseText = responseText.trim();
-
-    if (trimmedResponseText === "") {
-        return {
-            status: status
-        };
-    }
-
-    return {
-        status: status,
-        message: trimmedResponseText
-    };
 }

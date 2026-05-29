@@ -142,6 +142,28 @@ internal class Program
             app.UseSwaggerUI();
         }
 
+        app.Use(async (context, next) =>
+        {
+            try
+            {
+                await next();
+            }
+            catch (Exception exception)
+            {
+                app.Logger.LogError(exception, "Unhandled request exception.");
+
+                if (context.Response.HasStarted)
+                    throw;
+
+                context.Response.Clear();
+                context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                context.Response.ContentType = "text/plain; charset=utf-8";
+
+                await context.Response.WriteAsync(
+                    "Что-то пошло не так. Попробуйте ещё раз чуть позже.");
+            }
+        });
+
         app.UseHttpsRedirection();
         app.UseCors("FrontendPolicy");
         app.UseAuthentication();
