@@ -14,6 +14,9 @@ export function getRegisterErrorMessage(error: unknown): string {
         case 409:
             return "Пользователь с такой почтой уже существует.";
 
+        case 503:
+            return "Не удалось отправить код подтверждения. Проверьте настройки почты и попробуйте ещё раз.";
+
         default:
             return getFriendlyApiErrorMessage(apiError, "Не удалось зарегистрироваться.");
     }

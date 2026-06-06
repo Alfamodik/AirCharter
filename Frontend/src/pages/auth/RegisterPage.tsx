@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import InputField from "../../components/inputField/InputField";
@@ -14,9 +14,14 @@ export default function RegisterPage() {
     const [confirmedPassword, setConfirmedPassword] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const isSubmittingRef = useRef(false);
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
+
+        if (isSubmittingRef.current) {
+            return;
+        }
 
         setErrorMessage("");
 
@@ -37,6 +42,7 @@ export default function RegisterPage() {
             return;
         }
 
+        isSubmittingRef.current = true;
         setIsSubmitting(true);
 
         try {
@@ -53,6 +59,7 @@ export default function RegisterPage() {
         } catch (error) {
             setErrorMessage(getRegisterErrorMessage(error));
         } finally {
+            isSubmittingRef.current = false;
             setIsSubmitting(false);
         }
     }

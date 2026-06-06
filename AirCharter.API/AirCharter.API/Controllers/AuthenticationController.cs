@@ -32,28 +32,58 @@ public sealed class AuthController(AirCharterExtendedContext context, JwtService
         if (string.IsNullOrWhiteSpace(request.Password))
             return BadRequest("Укажите пароль.");
 
-        User? existingUser = await _context.Users.FirstOrDefaultAsync(user => user.Email == request.Email, cancellationToken);
+        string email = request.Email.Trim();
 
-        if (existingUser != null)
+        User? existingUser = await _context.Users.FirstOrDefaultAsync(user => user.Email == email, cancellationToken);
+
+        if (existingUser != null && (existingUser.IsEmailConfirmed || existingUser.RoleId != ClientRoleId))
             return Conflict("Пользователь с такой почтой уже существует.");
 
-        User user = new()
+        await using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction =
+            await _context.Database.BeginTransactionAsync(cancellationToken);
+
+        User user;
+
+        if (existingUser == null)
         {
-            RoleId = ClientRoleId,
-            Email = request.Email,
-            IsEmailConfirmed = false,
-            IsActive = true
-        };
+            user = new()
+            {
+                RoleId = ClientRoleId,
+                Email = email,
+                IsEmailConfirmed = false,
+                IsActive = true
+            };
+
+            _context.Users.Add(user);
+        }
+        else
+        {
+            user = existingUser;
+            user.Email = email;
+            user.IsActive = true;
+        }
 
         user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
         string confirmationCode = SetEmailConfirmationCode(user);
 
-        _context.Users.Add(user);
         await _context.SaveChangesAsync(cancellationToken);
 
-        await _emailService.SendHtmlMessageAsync(user.Email, "Подтверждение почты",
-            $"<h3>Код подтверждения</h3><p>Ваш код: <b>{confirmationCode}</b></p><p>Код действует 10 минут.</p>",
-            cancellationToken);
+        try
+        {
+            await _emailService.SendHtmlMessageAsync(user.Email, "Подтверждение почты",
+                $"<h3>Код подтверждения</h3><p>Ваш код: <b>{confirmationCode}</b></p><p>Код действует 10 минут.</p>",
+                cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+
+            return StatusCode(
+                StatusCodes.Status503ServiceUnavailable,
+                "Не удалось отправить код подтверждения. Проверьте настройки почты и попробуйте ещё раз.");
+        }
+
+        await transaction.CommitAsync(cancellationToken);
 
         return NoContent();
     }
