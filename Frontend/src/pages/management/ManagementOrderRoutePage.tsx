@@ -65,7 +65,8 @@ import {
     formatDuration,
     formatNumber,
     formatOptionalDateTime,
-    formatPrice
+    formatPrice,
+    getStatusHistoryNewestFirst
 } from "./ManagementPage";
 import "./ManagementPage.css";
 
@@ -1887,7 +1888,7 @@ export default function ManagementOrderRoutePage({
                         <p className="management-muted-text">История статусов недоступна.</p>
                     ) : (
                         <div className="management-status-history-list">
-                            {currentDeparture.statusHistory.map((status, index) => {
+                            {getStatusHistoryNewestFirst(currentDeparture.statusHistory).map((status, index) => {
                                 const statusDetail = getStatusDetailText(status);
 
                                 return (

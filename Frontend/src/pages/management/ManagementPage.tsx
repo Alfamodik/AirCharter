@@ -783,7 +783,7 @@ export function ManagementDepartureDetails({
                     <p className="management-muted-text">История статусов недоступна.</p>
                 ) : (
                     <div className="management-status-history">
-                        {departure.statusHistory.map((status) => (
+                        {getStatusHistoryNewestFirst(departure.statusHistory).map((status) => (
                             <div key={`${status.id}-${status.setAt}`} className="management-status-row">
                                 <span>{status.name}</span>
                                 <span>{formatDateTime(status.setAt)}</span>
@@ -893,6 +893,14 @@ export function formatOptionalDateTime(value?: string | null): string {
     }
 
     return formatDateTime(value);
+}
+
+export function getStatusHistoryNewestFirst(
+    statusHistory: ManagementDepartureResponse["statusHistory"]
+): ManagementDepartureResponse["statusHistory"] {
+    return [...statusHistory].sort((left, right) =>
+        new Date(right.setAt).getTime() - new Date(left.setAt).getTime()
+    );
 }
 
 function isDateTimeTodayOrEarlier(value: string): boolean {
