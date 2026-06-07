@@ -1,3 +1,5 @@
+// Страница RegisterPage собирает данные, обработчики и компоненты для одного пользовательского сценария.
+
 import { useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";

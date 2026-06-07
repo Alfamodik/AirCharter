@@ -1,3 +1,5 @@
+// TypeScript-тип planeCatalogResponse описывает форму данных, которые frontend получает от backend.
+
 export interface PlaneCatalogResponse {
     id: number;
     modelName: string;

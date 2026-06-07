@@ -1,3 +1,5 @@
+// Страница OrderPage собирает данные, обработчики и компоненты для одного пользовательского сценария.
+
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";

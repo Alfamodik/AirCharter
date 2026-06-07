@@ -1,3 +1,5 @@
+// DTO ответа ManagementPlaneResponse описывает данные, которые API возвращает frontend после обработки запроса.
+
 namespace AirCharter.API.Responses.Planes;
 
 public sealed class ManagementPlaneResponse

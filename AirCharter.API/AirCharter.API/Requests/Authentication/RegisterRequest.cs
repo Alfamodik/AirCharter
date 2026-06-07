@@ -1,4 +1,6 @@
-﻿namespace AirCharter.API.Requests.Authentication
+// DTO запроса RegisterRequest описывает данные, которые frontend отправляет в API для выполнения операции.
+
+namespace AirCharter.API.Requests.Authentication
 {
     public sealed class RegisterRequest
     {

@@ -1,3 +1,5 @@
+// Утилита API apiError помогает сервисам frontend одинаково обрабатывать роли, ошибки и ответы backend.
+
 export type ApiError = {
     status: number;
     message?: string;

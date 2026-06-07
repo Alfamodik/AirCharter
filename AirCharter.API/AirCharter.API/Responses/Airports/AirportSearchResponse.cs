@@ -1,4 +1,6 @@
-﻿namespace AirCharter.API.Responses.Airports;
+// DTO ответа AirportSearchResponse описывает данные, которые API возвращает frontend после обработки запроса.
+
+namespace AirCharter.API.Responses.Airports;
 
 public sealed class AirportSearchResponse
 {

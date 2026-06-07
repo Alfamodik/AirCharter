@@ -1,3 +1,5 @@
+// Сервис frontend notification содержит функции, через которые React-страницы обращаются к backend API.
+
 import { sendRequest } from "./sendRequest";
 import type { AccessTokenResponse } from "../contracts/responses/auth/accessTokenResponse";
 

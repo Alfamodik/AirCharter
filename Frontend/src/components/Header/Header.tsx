@@ -1,3 +1,5 @@
+// React-компонент Header отвечает за отдельный повторно используемый блок интерфейса.
+
 import { Link, useNavigate } from "react-router-dom";
 import { useUser } from "../../context/UserContext";
 import { hasManagementAccess } from "../../api/utils/roleAccess";

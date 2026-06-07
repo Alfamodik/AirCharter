@@ -1,4 +1,6 @@
-﻿namespace AirCharter.API.Services.Documents;
+// Структура PassengerTicketPdfData хранит уже подготовленные значения, которые затем попадают в печатный документ.
+
+namespace AirCharter.API.Services.Documents;
 
 public sealed class PassengerTicketPdfData
 {

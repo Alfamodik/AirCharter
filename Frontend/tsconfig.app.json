@@ -1,3 +1,5 @@
+// TypeScript-конфиг frontend-приложения проверяет React-код из папки src без генерации файлов сборки.
+
 {
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
@@ -8,7 +10,7 @@
     "types": ["vite/client"],
     "skipLibCheck": true,
 
-    /* Bundler mode */
+    // Эти настройки согласуют импорт модулей с тем, как Vite собирает приложение.
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
@@ -16,7 +18,7 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Linting */
+    // Строгие проверки помогают находить ошибки типов и неиспользуемый код до запуска приложения.
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,

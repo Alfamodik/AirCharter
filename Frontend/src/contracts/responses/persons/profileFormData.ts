@@ -1,3 +1,5 @@
+// TypeScript-тип profileFormData описывает форму данных, которые frontend получает от backend.
+
 export interface ProfileFormData {
     firstName: string;
     lastName: string;

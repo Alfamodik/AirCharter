@@ -1,3 +1,5 @@
+// Страница ManagementAnalyticsPage собирает данные, обработчики и компоненты для одного пользовательского сценария.
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import Header from "../../components/header/Header";

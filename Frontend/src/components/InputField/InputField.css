@@ -1,3 +1,5 @@
+/* Стили компонента InputField описывают внешний вид и состояния отдельного блока интерфейса. */
+
 .input-field {
   display: flex;
   flex-direction: column;

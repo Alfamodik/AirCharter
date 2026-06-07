@@ -1,3 +1,5 @@
+/* Стили страницы OrderPage задают раскладку, отступы и визуальные состояния конкретного экрана. */
+
 .profile-content-card.order-page-card {
     max-width: 450px;
     padding: 0;

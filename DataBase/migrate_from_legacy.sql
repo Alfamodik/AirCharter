@@ -1,6 +1,7 @@
-USE air_charter_extended;
+-- Скрипт переносит данные из старой базы air_charter в новую схему air_charter_extended.
 
--- Справочники
+USE air_charter_extended;
+-- Заполняет справочник ролей, чтобы старые пользователи получили права в новой системе.
 INSERT INTO roles (id, name)
 VALUES
     (1, 'Client'),
@@ -12,8 +13,7 @@ VALUES
     (7, 'CoPilot'),
     (8, 'FlightAttendant'),
     (9, 'Technician');
-
--- Аэропорты
+-- Переносит аэропорты и очищает коды IATA/ICAO от пустых или некорректных значений.
 INSERT INTO airports
 (
     id,
@@ -43,8 +43,7 @@ SELECT
     ROUND(COALESCE(latitude, 0), 6),
     ROUND(COALESCE(longitude, 0), 6)
 FROM air_charter.airport;
-
--- Авиакомпании
+-- Переносит авиакомпании и подставляет обязательные юридические реквизиты, которых не было в старой базе.
 INSERT INTO airlines
 (
     id,
@@ -88,8 +87,7 @@ SELECT
     LPAD(airline_id, 9, '0'),
     image
 FROM air_charter.airlines;
-
--- Пассажиры -> persons
+-- Переносит пассажиров в новую таблицу persons, где паспорт становится главным уникальным идентификатором.
 INSERT INTO persons
 (
     id,
@@ -111,8 +109,7 @@ SELECT
     NULL,
     NULL
 FROM air_charter.passengers;
-
--- Пользователи
+-- Переносит пользователей и связывает их с ролями, пассажирами и авиакомпаниями.
 INSERT INTO users
 (
     id,
@@ -141,8 +138,7 @@ SELECT
     1,
     1
 FROM air_charter.users;
-
--- Самолёты
+-- Переносит самолеты и приводит отсутствующие числовые характеристики к безопасным значениям по умолчанию.
 INSERT INTO planes
 (
     id,
@@ -164,8 +160,7 @@ SELECT
     0,
     image
 FROM air_charter.plane;
-
--- Статусы
+-- Переносит справочник статусов, чтобы история заявок ссылалась на существующие записи.
 INSERT INTO statuses
 (
     id,
@@ -175,8 +170,7 @@ SELECT
     status_id,
     status
 FROM air_charter.statuses;
-
--- Вылеты
+-- Переносит заявки и заново рассчитывает время и стоимость по данным самолета и расстояния.
 INSERT INTO departures
 (
     id,
@@ -213,8 +207,7 @@ SELECT
     d.requested_take_off_date_time
 FROM air_charter.departure d
 INNER JOIN air_charter.plane p ON p.plane_id = d.plane_id;
-
--- История статусов вылетов
+-- Переносит историю статусов заявок, сохраняя порядок событий из старой базы.
 INSERT INTO departure_statuses
 (
     id,
@@ -228,8 +221,7 @@ SELECT
     status_id,
     status_setting_date_time
 FROM air_charter.departurestatuses;
-
--- Пассажиры вылетов
+-- Переносит связь пассажиров с заявками, чтобы состав рейса остался прежним.
 INSERT INTO passenger_departure
 (
     departure_id,
@@ -239,8 +231,7 @@ SELECT
     departure_id,
     passenger_id
 FROM air_charter.passengerdeparture;
-
--- Итоги
+-- Финальный запрос показывает, сколько строк перенесено в каждую основную таблицу.
 SELECT 'airlines' AS table_name, COUNT(*) AS rows_count FROM airlines
 UNION ALL
 SELECT 'roles', COUNT(*) FROM roles

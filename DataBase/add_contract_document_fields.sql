@@ -1,3 +1,5 @@
+-- Скрипт добавляет поля договора к заявкам, чтобы хранить загруженный документ и отметку подтверждения.
+
 DROP PROCEDURE IF EXISTS add_aircharter_column_if_missing;
 
 DELIMITER //

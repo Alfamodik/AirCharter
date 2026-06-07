@@ -1,4 +1,6 @@
-﻿using MailKit.Net.Smtp;
+// Сервис EmailService содержит бизнес-логику backend и отделяет ее от контроллеров.
+
+using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
 

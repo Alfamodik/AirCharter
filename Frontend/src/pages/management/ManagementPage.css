@@ -1,3 +1,5 @@
+/* Стили страницы ManagementPage задают раскладку, отступы и визуальные состояния конкретного экрана. */
+
 .user-brief-info {
     display: flex;
     flex-direction: column;

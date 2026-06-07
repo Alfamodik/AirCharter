@@ -1,3 +1,5 @@
+// Страница LoginPage собирает данные, обработчики и компоненты для одного пользовательского сценария.
+
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
@@ -40,7 +42,6 @@ export default function LoginPage() {
                 password: password
             });
 
-            // 1. Сохраняем токен
             localStorage.setItem("accessToken", response.token);
             await refreshUser();
             navigate("/");

@@ -1,3 +1,5 @@
+/* Стили страницы ManagementAnalyticsPage задают раскладку, отступы и визуальные состояния конкретного экрана. */
+
 .management-analytics-page {
     display: flex;
     flex-direction: column;

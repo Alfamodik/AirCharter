@@ -1,4 +1,6 @@
-﻿using AirCharter.API.Model;
+// Контроллер Authentication принимает HTTP-запросы, проверяет входные данные и возвращает ответы клиентскому приложению.
+
+using AirCharter.API.Model;
 using AirCharter.API.Requests.Authentication;
 using AirCharter.API.Services;
 using Microsoft.AspNetCore.Identity;
@@ -39,6 +41,7 @@ public sealed class AuthController(AirCharterExtendedContext context, JwtService
         if (existingUser != null && (existingUser.IsEmailConfirmed || existingUser.RoleId != ClientRoleId))
             return Conflict("Пользователь с такой почтой уже существует.");
 
+        // Транзакция не дает сохранить пользователя без письма: если отправка кода упадет, изменения откатываются.
         await using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction =
             await _context.Database.BeginTransactionAsync(cancellationToken);
 
@@ -190,6 +193,7 @@ public sealed class AuthController(AirCharterExtendedContext context, JwtService
         if (!user.IsEmailConfirmed)
             return BadRequest("Почта не подтверждена.");
 
+        // Access-токен живет коротко, а refresh-токен хранится в защищенной cookie и позволяет незаметно продлить сессию.
         await IssueRefreshTokenAsync(user, cancellationToken);
 
         string token = _jwtService.GenerateAccessToken(user.Id, user.Role.Name);

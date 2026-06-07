@@ -1,3 +1,5 @@
+// Сервис ContractPdfService формирует PDF-документы из подготовленных данных и настроек заявки.
+
 using System.Globalization;
 using MigraDoc.DocumentObjectModel;
 using MigraDoc.DocumentObjectModel.Tables;

@@ -1,3 +1,5 @@
+// Базовый API-клиент хранит общий адрес backend и добавляет авторизацию к HTTP-запросам.
+
 import { createApiError } from "./utils/apiError";
 
 const apiBaseUrl = "https://localhost:7219";

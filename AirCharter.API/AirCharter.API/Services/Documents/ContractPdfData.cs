@@ -1,3 +1,5 @@
+// Структура ContractPdfData хранит уже подготовленные значения, которые затем попадают в печатный документ.
+
 namespace AirCharter.API.Services.Documents;
 
 public sealed class ContractPdfData

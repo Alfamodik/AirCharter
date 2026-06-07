@@ -1,3 +1,5 @@
+// Страница ManagementPlaneFormPage собирает данные, обработчики и компоненты для одного пользовательского сценария.
+
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import Header from "../../components/header/Header";

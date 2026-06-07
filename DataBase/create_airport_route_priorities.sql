@@ -1,3 +1,5 @@
+-- Скрипт создает приоритеты аэропортов, которые помогают планировщику выбирать промежуточные точки маршрута.
+
 CREATE TABLE IF NOT EXISTS airport_route_priorities (
     airport_id INT NOT NULL,
     priority_score INT NOT NULL DEFAULT 0,

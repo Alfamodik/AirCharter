@@ -1,3 +1,5 @@
+// Утилита imageAspectRatio содержит небольшую повторно используемую функцию, не привязанную к конкретной странице.
+
 export type ImageAspectRatio = {
     width: number;
     height: number;

@@ -1,3 +1,5 @@
+-- Скрипт создает таблицу refresh-токенов, чтобы пользовательская сессия могла продлеваться безопасно.
+
 CREATE TABLE refresh_tokens (
     id INT NOT NULL AUTO_INCREMENT,
     user_id INT NOT NULL,

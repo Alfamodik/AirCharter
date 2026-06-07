@@ -1,3 +1,5 @@
+// React-компонент InputField отвечает за отдельный повторно используемый блок интерфейса.
+
 import type { ReactNode, FocusEvent } from "react";
 import { useId } from "react";
 import "./InputField.css";

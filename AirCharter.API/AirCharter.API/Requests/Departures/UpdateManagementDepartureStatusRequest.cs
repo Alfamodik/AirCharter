@@ -1,3 +1,5 @@
+// DTO запроса UpdateManagementDepartureStatusRequest описывает данные, которые frontend отправляет в API для выполнения операции.
+
 namespace AirCharter.API.Requests.Departures
 {
     public sealed class UpdateManagementDepartureStatusRequest

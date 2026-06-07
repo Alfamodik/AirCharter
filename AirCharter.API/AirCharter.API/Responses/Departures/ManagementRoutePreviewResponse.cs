@@ -1,3 +1,5 @@
+// DTO ответа ManagementRoutePreviewResponse описывает данные, которые API возвращает frontend после обработки запроса.
+
 namespace AirCharter.API.Responses.Departures
 {
     using AirCharter.API.Responses.Airports;

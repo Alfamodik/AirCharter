@@ -1,3 +1,5 @@
+// Утилита API authErrorMessages помогает сервисам frontend одинаково обрабатывать роли, ошибки и ответы backend.
+
 import { getFriendlyApiErrorMessage, type ApiError } from "../utils/apiError";
 
 export function getRegisterErrorMessage(error: unknown): string {

@@ -1,3 +1,5 @@
+// React-компонент RouteModal отвечает за отдельный повторно используемый блок интерфейса.
+
 import { useEffect, useMemo, useState } from "react";
 import { YMaps, Map, Placemark, Polyline } from "@pbe/react-yandex-maps";
 import "./RouteModal.css";

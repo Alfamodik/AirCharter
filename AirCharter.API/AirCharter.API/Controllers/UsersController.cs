@@ -1,4 +1,6 @@
-﻿using AirCharter.API.Model;
+// Контроллер Users принимает HTTP-запросы, проверяет входные данные и возвращает ответы клиентскому приложению.
+
+using AirCharter.API.Model;
 using AirCharter.API.Requests.Authentication;
 using AirCharter.API.Requests.Users;
 using AirCharter.API.Responses.Departures;

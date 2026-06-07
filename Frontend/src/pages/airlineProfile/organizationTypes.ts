@@ -1,3 +1,5 @@
+// Вспомогательный файл страницы organizationTypes хранит константы или расчеты, чтобы компонент оставался понятнее.
+
 export const organizationTypeOptions = [
     {
         value: "ООО",

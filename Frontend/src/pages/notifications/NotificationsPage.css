@@ -1,3 +1,5 @@
+/* Стили страницы NotificationsPage задают раскладку, отступы и визуальные состояния конкретного экрана. */
+
 .notifications-page {
     width: min(960px, 100%);
     margin: 0 auto;

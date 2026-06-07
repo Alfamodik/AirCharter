@@ -1,3 +1,5 @@
+// React-компонент ProtectedRoute отвечает за отдельный повторно используемый блок интерфейса.
+
 import type { ReactNode} from "react";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";

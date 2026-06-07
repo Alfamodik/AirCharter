@@ -1,4 +1,6 @@
-﻿using Microsoft.IdentityModel.Tokens;
+// Сервис JwtService содержит бизнес-логику backend и отделяет ее от контроллеров.
+
+using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;

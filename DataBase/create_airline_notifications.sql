@@ -1,3 +1,5 @@
+-- Скрипт создает уведомления для авиакомпаний, чтобы сотрудники видели события по своим заявкам.
+
 CREATE TABLE IF NOT EXISTS `airline_notifications` (
   `id` int NOT NULL AUTO_INCREMENT,
   `airline_id` int NOT NULL,

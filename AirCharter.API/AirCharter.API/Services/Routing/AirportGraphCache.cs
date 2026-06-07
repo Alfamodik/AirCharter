@@ -1,4 +1,6 @@
-﻿using AirCharter.API.Model;
+// Часть маршрутизатора аэропортов AirportGraphCache помогает строить перелет по узлам, расстояниям и доступным промежуточным точкам.
+
+using AirCharter.API.Model;
 using AirCharter.API.Services.Routing;
 using Microsoft.EntityFrameworkCore;
 

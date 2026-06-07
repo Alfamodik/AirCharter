@@ -1,4 +1,6 @@
-﻿using MigraDoc.DocumentObjectModel;
+// Сервис TicketPdfService формирует PDF-документы из подготовленных данных и настроек заявки.
+
+using MigraDoc.DocumentObjectModel;
 using MigraDoc.DocumentObjectModel.Tables;
 using MigraDoc.Rendering;
 using System.Globalization;

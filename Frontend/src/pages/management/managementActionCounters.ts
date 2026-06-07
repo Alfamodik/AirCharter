@@ -1,3 +1,5 @@
+// Вспомогательный файл страницы managementActionCounters хранит константы или расчеты, чтобы компонент оставался понятнее.
+
 import type { ManagementDepartureResponse } from "../../contracts/responses/departures/managementDepartureResponse";
 
 export function isOrderAwaitingManagerAction(departure: ManagementDepartureResponse): boolean {

@@ -1,3 +1,5 @@
+// React-компонент UserDepartureCard отвечает за отдельный повторно используемый блок интерфейса.
+
 import type { MyDepartureResponse } from "../../contracts/responses/users/myDepartureResponse";
 import "./UserDepartureCard.css";
 

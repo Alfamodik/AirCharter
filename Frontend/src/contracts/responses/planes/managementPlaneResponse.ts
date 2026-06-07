@@ -1,3 +1,5 @@
+// TypeScript-тип managementPlaneResponse описывает форму данных, которые frontend получает от backend.
+
 export interface ManagementPlaneResponse {
     id: number;
     modelName: string;

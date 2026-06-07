@@ -1,3 +1,5 @@
+// Страница ManagementPage собирает данные, обработчики и компоненты для одного пользовательского сценария.
+
 import { useCallback, useEffect, useState, type ChangeEvent, type ReactNode } from "react";
 import { NavLink, Navigate, useLocation, useNavigate } from "react-router-dom";
 import Header from "../../components/header/Header";

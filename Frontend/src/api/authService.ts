@@ -1,3 +1,5 @@
+// Сервис frontend auth содержит функции, через которые React-страницы обращаются к backend API.
+
 import type { ConfirmEmailRequest } from "../contracts/requests/auth/confirmEmailRequest";
 import type { LoginRequest } from "../contracts/requests/auth/loginRequest";
 import type { RegisterRequest } from "../contracts/requests/auth/registerRequest";

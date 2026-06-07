@@ -1,3 +1,5 @@
+// Корневой компонент frontend: здесь описаны основные маршруты и страницы, между которыми переходит пользователь.
+
 import { useEffect } from "react";
 import { BrowserRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { unauthorizedResponseEventName } from "./api/sendRequest";
@@ -30,6 +32,7 @@ export default function App() {
         <BrowserRouter>
             <UnauthorizedRedirect />
             <Routes>
+                {/* Публичные страницы доступны без токена и нужны для входа, регистрации и просмотра каталога. */}
                 <Route path="/" element={<CatalogPage />} />
                 <Route path="/catalog" element={<CatalogPage/>} />
 
@@ -37,6 +40,7 @@ export default function App() {
                 <Route path="/register" element={<RegisterPage />} />
                 <Route path="/confirm-email" element={<ConfirmEmailPage />} />
 
+                {/* Личный кабинет и оформление заявки требуют авторизации обычного пользователя. */}
                 <Route path="/cabinet" element={<ProtectedRoute><CabinetPage/></ProtectedRoute>} />
                 <Route path="/cabinet/departures/:departureId" element={<ProtectedRoute><CabinetDeparturePage /></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><ProfilePage/></ProtectedRoute>} />
@@ -46,6 +50,7 @@ export default function App() {
                 <Route path="/airline-profile" element={<ProtectedRoute><AirlineProfilePage /></ProtectedRoute>} />
                 <Route path="/airline-employees" element={<ProtectedRoute><AirlineEmployeesPage /></ProtectedRoute>} />
                 <Route path="/create-order" element={<ProtectedRoute><OrderPage/></ProtectedRoute>} />
+                {/* Управленческий раздел дополнительно проверяет роль сотрудника через StaffRoute. */}
                 <Route element={<StaffRoute />}>
                     <Route path="/management" element={<ManagementPage />} />
                     <Route path="/management/orders" element={<ManagementPage />} />
@@ -70,6 +75,7 @@ function UnauthorizedRedirect() {
     const { logout } = useUser();
 
     useEffect(() => {
+        // sendRequest сообщает об истекшей сессии через событие, а этот компонент централизованно отправляет пользователя на вход.
         function handleUnauthorizedResponse() {
             logout();
 

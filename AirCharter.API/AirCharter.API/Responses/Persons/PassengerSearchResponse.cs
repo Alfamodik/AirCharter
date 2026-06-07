@@ -1,3 +1,5 @@
+// DTO ответа PassengerSearchResponse описывает данные, которые API возвращает frontend после обработки запроса.
+
 namespace AirCharter.API.Responses.Persons
 {
     public sealed class PassengerSearchResponse

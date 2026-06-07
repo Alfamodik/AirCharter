@@ -1,3 +1,5 @@
+// TypeScript-тип airportSearchResponse описывает форму данных, которые frontend получает от backend.
+
 export interface AirportSearchResponse {
     id: number;
     name: string;

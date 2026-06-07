@@ -1,3 +1,5 @@
+// Точка входа frontend: React подключается к HTML-странице и оборачивает приложение общими провайдерами.
+
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'

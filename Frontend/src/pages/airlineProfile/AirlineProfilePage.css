@@ -1,3 +1,5 @@
+/* Стили страницы AirlineProfilePage задают раскладку, отступы и визуальные состояния конкретного экрана. */
+
 .airline-profile-scroll {
     flex: 1;
     overflow-y: auto;

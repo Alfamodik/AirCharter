@@ -1,3 +1,5 @@
+/* Стили страницы ManagementPlanesPage задают раскладку, отступы и визуальные состояния конкретного экрана. */
+
 .management-planes-page {
     display: flex;
     flex-direction: column;

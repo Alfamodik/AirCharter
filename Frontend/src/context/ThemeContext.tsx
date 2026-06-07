@@ -1,3 +1,5 @@
+// React-контекст ThemeContext хранит общее состояние приложения и передает его компонентам без ручной прокладки props.
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
 type Theme = 'dark' | 'light';

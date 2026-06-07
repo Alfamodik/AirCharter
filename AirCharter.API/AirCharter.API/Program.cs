@@ -1,3 +1,5 @@
+// Точка входа backend: здесь подключаются сервисы, база данных, JWT-защита, CORS, Swagger и HTTP-конвейер приложения.
+
 using System.Text;
 using System.Text.Json.Serialization;
 using AirCharter.API.Model;
@@ -17,6 +19,7 @@ internal class Program
     {
         WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
+        // PDF-библиотеки должны знать доступный системный шрифт, иначе русские документы могут собираться с ошибками.
         GlobalFontSettings.UseWindowsFontsUnderWindows = true;
         PredefinedFontsAndChars.ErrorFontName = "Arial";
 
@@ -34,12 +37,14 @@ internal class Program
         string audience = builder.Configuration["Jwt:Audience"]
             ?? throw new InvalidOperationException("JWT audience is not configured.");
 
+        // Сериализатору разрешено игнорировать циклы EF Core, чтобы связанные сущности не ломали JSON-ответы.
         builder.Services.AddControllers()
             .AddJsonOptions(options =>
             {
                 options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
             });
 
+        // JWT-настройки говорят API, какой токен считать подлинным и когда считать его просроченным.
         builder.Services
             .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
@@ -62,6 +67,7 @@ internal class Program
                 };
             });
 
+        // Swagger показывает схему API и позволяет тестировать защищенные методы с Bearer-токеном.
         builder.Services.AddSwaggerGen(c =>
         {
             c.SwaggerDoc("v1", new() { Title = "AssetStore API", Version = "v1" });
@@ -92,6 +98,7 @@ internal class Program
             });
         });
 
+        // CORS открыт только для локального Vite-фронтенда, который ходит в API с cookie и заголовками авторизации.
         builder.Services.AddCors(options =>
         {
             options.AddPolicy("FrontendPolicy", policyBuilder =>
@@ -114,7 +121,8 @@ internal class Program
         
         builder.Services.AddScoped<AirportSearchService>();
         
-        builder.Services.AddScoped<FlightLegCalculationService>(); //legacy
+        // Старый расчет плеч оставлен как отдельный сервис, а новый планировщик маршрутов работает через граф аэропортов.
+        builder.Services.AddScoped<FlightLegCalculationService>();
 
         builder.Services.AddScoped<RoutePlanningService>();
         builder.Services.AddSingleton<AirportGraphCache>();
@@ -128,6 +136,7 @@ internal class Program
 
         WebApplication app = builder.Build();
 
+        // Перед стартом API проверяет совместимость схемы БД, чтобы старые данные не ломали новые запросы.
         using (IServiceScope serviceScope = app.Services.CreateScope())
         {
             DatabaseCompatibilityService databaseCompatibilityService =
@@ -142,6 +151,7 @@ internal class Program
             app.UseSwaggerUI();
         }
 
+        // Последний рубеж обработки ошибок возвращает понятный текст вместо технического stack trace.
         app.Use(async (context, next) =>
         {
             try

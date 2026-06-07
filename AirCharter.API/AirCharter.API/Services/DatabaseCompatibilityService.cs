@@ -1,3 +1,5 @@
+// Сервис DatabaseCompatibilityService содержит бизнес-логику backend и отделяет ее от контроллеров.
+
 using AirCharter.API.Model;
 using Microsoft.EntityFrameworkCore;
 using System.Data.Common;

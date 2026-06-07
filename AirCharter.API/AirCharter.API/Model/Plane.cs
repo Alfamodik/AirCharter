@@ -1,4 +1,6 @@
-﻿using System;
+// Модель Plane описывает таблицу базы данных и связи, которые EF Core использует при чтении и сохранении данных.
+
+using System;
 using System.Collections.Generic;
 
 namespace AirCharter.API.Model;

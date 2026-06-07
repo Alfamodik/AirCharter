@@ -1,3 +1,5 @@
+// Сервис frontend order содержит функции, через которые React-страницы обращаются к backend API.
+
 import { sendRequest } from "./sendRequest";
 import type { CreateOrderRequest, FlightCostRequest, PlaneCatalogResponse } from "../contracts/requests/orders/createOrderRequest";
 

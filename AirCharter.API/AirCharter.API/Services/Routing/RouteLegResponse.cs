@@ -1,4 +1,6 @@
-﻿namespace AirCharter.API.Responses.Flights;
+// Часть маршрутизатора аэропортов RouteLegResponse помогает строить перелет по узлам, расстояниям и доступным промежуточным точкам.
+
+namespace AirCharter.API.Responses.Flights;
 
 public sealed class RouteLegResponse
 {

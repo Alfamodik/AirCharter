@@ -1,3 +1,5 @@
+-- Скрипт создает основную схему MySQL для проекта AirCharter.
+
 CREATE DATABASE IF NOT EXISTS air_charter_extended;
 USE air_charter_extended;
 

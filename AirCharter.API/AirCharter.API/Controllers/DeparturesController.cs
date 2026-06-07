@@ -1,4 +1,6 @@
-﻿using AirCharter.API.Model;
+// Контроллер Departures принимает HTTP-запросы, проверяет входные данные и возвращает ответы клиентскому приложению.
+
+using AirCharter.API.Model;
 using AirCharter.API.Requests.Departures;
 using AirCharter.API.Responses.Airports;
 using AirCharter.API.Responses.Departures;

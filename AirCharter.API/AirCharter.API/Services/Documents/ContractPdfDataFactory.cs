@@ -1,3 +1,5 @@
+// Фабрика ContractPdfDataFactory собирает данные из базы и превращает их в структуру, удобную для генерации PDF.
+
 using System.Globalization;
 using AirCharter.API.Model;
 using AirCharter.API.Services;

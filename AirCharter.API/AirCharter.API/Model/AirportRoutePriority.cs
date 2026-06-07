@@ -1,3 +1,5 @@
+// Модель AirportRoutePriority описывает таблицу базы данных и связи, которые EF Core использует при чтении и сохранении данных.
+
 using System;
 
 namespace AirCharter.API.Model;

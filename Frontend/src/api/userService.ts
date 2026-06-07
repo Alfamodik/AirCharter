@@ -1,3 +1,5 @@
+// Сервис frontend user содержит функции, через которые React-страницы обращаются к backend API.
+
 import { sendBlobRequest, sendFormDataRequest, sendRequest } from "./sendRequest";
 import type { MyDepartureResponse } from "../contracts/responses/users/myDepartureResponse";
 import type { UserProfileResponse } from "../contracts/responses/users/userPersonResponse";

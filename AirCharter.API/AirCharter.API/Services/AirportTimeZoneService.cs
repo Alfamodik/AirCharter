@@ -1,3 +1,5 @@
+// Сервис AirportTimeZoneService содержит бизнес-логику backend и отделяет ее от контроллеров.
+
 using System.Collections.Concurrent;
 using AirCharter.API.Model;
 using GeoTimeZone;

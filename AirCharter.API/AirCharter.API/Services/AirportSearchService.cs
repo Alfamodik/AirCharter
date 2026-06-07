@@ -1,4 +1,6 @@
-﻿using AirCharter.API.Model;
+// Сервис AirportSearchService содержит бизнес-логику backend и отделяет ее от контроллеров.
+
+using AirCharter.API.Model;
 using AirCharter.API.Responses.Airports;
 using Microsoft.EntityFrameworkCore;
 

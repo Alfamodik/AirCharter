@@ -1,3 +1,5 @@
+// Сервис frontend airports содержит функции, через которые React-страницы обращаются к backend API.
+
 import type { AirportSearchResponse } from "../contracts/responses/airports/airportSearchResponse";
 import { sendRequest } from "./sendRequest";
 

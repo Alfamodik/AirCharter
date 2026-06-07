@@ -1,3 +1,5 @@
+// Модель Notification описывает таблицу базы данных и связи, которые EF Core использует при чтении и сохранении данных.
+
 namespace AirCharter.API.Model;
 
 public partial class Notification

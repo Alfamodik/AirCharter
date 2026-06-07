@@ -1,4 +1,6 @@
-﻿using AirCharter.API.Model;
+// Фабрика DeparturePdfDataFactory собирает данные из базы и превращает их в структуру, удобную для генерации PDF.
+
+using AirCharter.API.Model;
 using AirCharter.API.Services;
 
 namespace AirCharter.API.Services.Documents;

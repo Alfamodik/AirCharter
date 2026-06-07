@@ -1,3 +1,5 @@
+// React-компонент AirportSearch отвечает за отдельный повторно используемый блок интерфейса.
+
 import { useEffect, useRef, useState } from "react";
 import { searchAirports } from "../../api/airportsService";
 import type { AirportSearchResponse } from "../../contracts/responses/airports/airportSearchResponse";

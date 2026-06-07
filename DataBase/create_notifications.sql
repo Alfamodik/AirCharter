@@ -1,3 +1,5 @@
+-- Скрипт создает пользовательские уведомления для событий по заявкам и профилю.
+
 CREATE TABLE IF NOT EXISTS `notifications` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,

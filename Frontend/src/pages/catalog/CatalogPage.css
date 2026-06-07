@@ -1,3 +1,5 @@
+/* Стили страницы CatalogPage задают раскладку, отступы и визуальные состояния конкретного экрана. */
+
 .catalog-wrapper {
     display: flex;
     flex-direction: column;

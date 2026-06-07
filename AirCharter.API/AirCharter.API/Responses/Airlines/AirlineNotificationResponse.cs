@@ -1,3 +1,5 @@
+// DTO ответа AirlineNotificationResponse описывает данные, которые API возвращает frontend после обработки запроса.
+
 namespace AirCharter.API.Responses.Airlines;
 
 public sealed class AirlineNotificationResponse

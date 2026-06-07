@@ -1,3 +1,5 @@
+/* Стили страницы ProfilePage задают раскладку, отступы и визуальные состояния конкретного экрана. */
+
 .catalog-wrapper {
     display: flex;
     flex-direction: column;
@@ -68,7 +70,6 @@
     border: 1px solid rgba(220, 53, 69, 0.2);
 }
 
-/* Кнопка сохранить */
 .auth-submit-button:disabled {
     opacity: 0.5;
     cursor: not-allowed;

@@ -1,3 +1,5 @@
+// Страница ManagementOrderRoutePage собирает данные, обработчики и компоненты для одного пользовательского сценария.
+
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { YMaps, Map, Placemark, Polyline } from "@pbe/react-yandex-maps";
@@ -77,6 +79,7 @@ type RoutePoint = {
     airport?: ManagementRouteAirportResponse | AirportSearchResponse;
 };
 
+// Небольшие типы ниже отделяют данные карты и редактора маршрута от больших DTO, которые приходят с backend.
 type Coordinate = [number, number];
 type MapBounds = [[number, number], [number, number]];
 
@@ -156,6 +159,7 @@ const additionalFlightStatusActions: AdditionalFlightStatusAction[] = [
     }
 ];
 
+// Пустая форма используется и для создания пассажира, и как безопасный сброс после закрытия модального окна.
 const emptyPassengerForm: ProfileFormData = {
     firstName: "",
     lastName: "",
@@ -213,6 +217,7 @@ export default function ManagementOrderRoutePage({
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const isFlightManagementPage = mode === "management" && location.pathname.includes("/management/flights/");
 
+    // Производные значения пересчитываются из текущей заявки и формы, чтобы не хранить одну и ту же информацию дважды.
     const invalidSameAirportLegIndexes = useMemo(() => {
         return createSameAirportLegIndexSet(routePoints);
     }, [routePoints]);
@@ -537,6 +542,7 @@ export default function ManagementOrderRoutePage({
         return <Navigate to={mode === "management" ? "/management/orders" : "/cabinet"} replace />;
     }
 
+    // Обработчики ниже меняют черновик маршрута: пользователь выбирает аэропорты, вставляет точки и проверяет плечи.
     function handleAirportSelect(
         routePointIndex: number,
         airportId: string,
@@ -661,6 +667,7 @@ export default function ManagementOrderRoutePage({
         );
     }
 
+    // Действия со статусами отделены от отрисовки, чтобы одна логика работала и для клиента, и для сотрудника.
     async function handleReject() {
         setIsActionLoading(true);
         setErrorMessage("");
@@ -1408,6 +1415,7 @@ export default function ManagementOrderRoutePage({
         pendingPassengers.length < departure.planePassengerCapacity;
     const backTarget = getBackTarget(location.state, location.pathname, mode);
 
+    // Рендер-функции разбивают большой экран на понятные секции без выноса локального состояния в отдельные компоненты.
     function toggleSection(sectionKey: DepartureSectionKey) {
         setExpandedSections((currentSections) => {
             const nextSections = new Set(currentSections);
@@ -2253,6 +2261,7 @@ export default function ManagementOrderRoutePage({
     );
 }
 
+// Чистые функции ниже не читают React-состояние напрямую, поэтому их проще проверять и переиспользовать.
 function getPassengerApiErrorMessage(error: unknown, fallback: string): string {
     if (typeof error !== "object" || error === null || !("status" in error)) {
         return fallback;
@@ -2743,6 +2752,7 @@ type FlightTimelineItem = {
     detail: string;
 };
 
+// Таймлайн показывает фактический статус рейса рядом с расчетным, который выводится из времени вылета и длительности плеч.
 function FlightTimingTimeline({ departure }: { departure: ManagementDepartureResponse }) {
     const timeline = createFlightTimeline(departure);
     const currentTimelineIndex = getCurrentStatusTimelineIndex(departure, timeline);
@@ -4358,6 +4368,7 @@ function RouteCandidateChooser({
 
 const defaultMapCenter: Coordinate = [55.751244, 37.618423];
 
+// Блок функций карты превращает маршрут и варианты аэропортов в точки, линии и границы для Yandex Maps.
 function getActiveCandidatePointIndex(
     routePoints: RoutePoint[],
     activeCandidatePointIndex: number | null

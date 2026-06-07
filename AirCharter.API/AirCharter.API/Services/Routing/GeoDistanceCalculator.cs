@@ -1,4 +1,6 @@
-﻿namespace AirCharter.API.Services.Routing;
+// Часть маршрутизатора аэропортов GeoDistanceCalculator помогает строить перелет по узлам, расстояниям и доступным промежуточным точкам.
+
+namespace AirCharter.API.Services.Routing;
 
 public static class GeoDistanceCalculator
 {

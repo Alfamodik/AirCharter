@@ -1,3 +1,5 @@
+// Страница NotificationsPage собирает данные, обработчики и компоненты для одного пользовательского сценария.
+
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../components/header/Header";

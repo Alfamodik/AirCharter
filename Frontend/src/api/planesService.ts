@@ -1,3 +1,5 @@
+// Сервис frontend planes содержит функции, через которые React-страницы обращаются к backend API.
+
 import { sendRequest } from "./sendRequest";
 import type { PlaneCatalogResponse } from "../contracts/responses/planes/planeCatalogResponse";
 import type {

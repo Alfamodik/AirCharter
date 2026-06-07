@@ -1,3 +1,5 @@
+// Утилита API roleAccess помогает сервисам frontend одинаково обрабатывать роли, ошибки и ответы backend.
+
 const allowedManagementRoles = new Set([
     "Owner",
     "Manager",

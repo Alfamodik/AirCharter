@@ -1,4 +1,6 @@
-﻿using AirCharter.API.Model;
+// Сервис FlightLegCalculationService содержит бизнес-логику backend и отделяет ее от контроллеров.
+
+using AirCharter.API.Model;
 using AirCharter.API.Responses.Flights;
 
 namespace AirCharter.API.Services;

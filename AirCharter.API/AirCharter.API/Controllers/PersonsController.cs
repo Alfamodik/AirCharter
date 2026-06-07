@@ -1,4 +1,6 @@
-﻿using System.Security.Claims;
+// Контроллер Persons принимает HTTP-запросы, проверяет входные данные и возвращает ответы клиентскому приложению.
+
+using System.Security.Claims;
 using AirCharter.API.Model;
 using AirCharter.API.Requests.Persons;
 using AirCharter.API.Responses.Persons;

@@ -1,3 +1,5 @@
+// DTO ответа ManagementRouteCandidateResponse описывает данные, которые API возвращает frontend после обработки запроса.
+
 namespace AirCharter.API.Responses.Departures;
 
 public sealed class ManagementRouteCandidateResponse

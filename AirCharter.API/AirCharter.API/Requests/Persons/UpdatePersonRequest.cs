@@ -1,4 +1,6 @@
-﻿namespace AirCharter.API.Requests.Persons
+// DTO запроса UpdatePersonRequest описывает данные, которые frontend отправляет в API для выполнения операции.
+
+namespace AirCharter.API.Requests.Persons
 {
     public sealed class UpdatePersonRequest
     {

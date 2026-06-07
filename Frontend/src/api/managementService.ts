@@ -1,3 +1,5 @@
+// Сервис frontend management содержит функции, через которые React-страницы обращаются к backend API.
+
 import { sendRequest } from "./sendRequest";
 import type { ManagementDepartureResponse } from "../contracts/responses/departures/managementDepartureResponse";
 import type { AirportSearchResponse } from "../contracts/responses/airports/airportSearchResponse";

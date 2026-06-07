@@ -1,3 +1,5 @@
+// Общая функция отправки запросов скрывает повторяющуюся работу с fetch, JSON, токеном и ошибками.
+
 import { createApiError } from "./utils/apiError";
 
 const apiBaseUrl = "https://localhost:7219";
@@ -22,6 +24,7 @@ export async function sendRequest<TResponse>(
         return await parseResponse<TResponse>(response);
     }
 
+    // Если access-токен устарел, frontend пробует обновить его через refresh-cookie и повторить исходный запрос один раз.
     if ((response.status === 401 || response.status === 403) && accessToken && !isAuthEndpoint(path)) {
         const refreshedAccessToken = await refreshAccessToken();
 
@@ -181,6 +184,7 @@ async function parseResponse<TResponse>(response: Response): Promise<TResponse> 
 }
 
 async function refreshAccessToken(): Promise<string | null> {
+    // Одна общая Promise защищает от пачки одновременных запросов /auth/refresh при массовом 401.
     refreshAccessTokenRequest ??= requestFreshAccessToken()
         .finally(() => {
             refreshAccessTokenRequest = null;
@@ -214,6 +218,7 @@ async function requestFreshAccessToken(): Promise<string | null> {
 }
 
 function handleUnauthorizedResponse() {
+    // Событие нужно, чтобы слой API не зависел напрямую от React Router и контекстов.
     localStorage.removeItem("accessToken");
     window.dispatchEvent(new CustomEvent(unauthorizedResponseEventName));
 }

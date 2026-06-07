@@ -1,3 +1,5 @@
+// Вспомогательный файл страницы planeSpecificationLimits хранит константы или расчеты, чтобы компонент оставался понятнее.
+
 export const planeSpecificationLimits = {
     maxDistance: {
         min: 1000,

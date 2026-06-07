@@ -1,4 +1,6 @@
-﻿using AirCharter.API.Model;
+// Сервис RoutePlanningService содержит бизнес-логику backend и отделяет ее от контроллеров.
+
+using AirCharter.API.Model;
 using AirCharter.API.Responses.Airports;
 using AirCharter.API.Responses.Flights;
 using AirCharter.API.Services.Routing;
@@ -33,6 +35,7 @@ public sealed class RoutePlanningService
 
             int maximumLegDistanceKilometers = GetMaximumLegDistanceKilometers(plane.MaxDistance);
 
+            // Самолеты с одинаковой полезной дальностью получают один и тот же найденный маршрут, поэтому поиск не повторяется.
             if (!routePlanByMaximumLegDistance.TryGetValue(
                     maximumLegDistanceKilometers,
                     out RoutePlan? routePlan))
@@ -111,6 +114,7 @@ public sealed class RoutePlanningService
 
         if (directDistanceKilometers <= maximumLegDistanceKilometers)
         {
+            // Прямой перелет самый простой вариант: промежуточные аэропорты не нужны.
             return CreateDirectRoutePlan(
                 departureAirport,
                 arrivalAirport,
@@ -134,6 +138,7 @@ public sealed class RoutePlanningService
         PriorityQueue<RouteSearchNode, RouteSearchPriority> queue =
             new PriorityQueue<RouteSearchNode, RouteSearchPriority>();
 
+        // Очередь приоритетов ведет поиск к аэропорту назначения, предпочитая меньше плеч и меньшую общую дистанцию.
         queue.Enqueue(
             new RouteSearchNode(departureAirport.Id, startScore),
             CreatePriority(startScore, departureAirport, arrivalAirport, maximumLegDistanceKilometers));

@@ -1,3 +1,5 @@
+// React-компонент ToggleThemeButton отвечает за отдельный повторно используемый блок интерфейса.
+
 import React from 'react';
 import { useTheme } from '../../context/ThemeContext';
 

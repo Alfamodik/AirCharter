@@ -1,3 +1,5 @@
+// React-контекст UserContext хранит общее состояние приложения и передает его компонентам без ручной прокладки props.
+
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { logout as logoutSession } from "../api/authService";
 import { getCurrentUser } from "../api/userService";
@@ -16,6 +18,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     const [user, setUser] = useState<UserProfileResponse | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
+    // Профиль запрашивается после загрузки приложения и повторно после входа, чтобы роли сразу обновились в интерфейсе.
     const fetchUser = async () => {
         setIsLoading(true);
         try {
@@ -33,6 +36,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     }, []);
 
     const logout = () => {
+        // Backend очищает refresh-cookie, а frontend отдельно убирает access-токен из localStorage.
         void logoutSession().catch(() => undefined);
         localStorage.removeItem("accessToken");
         setUser(null);

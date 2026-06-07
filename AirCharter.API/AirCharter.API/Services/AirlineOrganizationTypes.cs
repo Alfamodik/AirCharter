@@ -1,3 +1,5 @@
+// Вспомогательный backend-файл AirlineOrganizationTypes хранит общие правила или расчеты, которые используют сервисы и контроллеры.
+
 using AirCharter.API.Model;
 
 namespace AirCharter.API.Services;

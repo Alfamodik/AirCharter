@@ -1,3 +1,5 @@
+// Страница CatalogPage собирает данные, обработчики и компоненты для одного пользовательского сценария.
+
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useUser } from "../../context/UserContext";

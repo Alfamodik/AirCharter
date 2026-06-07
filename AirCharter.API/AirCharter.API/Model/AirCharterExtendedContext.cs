@@ -1,4 +1,6 @@
-﻿using System;
+// Контекст EF Core описывает подключение к MySQL и наборы таблиц, с которыми работает backend.
+
+using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Pomelo.EntityFrameworkCore.MySql.Scaffolding.Internal;

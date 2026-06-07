@@ -1,3 +1,5 @@
+// TypeScript-тип myDepartureResponse описывает форму данных, которые frontend получает от backend.
+
 export interface MyDepartureResponse {
     id: number;
     modelName: string;

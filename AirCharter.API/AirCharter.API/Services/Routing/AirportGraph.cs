@@ -1,4 +1,6 @@
-﻿namespace AirCharter.API.Services.Routing;
+// Часть маршрутизатора аэропортов AirportGraph помогает строить перелет по узлам, расстояниям и доступным промежуточным точкам.
+
+namespace AirCharter.API.Services.Routing;
 
 public sealed class AirportGraph
 {

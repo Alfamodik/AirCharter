@@ -1,3 +1,5 @@
+// TypeScript-тип userPersonResponse описывает форму данных, которые frontend получает от backend.
+
 export interface UserPersonResponse {
     id: number;
     firstName: string;

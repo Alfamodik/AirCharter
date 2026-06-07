@@ -1,3 +1,5 @@
+// Страница ProfilePage собирает данные, обработчики и компоненты для одного пользовательского сценария.
+
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getMyPerson, updateMyPerson } from "../../api/personService";

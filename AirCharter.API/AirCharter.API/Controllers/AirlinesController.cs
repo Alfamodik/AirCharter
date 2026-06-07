@@ -1,3 +1,5 @@
+// Контроллер Airlines принимает HTTP-запросы, проверяет входные данные и возвращает ответы клиентскому приложению.
+
 using AirCharter.API.Model;
 using AirCharter.API.Requests.Airlines;
 using AirCharter.API.Requests.Authentication;

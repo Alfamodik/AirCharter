@@ -1,3 +1,5 @@
+// Сервис frontend person содержит функции, через которые React-страницы обращаются к backend API.
+
 import { sendRequest } from "./sendRequest";
 import type { UserPersonResponse } from "../contracts/responses/users/userPersonResponse";
 import type { ProfileFormData } from "../contracts/responses/persons/profileFormData";

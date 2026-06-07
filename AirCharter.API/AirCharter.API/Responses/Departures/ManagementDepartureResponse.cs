@@ -1,3 +1,5 @@
+// DTO ответа ManagementDepartureResponse описывает данные, которые API возвращает frontend после обработки запроса.
+
 using AirCharter.API.Responses.Airports;
 using AirCharter.API.Responses.Flights;
 

@@ -1,3 +1,5 @@
+-- Скрипт пересчитывает итоговые показатели заявки по сохраненным плечам маршрута.
+
 SET sql_safe_updates = 0;
 
 UPDATE departures AS departure

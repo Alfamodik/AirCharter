@@ -1,4 +1,6 @@
-﻿using AirCharter.API.Responses.Airports;
+// DTO ответа FlightCalculationResponse описывает данные, которые API возвращает frontend после обработки запроса.
+
+using AirCharter.API.Responses.Airports;
 
 namespace AirCharter.API.Responses.Flights
 {

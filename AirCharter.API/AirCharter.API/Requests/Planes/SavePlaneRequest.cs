@@ -1,3 +1,5 @@
+// DTO запроса SavePlaneRequest описывает данные, которые frontend отправляет в API для выполнения операции.
+
 namespace AirCharter.API.Requests.Planes;
 
 public sealed class SavePlaneRequest

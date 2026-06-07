@@ -1,3 +1,5 @@
+// Вспомогательный backend-файл ImageAspectRatioValidator хранит общие правила или расчеты, которые используют сервисы и контроллеры.
+
 namespace AirCharter.API.Services;
 
 public static class ImageAspectRatioValidator

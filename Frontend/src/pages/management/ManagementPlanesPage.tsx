@@ -1,3 +1,5 @@
+// Страница ManagementPlanesPage собирает данные, обработчики и компоненты для одного пользовательского сценария.
+
 import { useCallback, useEffect, useState } from "react";
 import { NavLink, Navigate, useNavigate } from "react-router-dom";
 import Header from "../../components/header/Header";

@@ -1,3 +1,5 @@
+// Вспомогательный backend-файл AirlineProfileCompleteness хранит общие правила или расчеты, которые используют сервисы и контроллеры.
+
 using AirCharter.API.Model;
 using System.Linq.Expressions;
 

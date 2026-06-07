@@ -1,3 +1,5 @@
+// Страница RegisterAirlinePage собирает данные, обработчики и компоненты для одного пользовательского сценария.
+
 import React, { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { registerAirline, type RegisterAirlineRequest } from "../../api/airlineService";

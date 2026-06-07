@@ -1,4 +1,6 @@
-﻿namespace AirCharter.API.Responses.Users
+// DTO ответа CurrentUserPersonResponse описывает данные, которые API возвращает frontend после обработки запроса.
+
+namespace AirCharter.API.Responses.Users
 {
     public sealed class CurrentUserPersonResponse
     {

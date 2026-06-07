@@ -1,3 +1,5 @@
+// React-компонент StaffRoute отвечает за отдельный повторно используемый блок интерфейса.
+
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useUser } from "../context/UserContext";
 import { hasManagementAccess } from "../api/utils/roleAccess";

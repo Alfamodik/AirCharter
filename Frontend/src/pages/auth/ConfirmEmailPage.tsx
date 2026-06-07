@@ -1,3 +1,5 @@
+// Страница ConfirmEmailPage собирает данные, обработчики и компоненты для одного пользовательского сценария.
+
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";

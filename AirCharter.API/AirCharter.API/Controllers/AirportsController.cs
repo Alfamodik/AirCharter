@@ -1,4 +1,6 @@
-﻿using AirCharter.API.Responses.Airports;
+// Контроллер Airports принимает HTTP-запросы, проверяет входные данные и возвращает ответы клиентскому приложению.
+
+using AirCharter.API.Responses.Airports;
 using AirCharter.API.Services;
 using Microsoft.AspNetCore.Mvc;
 

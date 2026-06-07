@@ -1,3 +1,5 @@
+// TypeScript-тип createOrderRequest описывает форму данных, которые frontend отправляет backend при запросе.
+
 export interface CreateOrderRequest {
     planeId: number;
     takeOffAirportId: number;

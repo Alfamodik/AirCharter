@@ -1,3 +1,5 @@
+// Страница CabinetPage собирает данные, обработчики и компоненты для одного пользовательского сценария.
+
 import { useState, useEffect } from "react";
 import Header from "../../components/header/Header";
 import UserDepartureCard from "../../components/userDepartureCard/UserDepartureCard";

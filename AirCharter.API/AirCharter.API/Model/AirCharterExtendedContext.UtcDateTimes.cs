@@ -1,3 +1,5 @@
+// Контекст EF Core описывает подключение к MySQL и наборы таблиц, с которыми работает backend.
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 

@@ -1,3 +1,5 @@
+// Сервис frontend airline содержит функции, через которые React-страницы обращаются к backend API.
+
 import { sendRequest } from "./sendRequest";
 
 export interface AirlineContractSettingsResponse {

@@ -1,4 +1,6 @@
-﻿namespace AirCharter.API.Responses.Departures
+// DTO ответа MyDepartureResponse описывает данные, которые API возвращает frontend после обработки запроса.
+
+namespace AirCharter.API.Responses.Departures
 {
     public sealed class MyDepartureResponse
     {

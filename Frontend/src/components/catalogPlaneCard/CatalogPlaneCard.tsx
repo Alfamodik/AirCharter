@@ -1,3 +1,5 @@
+// React-компонент CatalogPlaneCard отвечает за отдельный повторно используемый блок интерфейса.
+
 import "./CatalogPlaneCard.css";
 import flightRouteIcon from "../../assets/icons/flight-route-white.png";
 

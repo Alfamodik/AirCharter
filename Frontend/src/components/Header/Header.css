@@ -1,3 +1,5 @@
+/* Стили компонента Header описывают внешний вид и состояния отдельного блока интерфейса. */
+
 .catalog-navbar {
   display: flex;
   align-items: center;
@@ -7,7 +9,7 @@
   background-color: var(--bg-surface);
   border-bottom: 1px solid var(--border-color);
   box-sizing: border-box;
-  position: sticky; /* Рекомендую, чтобы хедер всегда был сверху */
+  position: sticky;
   top: 0;
   z-index: 1000;
 }
@@ -16,7 +18,6 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  /* Фиксируем ширину левой части, чтобы лого не прыгало */
   flex: 0 0 280px; 
 }
 
@@ -39,7 +40,6 @@
   cursor: pointer;
 }
 
-/* Центральный контейнер теперь главный по распределению места */
 .navbar-search-container {
   flex: 1; 
   display: flex;
@@ -49,7 +49,7 @@
 
 .navbar-search-input {
   width: 100%;
-  max-width: 400px; /* Ограничиваем ширину поиска для красоты */
+  max-width: 400px;
   padding: 11px 16px;
   border-radius: 10px;
   border: 1px solid var(--border-color);
@@ -66,7 +66,6 @@
 }
 
 .navbar-actions {
-  /* Фиксируем ширину правой части для симметрии */
   flex: 0 0 350px; 
   display: flex;
   justify-content: flex-end;
@@ -74,7 +73,6 @@
   align-items: center;
 }
 
-/* Кнопки и ссылки */
 .navbar-link, 
 .logout-btn {
   display: flex;
@@ -89,7 +87,7 @@
   text-decoration: none;
   cursor: pointer;
   transition: all 0.2s ease;
-  white-space: nowrap; /* Чтобы текст не переносился */
+  white-space: nowrap;
 }
 
 .navbar-link {

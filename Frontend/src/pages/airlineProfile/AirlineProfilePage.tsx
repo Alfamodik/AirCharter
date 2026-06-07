@@ -1,3 +1,5 @@
+// Страница AirlineProfilePage собирает данные, обработчики и компоненты для одного пользовательского сценария.
+
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import {

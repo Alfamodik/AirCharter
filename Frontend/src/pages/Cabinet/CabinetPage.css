@@ -1,3 +1,5 @@
+/* Стили страницы CabinetPage задают раскладку, отступы и визуальные состояния конкретного экрана. */
+
 .user-brief-info {
     display: flex;
     flex-direction: column;
@@ -72,7 +74,6 @@
     padding-left: 0;
 }
 
-/* Стили для строк заказов */
 .orders-list {
     display: flex;
     flex-direction: column;
