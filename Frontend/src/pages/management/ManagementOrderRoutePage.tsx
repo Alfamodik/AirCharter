@@ -1900,7 +1900,7 @@ export default function ManagementOrderRoutePage({
                                 const statusDetail = getStatusDetailText(status);
 
                                 return (
-                                    <div key={`${status.id}-${status.setAt}-${index}`} className="management-status-history-row">
+                                    <div key={status.historyId ?? `${status.id}-${status.setAt}-${index}`} className="management-status-history-row">
                                         <div className="management-status-history-status">
                                             <span className={`status-badge ${getRouteStatusClassName(status.id)}`}>
                                                 {status.name}

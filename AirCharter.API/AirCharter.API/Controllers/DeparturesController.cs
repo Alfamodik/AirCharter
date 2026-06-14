@@ -347,6 +347,7 @@ namespace AirCharter.API.Controllers
                     departureStatus.DepartureId,
                     Status = new ManagementDepartureStatusResponse
                     {
+                        HistoryId = departureStatus.Id,
                         Id = departureStatus.StatusId,
                         Name = departureStatus.Status.Status1,
                         SetAt = departureStatus.StatusSettingDateTime,
@@ -1592,6 +1593,7 @@ namespace AirCharter.API.Controllers
                 .ThenBy(departureStatus => departureStatus.Id)
                 .Select(departureStatus => new ManagementDepartureStatusResponse
                 {
+                    HistoryId = departureStatus.Id,
                     Id = departureStatus.StatusId,
                     Name = departureStatus.Status.Status1,
                     SetAt = departureStatus.StatusSettingDateTime,

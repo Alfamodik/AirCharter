@@ -785,8 +785,8 @@ export function ManagementDepartureDetails({
                     <p className="management-muted-text">История статусов недоступна.</p>
                 ) : (
                     <div className="management-status-history">
-                        {getStatusHistoryNewestFirst(departure.statusHistory).map((status) => (
-                            <div key={`${status.id}-${status.setAt}`} className="management-status-row">
+                        {getStatusHistoryNewestFirst(departure.statusHistory).map((status, index) => (
+                            <div key={status.historyId ?? `${status.id}-${status.setAt}-${index}`} className="management-status-row">
                                 <span>{status.name}</span>
                                 <span>{formatDateTime(status.setAt)}</span>
                             </div>
@@ -900,9 +900,27 @@ export function formatOptionalDateTime(value?: string | null): string {
 export function getStatusHistoryNewestFirst(
     statusHistory: ManagementDepartureResponse["statusHistory"]
 ): ManagementDepartureResponse["statusHistory"] {
-    return [...statusHistory].sort((left, right) =>
-        new Date(right.setAt).getTime() - new Date(left.setAt).getTime()
-    );
+    return statusHistory
+        .map((status, index) => ({ status, index }))
+        .sort((left, right) => {
+            const setAtDifference =
+                new Date(right.status.setAt).getTime() - new Date(left.status.setAt).getTime();
+
+            if (setAtDifference !== 0) {
+                return setAtDifference;
+            }
+
+            if (
+                left.status.historyId !== undefined &&
+                right.status.historyId !== undefined &&
+                left.status.historyId !== right.status.historyId
+            ) {
+                return right.status.historyId - left.status.historyId;
+            }
+
+            return right.index - left.index;
+        })
+        .map(({ status }) => status);
 }
 
 function isDateTimeTodayOrEarlier(value: string): boolean {

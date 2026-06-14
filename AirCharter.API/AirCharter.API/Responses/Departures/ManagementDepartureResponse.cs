@@ -129,6 +129,8 @@ namespace AirCharter.API.Responses.Departures
 
     public sealed class ManagementDepartureStatusResponse
     {
+        public int HistoryId { get; set; }
+
         public int Id { get; set; }
 
         public string Name { get; set; } = string.Empty;

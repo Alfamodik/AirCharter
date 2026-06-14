@@ -64,6 +64,7 @@ export interface ManagementEmployeeResponse {
 }
 
 export interface ManagementDepartureStatusResponse {
+    historyId?: number;
     id: number;
     name: string;
     setAt: string;
